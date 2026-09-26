@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {salePayload,cartTotal,openSale} from '../sale.js';
+const cart=[{id:'p',stock:4,quantity:2,price:3,cost:2.4}],accounts=[{id:'bank',balance:0}];
+test('sale receives into zero-balance account',()=>{const p=salePayload('project',cart,'bank',accounts);assert.equal(p.p_account_id,'bank');assert.equal(p.p_as_debt,false);assert.equal(cartTotal(cart),6);});
+test('price override stays in sale, not product',()=>{const source=structuredClone(cart);const p=salePayload('project',cart,'bank',accounts);assert.equal(p.p_items[0].unit_sale_price,3);assert.deepEqual(cart,source);});
+test('rejects empty cart, excessive stock, fractions in sale price and duplicates',()=>{for(const lines of [[],[{...cart[0],quantity:5}],[{...cart[0],price:2.4}],[...cart,...cart]])assert.throws(()=>salePayload('project',lines,'bank',accounts));});
+test('viewer cannot open sale',async()=>assert.rejects(openSale({mode:'viewer'}),/للمشاهدة/));
+test('debt requires customer name and ten-digit phone, no receiving account',()=>{assert.throws(()=>salePayload('project',cart,null,[],{asDebt:true}));assert.throws(()=>salePayload('project',cart,null,[],{asDebt:true,customer:{id:'c',name:'زبون',phone:'123'}}));const p=salePayload('project',cart,null,[],{asDebt:true,customer:{id:'c',name:'زبون',phone:'0594444444'}});assert.equal(p.p_as_debt,true);assert.equal(p.p_account_id,null);assert.equal(p.p_customer_id,'c');});
+test('paid sale customer is optional',()=>{assert.equal(salePayload('project',cart,'bank',accounts,{customer:{id:'c'}}).p_customer_id,'c');});

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: sharikx2-web
+    runtime: static
+    buildCommand: npm run build
+    staticPublishPath: ./dist
+    autoDeploy: true
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: ENABLE_EXPENSE_MUTATIONS
+        value: "true"
+      - key: ENABLE_TRANSFERS
+        value: "true"

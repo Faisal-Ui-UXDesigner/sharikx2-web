@@ -1,0 +1,5 @@
+<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../styles.css"><title>Expense preview — synthetic data</title><main id="app" class="workspace"><h1>معاينة وهمية — لا تتصل بالسيرفر</h1><button id="show" class="primary">مصروف جديد</button><p id="result"></p></main><script type="module">
+import {openExpense} from '../expense.js';
+const api={summary:async()=>({accounts:[{id:'cash',name:'الكاش',balance:100},{id:'bank',name:'البنك',balance:250},{id:'pal',name:'بال باي',balance:75},{id:'jawwal',name:'جوال باي',balance:0}]}),rpc:async()=>({id:'mock-only'})};
+document.querySelector('#show').onclick=()=>openExpense({api,projectId:'preview-only',mode:'owner',container:document.querySelector('#app'),storage:sessionStorage,onSaved:()=>document.querySelector('#result').textContent='نجح الحفظ الوهمي'});
+</script></html>

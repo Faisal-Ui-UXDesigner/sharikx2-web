@@ -1,0 +1,89 @@
+{
+  "at": "2026-09-26T13:53:19.544Z",
+  "results": [
+    {
+      "name": "both owner identities retain read/write access",
+      "result": "PASS"
+    },
+    {
+      "name": "concurrent identical expense creates one result",
+      "result": "PASS"
+    },
+    {
+      "name": "concurrent overspending admits one request only",
+      "result": "PASS"
+    },
+    {
+      "name": "concurrent last-piece sales admit one sale only",
+      "result": "PASS"
+    },
+    {
+      "name": "authenticated viewer can read but cannot execute expense or update inventory",
+      "result": "PASS"
+    },
+    {
+      "name": "final server balance and stock reconcile",
+      "result": "PASS"
+    },
+    {
+      "name": "idempotent expense reassignment restores cash and debits bank once",
+      "result": "PASS"
+    },
+    {
+      "name": "old expense snapshot is rejected",
+      "result": "PASS"
+    },
+    {
+      "name": "viewer cannot mutate an expense",
+      "result": "PASS"
+    },
+    {
+      "name": "idempotent expense deletion restores the charged account",
+      "result": "PASS"
+    },
+    {
+      "name": "duplicate transfer debits and credits once",
+      "result": "PASS"
+    },
+    {
+      "name": "transfer request ID cannot be reused with a different amount",
+      "result": "PASS"
+    },
+    {
+      "name": "viewer cannot transfer between accounts",
+      "result": "PASS"
+    },
+    {
+      "name": "concurrent transfers cannot overspend the source account",
+      "result": "PASS"
+    },
+    {
+      "name": "duplicate purchase creates one invoice and one payment",
+      "result": "PASS"
+    },
+    {
+      "name": "purchase request ID cannot be reused with changed data",
+      "result": "PASS"
+    },
+    {
+      "name": "purchase increases inventory once",
+      "result": "PASS"
+    },
+    {
+      "name": "unpaid purchase creates supplier debt",
+      "result": "PASS"
+    },
+    {
+      "name": "split supplier payment settles debt once",
+      "result": "PASS"
+    },
+    {
+      "name": "supplier payment request ID cannot change payload",
+      "result": "PASS"
+    },
+    {
+      "name": "fresh disposable project cleaned up",
+      "result": "PASS"
+    }
+  ]
+}
