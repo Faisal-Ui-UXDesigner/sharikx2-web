@@ -4,3 +4,5 @@
 .tabs>.choice{flex:1;justify-content:center}
 .danger{background:#49202d;border-color:#b94964;color:#ffb1bd}.account-choice+.account-choice{margin-top:12px}
 .sale-dialog{max-height:90dvh;width:min(100%,700px)}.sale-dialog>[data-close]{width:100%;margin-top:12px}.product-picker{max-height:240px;overflow:auto;margin-bottom:12px}.product-picker button{width:100%;margin-bottom:8px}.input-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.price-warning{color:#ff8996;font-size:13px}
+/* Match Android's platform sans-serif rendering, including Arabic glyphs. */
+body{font-family:Roboto,"Noto Sans Arabic","Segoe UI",Arial,sans-serif}
