@@ -1,0 +1,57 @@
+import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+import {startPreviewServer} from '../scripts/preview-server.mjs';
+const require=createRequire(import.meta.url);
+const {chromium}=require('C:/Users/HP/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const browser=await chromium.launch({headless:true,channel:'msedge'});
+const preview=await startPreviewServer({root:fileURLToPath(new URL('..',import.meta.url))});
+try{
+ const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/*',route=>new URL(route.request().url()).origin===preview.origin?route.continue():route.abort());
+ await page.goto(preview.origin+'/styles.css');
+ await page.setContent('<html dir="rtl"><head><link rel="stylesheet" href="/styles.css"></head><body><main id="fixture"></main></body></html>');
+ await page.evaluate(async()=>{
+  window.editor=(await import('/supplier-old-debt.js')).openSupplierOldDebt;
+  window.calls=[];window.saved=0;window.fail=true;
+  window.args={projectId:'p',supplier:{id:'s'},mode:'owner',storage:sessionStorage,onSaved:()=>window.saved++,api:{rpc:async(name,payload)=>{window.calls.push({name,payload});if(window.fail)throw new Error('انقطاع تجريبي');return {id:'old',amount:payload.p_amount};}}};
+  window.editor(window.args);
+ });
+ await page.locator('[name=description]').fill('رصيد سابق');await page.locator('[name=amount]').fill('1.13');
+ await page.locator('form').evaluate(f=>{f.dispatchEvent(new Event('submit',{cancelable:true}));f.dispatchEvent(new Event('submit',{cancelable:true}));});
+ await page.getByRole('alert').filter({hasText:'انقطاع'}).waitFor();
+ assert.equal(await page.evaluate(()=>calls.length),1);
+ assert.equal(await page.locator('[name=description]').isDisabled(),true);
+ await page.getByRole('button',{name:'إلغاء',exact:true}).click();
+ await page.evaluate(()=>editor(args));
+ assert.equal(await page.locator('[name=amount]').inputValue(),'1.13');
+ await page.evaluate(()=>window.fail=false);
+ await page.getByRole('button',{name:'التحقق من الدين السابق',exact:true}).click();
+ await page.waitForFunction(()=>window.saved===1);
+ assert.deepEqual(await page.evaluate(()=>calls[0]),await page.evaluate(()=>calls[1]));
+ assert.equal(await page.evaluate(()=>sessionStorage.getItem('sharikx2-pending-supplier-old-debt:p:s')),null);
+ await page.evaluate(()=>{sessionStorage.setItem('sharikx2-pending-supplier-old-debt:p:s','bad json');editor(args);});
+ assert.equal(await page.locator('button.primary').isDisabled(),true);
+ await page.getByRole('button',{name:'إلغاء',exact:true}).click();
+ await page.evaluate(()=>{sessionStorage.clear();editor({...args,storage:{getItem:()=>null,setItem:()=>{throw new Error('التخزين محظور');}}});});
+ await page.locator('[name=description]').fill('دين آخر');await page.locator('[name=amount]').fill('2');
+ await page.locator('button.primary').click();
+ await page.getByRole('alert').filter({hasText:'التخزين محظور'}).waitFor();
+ assert.equal(await page.evaluate(()=>calls.length),2);
+ assert.equal(await page.locator('[name=amount]').isDisabled(),false);
+ await page.getByRole('button',{name:'إلغاء',exact:true}).click();
+ await page.evaluate(async()=>{
+  sessionStorage.clear();const {openDebtDetails}=await import('/debt-details-ui.js');
+  window.details=options=>openDebtDetails({container:document.querySelector('#fixture'),projectId:'p',kind:'suppliers',person:{id:'s',name:'مورد',calculated_debt:5},storage:sessionStorage,isCurrent:()=>true,api:{allRows:async table=>table==='supplier_old_debts'?[{amount:5,description:'<img src=x>',created_at:'2026-10-07'}]:[],supplierCredits:async()=>[]},...options});
+  await details({mode:'owner'});
+ });
+ assert.equal(await page.locator('[data-old-debt]').count(),1);
+ assert.equal(await page.locator('.details img').count(),0);
+ assert.match(await page.locator('.details').innerText(),/دين قديم/);
+ await page.locator('[data-close]').click();
+ await page.evaluate(()=>details({mode:'viewer'}));
+ assert.equal(await page.locator('[data-old-debt]').count(),0);
+ assert.deepEqual(errors,[]);
+ console.log('PASS: old supplier debt duplicate submit, lost response/reopen recovery, immutable request, corrupt journal, timeline and viewer protection');
+}finally{await browser.close();await preview.close();}
