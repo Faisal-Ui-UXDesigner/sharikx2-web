@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {normalizeBarcode,shouldAcceptScan,PRODUCT_BARCODE_FORMATS} from '../barcode-scanner.js';
+test('barcode scanner normalizes values and throttles duplicate detections',()=>{assert.equal(normalizeBarcode('  0123  '),'0123');assert.equal(normalizeBarcode(null),'');assert.equal(shouldAcceptScan(2000,1000,false),true);assert.equal(shouldAcceptScan(2500,2000,false),false);assert.equal(shouldAcceptScan(2500,0,true),false);assert.ok(PRODUCT_BARCODE_FORMATS.includes('ean_13'));});

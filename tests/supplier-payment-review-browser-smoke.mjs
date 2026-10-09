@@ -1,0 +1,64 @@
+import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+import {startPreviewServer} from '../scripts/preview-server.mjs';
+const require=createRequire(import.meta.url);
+const {chromium}=require('C:/Users/HP/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const browser=await chromium.launch({headless:true,channel:'msedge'});
+const preview=await startPreviewServer({root:fileURLToPath(new URL('..',import.meta.url))});
+try{
+ const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'}),errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/*',route=>new URL(route.request().url()).origin===preview.origin?route.continue():route.abort());
+ await page.goto(preview.origin+'/styles.css');
+ await page.setContent('<html dir="rtl"><head><link rel="stylesheet" href="/styles.css"></head><body></body></html>');
+ await page.evaluate(async()=>{
+  const {openPayment}=await import('/payment.js');window.calls=[];window.saved=0;window.current=true;
+  window.key='sharikx2-pending-supplier-payment:project:supplier';
+  window.api={summary:async()=>({accounts:[{id:'cash',name:'<img src=x>',balance:20},{id:'bank',name:'بنك',balance:10}]}),rpc:async(name,payload)=>{calls.push({name,payload});if(window.hold)await new Promise(resolve=>window.release=resolve);return {id:'payment',amount:payload.p_sources.reduce((sum,source)=>sum+source.amount,0)};}};
+  window.show=()=>openPayment({api,projectId:'project',supplier:{id:'supplier',name:'<script>مورد</script>',calculated_debt:12},mode:'owner',storage:sessionStorage,isCurrent:()=>window.current,onSaved:()=>window.saved++});show();
+ });
+ await page.locator('form').waitFor();
+ await page.locator('[data-add]').click();await page.locator('[data-amount="0"]').fill('3.5');
+ await page.locator('[data-add]').click();await page.locator('[data-amount="1"]').fill('1.5');
+ await page.locator('[name=note]').fill('  <script>ملاحظة</script>  ');
+ const review=()=>page.locator('form').evaluate(form=>{form.dispatchEvent(new Event('submit',{cancelable:true}));form.dispatchEvent(new Event('submit',{cancelable:true}));});
+ await review();
+ assert.equal(await page.locator('.supplier-payment-review').count(),1);
+ assert.equal(await page.evaluate(()=>calls.length),0);
+ assert.equal(await page.evaluate(()=>sessionStorage.getItem(key)),null,'Review is not an in-flight payment journal');
+ assert.equal(await page.locator('.supplier-payment-review img,.supplier-payment-review script').count(),0);
+ assert.match(await page.locator('.supplier-payment-review').innerText(),/<script>مورد/);
+ assert.match(await page.locator('[data-review-note]').innerText(),/<script>ملاحظة/);
+ assert.match(await page.locator('.supplier-payment-review').innerText(),/المتبقي بعد الدفعة/);
+ await page.locator('[data-back-payment]').click();
+ assert.equal(await page.locator('[data-amount="0"]').inputValue(),'3.5');
+ assert.equal(await page.locator('[name=note]').inputValue(),'  <script>ملاحظة</script>  ');
+ assert.equal(await page.locator('fieldset').evaluate(fieldset=>fieldset.disabled),false);
+ await review();await page.keyboard.press('Escape');
+ assert.equal(await page.locator('.supplier-payment-review').count(),0);
+ assert.equal(await page.locator('.payment-dialog').count(),1);
+ assert.equal(await page.evaluate(()=>calls.length),0);
+ // Changes after capture must never alter the confirmed request.
+ await page.locator('[data-amount="0"]').fill('4');await review();
+ await page.locator('[data-amount="0"]').evaluate(input=>{input.value='9';input.dispatchEvent(new Event('input'));});
+ await page.locator('[name=note]').evaluate(input=>input.value='changed');
+ await page.evaluate(()=>window.hold=true);
+ await page.locator('[data-confirm-payment]').evaluate(button=>{button.click();button.click();});
+ await page.waitForFunction(()=>calls.length===1);
+ const request=await page.evaluate(()=>calls[0]);
+ assert.deepEqual(request.payload.p_sources,[{account_id:'cash',amount:4},{account_id:'bank',amount:1.5}]);
+ assert.equal(request.payload.p_note,'<script>ملاحظة</script>');
+ assert.equal(await page.locator('[data-close]').isDisabled(),true);
+ await page.evaluate(()=>window.release());await page.waitForFunction(()=>saved===1);
+ assert.equal(await page.evaluate(()=>sessionStorage.getItem(key)),null);
+ // Confirming an outgoing screen closes review without dispatching money.
+ await page.evaluate(()=>show());await page.locator('[data-add]').click();await page.locator('[data-amount="0"]').fill('2');await review();
+ await page.evaluate(()=>window.current=false);await page.locator('[data-confirm-payment]').click();
+ assert.equal(await page.evaluate(()=>calls.length),1);
+ assert.equal(await page.locator('.supplier-payment-review').count(),0);
+ await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').count(),0);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ assert.deepEqual(errors,[]);
+ console.log('PASS: supplier review without dispatch/persistence, back/Escape value retention, captured immutable confirmation, duplicate confirmation, safe text, stale screen and mobile width');
+}finally{await browser.close();await preview.close();}

@@ -2,6 +2,8 @@
 
 Standalone web project. Android files and Supabase schemas have not been modified.
 
+Current progress and verification are recorded chronologically in `ANDROID_PARITY.md`; the foundation notes below describe earlier milestones and are not a current completeness checklist. Use `npm run check` for the full local synthetic regression suite and `npm run build` separately. Neither command certifies deployed accounting behavior or full Android parity.
+
 Current scope: responsive Arabic shell, owner/viewer entry adapters, read-only initial lists, skeleton loading, isolated new-table API gateway, shell-only PWA caching, and offline unit tests. This is NOT feature-complete or production-ready.
 
 Read-only expansion: account summary uses documented server fields; debt tabs use the server debt snapshot with zero-balance archives; products and sales paginate in groups of 20; sale details include items and return records. Search is explicitly limited to loaded records for paginated lists. Currency remains ILS until the settings domain is ported.
@@ -19,5 +21,7 @@ Manual sales: product picker with pagination, cart removal, quantity and integer
 Integration harness: `node scripts/test-concurrency.mjs` requires a public SUPABASE_ANON_KEY and makes real temporary test requests. It creates three anonymous auth identities, creates only a fresh disposable project, and cleans up that exact project. Run only intentionally against an approved Supabase environment; never use a service-role key. Outputs a credential-free integration-results.json report.
 
 Run `npm test` and `npm run build`. Supply `SUPABASE_ANON_KEY` (public anon key only) at build time for connection testing. Never supply service-role credentials. Serve `dist` over HTTPS for PWA features.
+
+For the full local regression stage, run `npm run check`: JavaScript syntax, unit tests and isolated inventory/report/accounts browser checks. These browser checks start and stop their own loopback servers, block external traffic and use synthetic data only. They require the existing local Playwright runtime and installed Microsoft Edge (Windows); they do not invoke the live integration harness. Build remains a separate `npm run build` step. See `ANDROID_PARITY.md` for the current domain-by-domain progress and unverified gaps.
 
 Before deployment: validate actual RPC response shapes and RLS with a dedicated test project, implement every domain in PARITY.md, verify iPhone Safari behavior and attachments, add install icons, and complete accounting regression tests. `render.yaml` defines a static Render service with auto-deploy; set only the public anon key in Render. GitHub and Render deployment have not yet been performed.

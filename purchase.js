@@ -1,18 +1,93 @@
-import {escape,money} from './ui.js';import {createOperation} from './operations.js';
-export function purchaseTotal(items){return items.reduce((n,x)=>n+Number(x.quantity)*Number(x.cost),0);}
-export function purchasePayload(projectId,supplierId,items,payments,note=''){
- if(!supplierId||!items.length)throw new Error('اختر المورد وأضف صنفًا واحدًا على الأقل');
- if(items.some(x=>!Number.isFinite(x.quantity)||x.quantity<=0||!Number.isFinite(x.cost)||x.cost<0))throw new Error('تحقق من كمية وتكلفة الأصناف');
- if(payments.some(x=>!Number.isFinite(x.amount)||x.amount<=0)||new Set(payments.map(x=>x.account_id)).size!==payments.length)throw new Error('تحقق من دفعات الحسابات');
- return {p_project_id:projectId,p_supplier_id:supplierId,p_items:items.map(x=>({product_id:x.product_id,quantity_pieces:x.quantity,unit_cost:x.cost})),p_payments:payments.map(x=>({account_id:x.account_id,amount:x.amount})),p_invoice_number:null,p_note:note||null};
-}
-export async function openPurchase({api,projectId,mode,storage,onSaved}){
- if(mode!=='owner')throw new Error('المشاركة للمشاهدة فقط');if(document.querySelector('.purchase-dialog'))return;
- const d=document.createElement('dialog');d.className='purchase-dialog';d.innerHTML='<h2>فاتورة شراء جديدة</h2><div class="body"><div class="skeleton"></div></div><button data-close class="outline">إلغاء</button>';document.body.append(d);d.showModal();let busy=false,op=null,products=[],suppliers=[],accounts=[],items=[],payments=[];const key=`sharikx2-pending-purchase:${projectId}`;d.querySelector('[data-close]').onclick=()=>{if(!busy)d.remove();};d.oncancel=e=>{if(busy)e.preventDefault();};
- try{const [ps,ss,summary]=await Promise.all([api.rows('products',projectId,'*',0,{active:'eq.true'}),api.rows('suppliers',projectId,'*',0,{active:'eq.true'}),api.summary(projectId)]);if(!d.isConnected)return;products=ps;suppliers=ss;accounts=summary.accounts||[];d.querySelector('.body').innerHTML=`<form><fieldset><label>المورد<select name="supplier" required><option value="">اختر المورد</option>${suppliers.map(x=>`<option value="${escape(x.id)}">${escape(x.name)} — ${escape(x.phone||'بدون رقم')}</option>`).join('')}</select></label><h3>الأصناف</h3><div data-items></div><button type="button" class="outline" data-add>إضافة صنف</button><h3>الدفعات الحالية للمورد</h3><div data-payments></div><button type="button" class="outline" data-pay>إضافة دفعة</button><label>ملاحظات اختيارية<textarea name="note" maxlength="500"></textarea></label><div class="panel row"><span>الإجمالي</span><b data-total>0 ₪</b></div><div class="panel row"><span>المتبقي كدين للمورد</span><b data-debt>0 ₪</b></div></fieldset><p role="alert"></p><button class="primary" type="submit">تأكيد الفاتورة</button></form>`;const f=d.querySelector('form'),fs=f.querySelector('fieldset'),err=f.querySelector('[role=alert]'),submit=f.querySelector('[type=submit]');
- const draw=()=>{f.querySelector('[data-items]').innerHTML=items.map((x,i)=>`<div class="panel"><label>الصنف<select data-product="${i}">${products.map(p=>`<option value="${escape(p.id)}" ${p.id===x.product_id?'selected':''}>${escape(p.name)}</option>`).join('')}</select></label><div class="input-pair"><label>الكمية<input data-qty="${i}" type="number" min="0.001" step="0.001" value="${x.quantity}"></label><label>تكلفة الوحدة<input data-cost="${i}" type="number" min="0" step="0.01" value="${x.cost}"></label></div><button type="button" data-remove="${i}" class="danger">حذف الصنف</button></div>`).join('')||'<p class="muted">لم تُضف أصنافًا بعد</p>';f.querySelector('[data-payments]').innerHTML=payments.map((x,i)=>`<div class="panel"><label>الحساب<select data-account="${i}">${accounts.map(a=>`<option value="${escape(a.id)}" ${a.id===x.account_id?'selected':''}>${escape(a.name)} — المتاح ${money(a.balance,2)}</option>`).join('')}</select></label><label>المبلغ<input data-payamount="${i}" type="number" min="0.01" step="0.01" value="${x.amount}"></label><button type="button" data-removepay="${i}" class="danger">حذف الدفعة</button></div>`).join('')||'<p class="muted">لم تُضف دفعات بعد؛ الباقي يصبح دينًا بعد التأكيد.</p>';f.querySelector('[data-total]').textContent=money(purchaseTotal(items));const paid=payments.reduce((n,x)=>n+Number(x.amount||0),0);f.querySelector('[data-debt]').textContent=money(Math.max(0,purchaseTotal(items)-paid));
-  f.querySelectorAll('[data-product]').forEach(x=>x.onchange=()=>items[+x.dataset.product].product_id=x.value);f.querySelectorAll('[data-qty]').forEach(x=>x.oninput=()=>{items[+x.dataset.qty].quantity=Number(x.value);draw();});f.querySelectorAll('[data-cost]').forEach(x=>x.oninput=()=>{items[+x.dataset.cost].cost=Number(x.value);draw();});f.querySelectorAll('[data-remove]').forEach(x=>x.onclick=()=>{items.splice(+x.dataset.remove,1);draw();});f.querySelectorAll('[data-account]').forEach(x=>x.onchange=()=>payments[+x.dataset.account].account_id=x.value);f.querySelectorAll('[data-payamount]').forEach(x=>x.oninput=()=>{payments[+x.dataset.payamount].amount=Number(x.value);draw();});f.querySelectorAll('[data-removepay]').forEach(x=>x.onclick=()=>{payments.splice(+x.dataset.removepay,1);draw();});};
- f.querySelector('[data-add]').onclick=()=>{if(!products.length)return;items.push({product_id:products[0].id,quantity:1,cost:Number(products[0].weighted_unit_cost||0)});draw();};f.querySelector('[data-pay]').onclick=()=>{if(!accounts.length)return;payments.push({account_id:accounts[0].id,amount:0});draw();};draw();
- f.onsubmit=async e=>{e.preventDefault();if(busy)return;try{const payload=purchasePayload(projectId,f.elements.supplier.value,items,payments,f.elements.note.value);const total=purchaseTotal(items),paid=payments.reduce((n,x)=>n+Number(x.amount),0);if(paid>total)throw new Error('إجمالي الدفعات أكبر من قيمة الفاتورة');if(payments.some(x=>Number(x.amount)>Number(accounts.find(a=>a.id===x.account_id)?.balance||0)))throw new Error('إحدى الدفعات أكبر من الرصيد المتاح');if(!storage)throw new Error('تخزين الجلسة مطلوب لحماية إعادة المحاولة');if(!op){const next=createOperation('confirm_sharikx2_purchase_v3',payload);storage.setItem(key,JSON.stringify({payload,requestId:next.requestId}));op=next;}busy=true;fs.disabled=true;submit.disabled=true;d.querySelector('[data-close]').disabled=true;submit.textContent='جارٍ اعتماد الفاتورة…';await op.run(api);storage.removeItem(key);d.remove();onSaved();}catch(e){err.textContent=e.message;if(e.status>=400&&e.status<500){storage?.removeItem(key);op=null;fs.disabled=false;}else if(op)err.textContent+=' — أعد المحاولة بنفس الطلب بأمان';}finally{busy=false;submit.disabled=false;d.querySelector('[data-close]').disabled=false;submit.textContent=op?'التحقق وإعادة المحاولة':'تأكيد الفاتورة';}};
- }catch(e){if(d.isConnected)d.querySelector('.body').textContent=e.message;}
+import {escape,money} from './ui.js';
+import {createOperation} from './operations.js';
+import {supplierCreditSummary} from './supplier-credit.js';
+import {purchasePayload,purchaseAmounts,validatePurchaseSnapshot,purchaseJournalPayload,verifyPurchaseResult} from './purchase-model.js';
+export {purchasePayload,purchaseTotal} from './purchase-model.js';
+
+export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>true}){
+ if(mode!=='owner')throw new Error('المشاركة للمشاهدة فقط');
+ if(!projectId)throw new Error('بيانات المشروع غير مكتملة');
+ if(!isCurrent()||document.querySelector('.purchase-dialog'))return;
+ const dialog=document.createElement('dialog');dialog.className='purchase-dialog';
+ dialog.innerHTML='<h2>فاتورة شراء جديدة</h2><div class="body"><div class="skeleton"></div></div><button data-close class="outline">إلغاء</button>';
+ document.body.append(dialog);dialog.showModal();
+ const key=`sharikx2-pending-purchase:${projectId}`,current=()=>dialog.isConnected&&isCurrent();
+ let busy=false,operation=null,pendingPayload=null,pendingView=null,blocked=false,reviewDialog=null;
+ const close=()=>{if(!busy){reviewDialog?.remove();dialog.remove();}};dialog.querySelector('[data-close]').onclick=close;
+ dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
+ try{const saved=JSON.parse(storage?.getItem(key)||'null');if(saved){pendingPayload=purchaseJournalPayload(saved,projectId);pendingView=saved.view;operation=createOperation('confirm_sharikx2_purchase_v3',pendingPayload,saved.requestId);}}catch{blocked=true;}
+ const render=({products,suppliers,accounts})=>{
+  if(!current())return;
+  let items=pendingPayload?.p_items.map(item=>({product_id:item.product_id,quantity:item.quantity_pieces,cost:item.unit_cost}))||[],payments=pendingPayload?.p_payments.map(payment=>({...payment}))||[],creditRevision=0;
+  dialog.querySelector('.body').innerHTML=`<form><fieldset><label>المورد<select name="supplier" required><option value="">اختر المورد</option>${suppliers.map(supplier=>`<option value="${escape(supplier.id)}">${escape(supplier.name)} — ${escape(supplier.phone||'بدون رقم')}</option>`).join('')}</select></label><div class="panel supplier-credit" data-credit hidden></div><h3>الأصناف</h3><div data-items></div><button type="button" data-add class="outline">إضافة صنف</button><h3>الدفعات الحالية للمورد</h3><div data-payments></div><button type="button" data-pay class="outline">إضافة دفعة</button><label>ملاحظات اختيارية<textarea name="note" maxlength="500"></textarea></label></fieldset><p>إجمالي الفاتورة: <b data-total></b></p><p>المتبقي قبل تطبيق أي رصيد دائن: <b data-debt></b></p><p role="alert"></p><button type="submit" class="primary">تأكيد الفاتورة</button></form>`;
+  const form=dialog.querySelector('form'),fields=form.querySelector('fieldset'),error=form.querySelector('[role=alert]'),submit=form.querySelector('[type=submit]');
+  const totals=()=>{const total=items.reduce((sum,item)=>sum+item.quantity*item.cost,0),paid=payments.reduce((sum,payment)=>sum+payment.amount,0);form.querySelector('[data-total]').textContent=money(total,2);form.querySelector('[data-debt]').textContent=money(Math.max(0,total-paid),2);};
+  const drawItems=()=>{
+   form.querySelector('[data-items]').innerHTML=items.map((item,index)=>`<div class="panel"><label>الصنف<select data-product="${index}">${products.map(product=>`<option value="${escape(product.id)}" ${product.id===item.product_id?'selected':''}>${escape(product.name)}</option>`).join('')}</select></label><div class="input-pair"><label>الكمية بالقطعة<input data-qty="${index}" type="number" min="0.001" step="0.001" value="${escape(item.quantity)}" required></label><label>تكلفة القطعة<input data-cost="${index}" type="number" min="0" step="0.01" value="${escape(item.cost)}" required></label></div><button type="button" data-remove="${index}" class="danger">حذف الصنف</button></div>`).join('')||'<p class="muted">لم تضف أصنافًا بعد</p>';
+   form.querySelectorAll('[data-product]').forEach(input=>input.onchange=()=>items[+input.dataset.product].product_id=input.value);
+   form.querySelectorAll('[data-qty],[data-cost]').forEach(input=>input.oninput=()=>{const index=+(input.dataset.qty??input.dataset.cost);items[index][input.dataset.qty!==undefined?'quantity':'cost']=Number(input.value);totals();});
+   form.querySelectorAll('[data-remove]').forEach(button=>button.onclick=()=>{items.splice(+button.dataset.remove,1);drawItems();totals();});
+  };
+  const drawPayments=()=>{
+   form.querySelector('[data-payments]').innerHTML=payments.map((payment,index)=>`<div class="panel"><label>الحساب<select data-account="${index}">${accounts.map(account=>`<option value="${escape(account.id)}" ${account.id===payment.account_id?'selected':''}>${escape(account.name)} — المتاح ${money(account.balance,2)}</option>`).join('')}</select></label><label>المبلغ<input data-payamount="${index}" type="number" min="0.01" step="0.01" value="${escape(payment.amount)}" required></label><button type="button" data-removepay="${index}" class="danger">حذف الدفعة</button></div>`).join('')||'<p class="muted">لم تضف دفعات؛ الباقي يصبح دينًا للمورد.</p>';
+   form.querySelectorAll('[data-account]').forEach(input=>input.onchange=()=>payments[+input.dataset.account].account_id=input.value);
+   form.querySelectorAll('[data-payamount]').forEach(input=>input.oninput=()=>{payments[+input.dataset.payamount].amount=Number(input.value);totals();});
+   form.querySelectorAll('[data-removepay]').forEach(button=>button.onclick=()=>{payments.splice(+button.dataset.removepay,1);drawPayments();totals();});
+  };
+  form.querySelector('[data-add]').onclick=()=>{if(!products.length){error.textContent='أضف صنفًا في البضاعة أولًا';return;}items.push({product_id:products[0].id,quantity:1,cost:Number(products[0].weighted_unit_cost||0)});drawItems();totals();};
+  form.querySelector('[data-pay]').onclick=()=>{const account=accounts.find(account=>!payments.some(payment=>payment.account_id===account.id));if(!account){error.textContent='لا يوجد حساب إضافي متاح';return;}payments.push({account_id:account.id,amount:0});drawPayments();totals();};
+  form.elements.supplier.onchange=async()=>{
+   const box=form.querySelector('[data-credit]'),supplierId=form.elements.supplier.value,revision=++creditRevision;box.hidden=!supplierId;
+   if(!supplierId)return;box.textContent='جارٍ قراءة الرصيد الدائن…';
+   try{const summary=supplierCreditSummary(await api.supplierCredits(projectId,supplierId));if(!current()||revision!==creditRevision)return;box.hidden=summary.available<=0;box.textContent=`رصيد دائن لدى المورد: ${money(summary.available,2)} — التطبيق النهائي حسب تأكيد الخادم`;}
+   catch(errorValue){if(current()&&revision===creditRevision){box.hidden=false;box.textContent='تعذر قراءة الرصيد الدائن: '+errorValue.message;}}
+  };
+  drawItems();drawPayments();totals();
+  if(pendingPayload){form.elements.supplier.value=pendingPayload.p_supplier_id;form.elements.note.value=pendingPayload.p_note||'';fields.disabled=true;submit.textContent='التحقق من الفاتورة السابقة';error.textContent='توجد فاتورة معلّقة؛ سنعيد نفس الطلب دون إضافة المخزون مرتين.';}
+  if(blocked){fields.disabled=true;submit.disabled=true;error.textContent='تعذر قراءة الفاتورة السابقة؛ تحقق من السجل قبل تسجيل بديل.';}
+  const save=async payload=>{
+   if(busy||blocked||!current())return;let notify=false;
+   try{
+    if(!operation){
+     validatePurchaseSnapshot(payload,{products,suppliers,accounts});
+     if(!storage)throw new Error('تخزين الجلسة مطلوب لحماية إعادة المحاولة');
+     const candidate=createOperation('confirm_sharikx2_purchase_v3',payload);
+     const view={supplier:suppliers.find(supplier=>supplier.id===payload.p_supplier_id),products:products.filter(product=>payload.p_items.some(item=>item.product_id===product.id)).map(product=>({id:product.id,name:product.name})),accounts:accounts.filter(account=>payload.p_payments.some(payment=>payment.account_id===account.id)).map(account=>({id:account.id,name:account.name,balance:account.balance}))};
+     storage.setItem(key,JSON.stringify({payload,requestId:candidate.requestId,view}));pendingPayload=payload;operation=candidate;
+    }
+    busy=true;fields.disabled=true;submit.disabled=true;dialog.querySelector('[data-close]').disabled=true;error.textContent='';submit.textContent='جارٍ اعتماد الفاتورة…';
+    const result=await operation.run(api);try{verifyPurchaseResult(result,pendingPayload);}catch(errorValue){operation=createOperation('confirm_sharikx2_purchase_v3',pendingPayload,operation.requestId);throw errorValue;}
+    storage.removeItem(key);notify=current();dialog.remove();
+   }catch(errorValue){error.textContent=(errorValue.message||'تعذر تسجيل الفاتورة')+(operation?' — أعد التحقق بنفس الطلب بأمان':'');}
+   finally{busy=false;submit.disabled=false;dialog.querySelector('[data-close]').disabled=false;submit.textContent=operation?'التحقق وإعادة المحاولة':'تأكيد الفاتورة';}
+   if(notify)onSaved?.();
+  };
+  form.onsubmit=event=>{
+   event.preventDefault();if(busy||blocked||!current()||reviewDialog?.isConnected)return;
+   try{
+    if(operation){save();return;}
+    const payload=purchasePayload(projectId,form.elements.supplier.value,items,payments,form.elements.note.value.trim());validatePurchaseSnapshot(payload,{products,suppliers,accounts});
+    const amounts=purchaseAmounts(payload);if(amounts.debt<=0.009){save(payload);return;}
+    const captured=JSON.parse(JSON.stringify(payload));fields.disabled=true;reviewDialog=document.createElement('dialog');reviewDialog.className='purchase-debt-confirmation';
+    reviewDialog.innerHTML=`<h2>تأكيد الفاتورة بالدين</h2><p>المتبقي كدين للمورد: <b>${money(amounts.debt,2)}</b></p><div class="actions"><button type="button" data-confirm-purchase class="primary">تأكيد بالدين</button><button type="button" data-back-purchase>رجوع للتعديل</button></div>`;
+    document.body.append(reviewDialog);reviewDialog.showModal();
+    let finished=false;const finish=()=>{if(finished)return false;finished=true;reviewDialog.remove();reviewDialog=null;if(current()&&!operation)fields.disabled=false;return true;};
+    reviewDialog.querySelector('[data-back-purchase]').onclick=finish;reviewDialog.addEventListener('cancel',event=>{event.preventDefault();finish();});
+    reviewDialog.querySelector('[data-confirm-purchase]').onclick=()=>{const allowed=current();if(finish()&&allowed)save(captured);};
+   }catch(errorValue){error.textContent=errorValue.message;}
+  };
+ };
+ if(blocked)render({products:[],suppliers:[],accounts:[]});
+ else if(pendingPayload){
+  const viewProducts=Array.isArray(pendingView?.products)?pendingView.products:[],viewAccounts=Array.isArray(pendingView?.accounts)?pendingView.accounts:[];
+  const products=[...new Set(pendingPayload.p_items.map(item=>item.product_id))].map(id=>({id,name:viewProducts.find(product=>product?.id===id)?.name||'الصنف في الفاتورة السابقة'}));
+  const suppliers=[{id:pendingPayload.p_supplier_id,name:pendingView?.supplier?.name||'المورد في الفاتورة السابقة'}];
+  const accounts=pendingPayload.p_payments.map(payment=>({id:payment.account_id,name:viewAccounts.find(account=>account?.id===payment.account_id)?.name||'الحساب في الفاتورة السابقة',balance:viewAccounts.find(account=>account?.id===payment.account_id)?.balance||0}));
+  render({products,suppliers,accounts});
+ }else{
+  const load=()=>Promise.all([api.allRows('products',projectId,'*',{active:'eq.true'}),api.allRows('suppliers',projectId,'*',{active:'eq.true'}),api.summary(projectId)]).then(([products,suppliers,summary])=>render({products,suppliers,accounts:summary.accounts||[]})).catch(errorValue=>{
+   if(!current())return;dialog.querySelector('.body').innerHTML='<p role="alert"></p><button type="button" data-retry-purchase>إعادة المحاولة</button>';dialog.querySelector('[role=alert]').textContent=errorValue.message;dialog.querySelector('[data-retry-purchase]').onclick=()=>{dialog.querySelector('[data-retry-purchase]').disabled=true;load();};
+  });load();
+ }
+ return dialog;
 }
