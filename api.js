@@ -2,6 +2,7 @@ import {requireProductResult,productMatchesPayload} from './product-contract.js'
 import {PAGE_SIZE,requirePage,collectPages} from './pagination.js';
 import {projectCurrencyPayload,projectCurrencyResult} from './currency.js';
 import {customerCreatePayload,requireCreatedCustomer} from './customer-contract.js';
+import {supplierChanges,supplierUpdateResult} from './supplier-contract.js';
 
 function storedSession(value){
   if(typeof value?.access_token!=='string'||!value.access_token||typeof value.refresh_token!=='string'||!value.refresh_token||!Number.isFinite(value.expires_at)||value.expires_at<=0)return null;
@@ -82,7 +83,7 @@ export class Api {
     return projectCurrencyResult(rows,id,payload.currency);
   }
   debts(id) {return this.rpc('get_sharikx2_debt_balances_v2',{p_project_id:id});}
-  updateSupplier(projectId,id,changes) {return this.request(`/rest/v1/sharikx2_suppliers?id=eq.${encodeURIComponent(id)}&project_id=eq.${encodeURIComponent(projectId)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(changes)}).then(rows=>{if(!Array.isArray(rows)||rows.length!==1||String(rows[0].id)!==String(id))throw new Error('تعذر تأكيد تعديل المورد');return rows[0];});}
+  updateSupplier(projectId,id,changes) {const captured=supplierChanges(changes);return this.request(`/rest/v1/sharikx2_suppliers?id=eq.${encodeURIComponent(id)}&project_id=eq.${encodeURIComponent(projectId)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(captured)}).then(rows=>supplierUpdateResult(rows,projectId,id,captured));}
   archiveSupplier(projectId,id) {return this.updateSupplier(projectId,id,{active:false});}
   supplierCredits(projectId,supplierId) {
     const q=new URLSearchParams({project_id:`eq.${projectId}`,supplier_id:`eq.${supplierId}`,remaining_amount:'gt.0',select:'id,amount,remaining_amount,source_purchase_id,created_at',order:'created_at.asc,id.asc'});

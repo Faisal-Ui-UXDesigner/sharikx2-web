@@ -1,4 +1,5 @@
 import {collectPages} from './pagination.js';
+import {matchesContactSearch} from './phone.js';
 export function createCustomerCatalog(rows,projectId){
  if(typeof projectId!=='string'||!projectId||!Array.isArray(rows))throw new Error('تعذر قراءة قائمة الزبائن');
  const byId=new Map(),customers=rows.map(row=>{
@@ -6,7 +7,7 @@ export function createCustomerCatalog(rows,projectId){
   const customer=Object.freeze({...row,name:String(row.name||''),phone:String(row.phone||'')});byId.set(row.id,customer);return customer;
  });
  return Object.freeze({customers:Object.freeze(customers),get:id=>byId.get(id),search:query=>{
-  const q=String(query||'').trim().toLocaleLowerCase('ar');return customers.filter(row=>`${row.name} ${row.phone}`.toLocaleLowerCase('ar').includes(q));
+  return customers.filter(row=>matchesContactSearch(row.name,row.phone,query));
  }});
 }
 export async function loadCustomerCatalog(api,projectId,isCurrent=()=>true){

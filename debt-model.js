@@ -1,3 +1,4 @@
+import {matchesContactSearch} from './phone.js';
 export const DEBT_SETTLED_THRESHOLD=0.009;
 const invalid=()=>new Error('تعذر قراءة بيانات الديون');
 const amount=value=>{if(value==null||typeof value==='boolean'||(typeof value!=='number'&&typeof value!=='string')||String(value).trim()==='')throw invalid();const number=Number(value);if(!Number.isFinite(number))throw invalid();return number;};
@@ -12,4 +13,4 @@ export function normalizeDebtSnapshot(snapshot,kind){
  return {total:Math.max(0,amount(snapshot[totalKey])),rows:normalized};
 }
 export function debtPartition(rows,archived=false){return (Array.isArray(rows)?rows:[]).filter(row=>(Number(row.calculated_debt)<=DEBT_SETTLED_THRESHOLD)===Boolean(archived));}
-export function debtSearch(rows,query=''){const text=String(query||'').trim().toLocaleLowerCase('ar');return (Array.isArray(rows)?rows:[]).filter(row=>`${row.name||''} ${row.phone||''}`.toLocaleLowerCase('ar').includes(text));}
+export function debtSearch(rows,query=''){return (Array.isArray(rows)?rows:[]).filter(row=>matchesContactSearch(row.name,row.phone,query));}

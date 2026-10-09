@@ -37,4 +37,5 @@ run(['tests/partners-browser-smoke.mjs']);
 run(['tests/retention-browser-smoke.mjs']);
 run(['tests/sale-review-browser-smoke.mjs']);
 run(['tests/customer-create-browser-smoke.mjs']);
+run(['tests/contact-browser-smoke.mjs']);
 console.log('All local checks passed. No live project was modified.');

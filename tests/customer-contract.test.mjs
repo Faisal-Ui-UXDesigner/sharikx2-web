@@ -4,7 +4,7 @@ import {Api} from '../api.js';import {openCustomer} from '../customer.js';
 const id='11111111-1111-4111-8111-111111111111',customer={id,name:'زبون',phone:'0590000000'},payload=customerCreatePayload('project',customer),row={...payload,active:true};
 test('customer create requires Android two-letter name and retains exact leading-zero phone',()=>{
  assert.deepEqual(customerInput(' زبون ',' 0590000000 ',id),customer);
- for(const [name,phone] of [['أ','0590000000'],['','0590000000'],['زبون','059 0000000'],['زبون','123']])assert.throws(()=>customerInput(name,phone,id));
+ for(const [name,phone] of [['أ','0590000000'],['','0590000000'],['زبون','059 000000'],['زبون','123']])assert.throws(()=>customerInput(name,phone,id));
  assert.throws(()=>customerInput('زبون','0590000000',''));
 });
 test('customer payload freezes the captured zero-opening-debt identity without source mutation',()=>{

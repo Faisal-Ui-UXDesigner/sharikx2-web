@@ -1,5 +1,6 @@
+import {normalizePhone} from './phone.js';
 export function customerInput(name,phone,id){
- const cleanName=String(name??'').trim(),cleanPhone=String(phone??'').trim();
+ const cleanName=String(name??'').trim(),cleanPhone=normalizePhone(phone);
  if(cleanName.length<2)throw new Error('أدخل اسم الزبون (حرفان على الأقل)');
  if(!/^\d{10}$/.test(cleanPhone))throw new Error('رقم الجوال يجب أن يتكوّن من 10 أرقام');
  if(typeof id!=='string'||!id)throw new Error('هوية الزبون غير صالحة');

@@ -1,6 +1,7 @@
+import {normalizePhone} from './phone.js';
 export function customerUpdatePayload(name, phone) {
   const cleanName = String(name || '').trim();
-  const cleanPhone = String(phone || '').trim();
+  const cleanPhone = normalizePhone(phone);
   if (cleanName.length < 2) throw new Error('أدخل اسم الزبون');
   if (!/^\d{10}$/.test(cleanPhone)) throw new Error('رقم الجوال يجب أن يتكوّن من 10 أرقام');
   return {name: cleanName, phone: cleanPhone};
@@ -9,7 +10,7 @@ export function customerUpdatePayload(name, phone) {
 export function openCustomerEditor({api, projectId, customer, onSaved, mode='owner', isCurrent=()=>true}) {
   if(mode!=='owner')throw new Error('المشروع للمشاهدة فقط');
   const dialog = document.createElement('dialog');
-  dialog.innerHTML = '<h2>تعديل بيانات الزبون</h2><form><label>اسم الزبون<input name="name" maxlength="120" required></label><label>رقم الجوال<input name="phone" maxlength="10" inputmode="numeric" required></label><p role="alert"></p><div class="actions"><button class="primary">حفظ التعديلات</button><button type="button" data-close class="outline">إلغاء</button></div></form>';
+  dialog.innerHTML = '<h2>تعديل بيانات الزبون</h2><form><label>اسم الزبون<input name="name" maxlength="120" required></label><label>رقم الجوال<input name="phone" maxlength="64" inputmode="numeric" required></label><p role="alert"></p><div class="actions"><button class="primary">حفظ التعديلات</button><button type="button" data-close class="outline">إلغاء</button></div></form>';
   document.body.append(dialog); dialog.showModal();
   const form = dialog.querySelector('form'), save = form.querySelector('button.primary');
   let busy=false;

@@ -3,6 +3,7 @@ const key=process.env.SUPABASE_ANON_KEY||'';
 if(key.startsWith('sb_secret_'))throw new Error('A secret key must never be included in a browser build');
 if(key.split('.').length===3){const claims=JSON.parse(Buffer.from(key.split('.')[1],'base64url'));if(claims.role!=='anon')throw new Error('Only a public anon key is allowed');}
 await mkdir('dist',{recursive:true});
+for(const file of ['phone.js','contact-ui.js','supplier-contract.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['customer-contract.js','customer-catalog.js','sale-customers.js'])await copyFile(file,`dist/${file}`);
 await copyFile('sale-catalog.js','dist/sale-catalog.js');
 await copyFile('sale-quantity.js','dist/sale-quantity.js');

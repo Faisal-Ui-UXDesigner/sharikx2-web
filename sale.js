@@ -11,8 +11,9 @@ import {saveSaleDraft,removeSaleDraft,restoreSaleDraft} from './sale-drafts.js';
 import {showSaleDrafts} from './sale-drafts-ui.js';
 import {createSaleReview} from './sale-review.js';
 import {openSaleReview} from './sale-review-ui.js';
+import {validPhone} from './phone.js';
 export function cartTotal(cart){return salePriceTotals(cart).subtotal;}
-function validDebtCustomer(customer){return !!customer?.id&&String(customer.name||'').trim().length>=2&&/^\d{10}$/.test(customer.phone||'');}
+function validDebtCustomer(customer){return !!customer?.id&&String(customer.name||'').trim().length>=2&&validPhone(customer.phone);}
 export function filterSaleProducts(products,query='',category='الكل'){
  const q=String(query||'').trim().toLocaleLowerCase('ar');
  return (Array.isArray(products)?products:[]).filter(product=>

@@ -3,6 +3,7 @@ import {debtMovementRows,customerDebtTimeline} from './debt-details.js';
 import {openCustomerEditor} from './customer-mutation.js';
 import {supplierCreditSummary} from './supplier-credit.js';
 import {openSupplierOldDebt} from './supplier-old-debt.js';
+import {appendContactAction} from './contact-ui.js';
 
 export async function openDebtDetails({api,container,projectId,kind,person,mode,storage,isCurrent,onSaved,onCollect,onDebtSale}) {
   if (!person) return;
@@ -27,6 +28,7 @@ export async function openDebtDetails({api,container,projectId,kind,person,mode,
     for(const row of oldDebts)movements.push({date:row.created_at,label:`دين قديم بقيمة ${money(row.amount)} — ${row.description||''}`,status:''});
     movements.sort((a,b)=>(Date.parse(b.date)||0)-(Date.parse(a.date)||0));
     dialog.querySelector('.details').innerHTML=`<div class="panel"><b>${escape(person.name)}</b><p class="muted">${escape(person.phone||'بدون رقم جوال')}</p><strong>الرصيد الحالي: ${money(person.calculated_debt)}</strong></div>${credit?.available>0.009?`<div class="panel"><b>رصيد دائن غير مستخدم</b><strong>${money(credit.available)}</strong></div>`:''}<h3>سجل الحركات</h3>${movements.map(row=>`<article class="panel"><div class="row"><span>${escape(row.label)}${row.status?`<small class="muted"> · ${escape(status(row.status))}</small>`:''}</span><small>${escape(timestamp(row.date))}</small></div>${row.note?`<p>${escape(row.note)}</p>`:''}${(row.items||[]).map(item=>`<p class="small">• ${escape(item.name)} × ${escape(item.quantity)} = ${money(item.total,2)}</p>`).join('')}</article>`).join('')||'<p class="muted">لا توجد حركات حتى الآن</p>'}`;
+    appendContactAction(dialog.querySelector('.details > .panel'),{phone:person.phone,isCurrent:current});
     if(!supplier&&mode==='owner'){
       if(onDebtSale){
         const sale=document.createElement('button');sale.type='button';sale.dataset.detailsDebtSale='';sale.textContent='إضافة مبيعة بالدين';dialog.querySelector('.actions').prepend(sale);
