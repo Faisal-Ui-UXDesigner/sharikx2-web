@@ -8,7 +8,8 @@ import {inventoryCardMarkup} from './inventory-card-ui.js';
 import {renderInventoryCategoryBar} from './inventory-category-bar-ui.js';
 import {renderInventorySummary,openInventoryStatistics} from './inventory-statistics-ui.js';
 import {readInventoryPopularity,refreshInventoryPopularity} from './inventory-popularity-cache.js';
-import {pinnedIds,togglePinned,sortPinnedRows,savePinnedState} from './inventory-pinned.js';
+import {pinnedIds,sortPinnedRows} from './inventory-pinned.js';
+import {createInventoryPinOperation} from './inventory-pin-operation.js';
 import {createInventoryViewStore} from './inventory-view-state.js';
 import {openInventoryProductEntry} from './inventory-product-entry-ui.js';
 const activeRenders=new WeakMap();
@@ -107,15 +108,23 @@ async function renderCurrentInventory({api,projectId,project,container,isCurrent
  const draw=()=>{
   const filtered=filterProducts(sortPinnedRows(rows,{...financeState,inventoryPinnedIds:[...pinned]}),search.value,selectedCategory),visible=visibleInventoryRows(filtered,view.getState().visibleLimit);
   renderInventorySummary(summary,totals);
-  list.innerHTML=visible.map(item=>inventoryCardMarkup(item,{aliases:settings.aliases,popularity:popularityLoaded?(popularity.get(String(item.id))||0):null,pinned:pinned.has(String(item.id)),mode})).join('')||'<p class="muted">'+(search.value.trim()?'لا توجد أصناف مطابقة للبحث.':'لا توجد أصناف في هذا التصنيف.')+'</p>';
+  const pinState=pinOperation.model();
+  list.innerHTML=visible.map(item=>inventoryCardMarkup(item,{aliases:settings.aliases,popularity:popularityLoaded?(popularity.get(String(item.id))||0):null,pinned:pinned.has(String(item.id)),mode,pinDisabled:pinState.busy||!!pinState.pending})).join('')||'<p class="muted">'+(search.value.trim()?'لا توجد أصناف مطابقة للبحث.':'لا توجد أصناف في هذا التصنيف.')+'</p>';
   if(filtered.length>visible.length){const more=document.createElement('button');more.type='button';more.className='outline';more.dataset.inventoryMore='true';more.textContent=`عرض المزيد من الأصناف (${filtered.length-visible.length})`;more.onclick=()=>{if(!current())return;const top=window.scrollY;view.dispatch({type:'more'});draw();window.scrollTo({top,behavior:'instant'});};list.append(more);}
  };
+ const pinStatus=document.createElement('section');pinStatus.dataset.inventoryPinStatus='true';summary.after(pinStatus);
+ const pinOperation=createInventoryPinOperation({api,projectId,state:financeState,mode,isCurrent:current,onChange:result=>{
+  financeState=result.state;pinned=new Set(pinnedIds(financeState));draw();pinStatus.replaceChildren();
+  if(result.busy){const message=document.createElement('p');message.setAttribute('role','status');message.textContent=result.pending?'جارٍ التحقق من نتيجة التثبيت…':'جارٍ حفظ تثبيت الصنف…';pinStatus.append(message);}
+  if(result.error){const message=document.createElement('p');message.setAttribute('role','alert');message.textContent=result.error;pinStatus.append(message);}
+  if(result.pending&&!result.busy){const verify=document.createElement('button');verify.type='button';verify.className='outline';verify.dataset.verifyInventoryPin='true';verify.textContent='التحقق من نتيجة التثبيت';verify.onclick=()=>{if(current())void pinOperation.verify();};pinStatus.append(verify);}
+ }});
  const showStatistics=()=>openInventoryStatistics({container,totals,isCurrent:current});
  summary.onclick=showStatistics;
  // Delegate list clicks once; filtering does not rebuild event handlers.
  list.addEventListener('click',event=>{
   const pin=event.target.closest('[data-pin-id]');
-  if(pin&&list.contains(pin)){event.preventDefault();event.stopPropagation();if(mode!=='owner')return;const id=pin.dataset.pinId,previous=new Set(pinned),result=togglePinned({...financeState,inventoryPinnedIds:[...pinned]},id);financeState=result.state;pinned=new Set(pinnedIds(result.state));draw();savePinnedState(api,projectId,result.state).catch(error=>{pinned=previous;financeState={...financeState,inventoryPinnedIds:[...previous]};draw();const alert=document.createElement('p');alert.setAttribute('role','alert');alert.textContent=error.message;container.prepend(alert);});return;}
+  if(pin&&list.contains(pin)){event.preventDefault();event.stopPropagation();if(mode!=='owner'||!current()||!productsById.has(pin.dataset.pinId))return;void pinOperation.toggle(pin.dataset.pinId);return;}
   const button=event.target.closest('[data-product-id]');
   if(button&&list.contains(button))openDetails(productsById.get(button.dataset.productId));
  });

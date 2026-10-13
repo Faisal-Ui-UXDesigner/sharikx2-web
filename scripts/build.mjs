@@ -14,6 +14,7 @@ for(const file of ['inventory-product-entry.js','inventory-product-entry-ui.js']
 await copyFile('inventory-product-form.js','dist/inventory-product-form.js');
 for(const file of ['inventory-choice.js','inventory-choice-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['inventory-capacity.js','inventory-capacity-ui.js'])await copyFile(file,`dist/${file}`);
+for(const file of ['inventory-pin-change.js','inventory-pin-operation.js'])await copyFile(file,`dist/${file}`);
 await copyFile('inventory-category-draft.js','dist/inventory-category-draft.js');
 for(const file of ['inventory-category-bar.js','inventory-category-bar-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['inventory-card.js','inventory-card-ui.js'])await copyFile(file,`dist/${file}`);

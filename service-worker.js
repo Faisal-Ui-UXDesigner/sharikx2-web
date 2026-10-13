@@ -1,4 +1,4 @@
-const CACHE='sharikx2-shell-v118';
+const CACHE='sharikx2-shell-v119';
 // Explicit audit-zone parsing is shared across the complete financial UI.
 const SHELL=['./','./index.html','./styles.css','./app.js','./api.js','./pagination.js','./product-contract.js','./ui.js','./reports.js','./report-ui.js','./subscription.js','./operations.js','./expense.js','./expense-mutation.js','./sale.js','./customer.js','./activity.js','./transfer.js','./purchase.js','./payment.js','./collection.js','./return.js','./return-ui.js','./financial.js','./statement.js','./accounts-ui.js','./inventory.js','./inventory-ui.js','./inventory-mutation.js','./onboarding.js','./icons.js','./icon.svg','./manifest.webmanifest','./assets/cairo_regular.ttf','./assets/cairo_semibold.ttf','./assets/cairo_bold.ttf','./assets/icon_cashier_colorful.png','./assets/icon_customer_debt_colorful.png','./assets/icon_supplier_debt_colorful.png','./assets/icon_expense_colorful.png','./assets/icon_purchase_colorful.png'];
 SHELL.push('./inventory-history.js','./inventory-history-ui.js','./inventory-category.js','./inventory-category-ui.js','./inventory-popularity.js','./inventory-pinned.js','./barcode-scanner.js','./debt-model.js','./debt-details.js','./supplier-mutation.js','./partner-mutation.js','./customer-mutation.js','./supplier-credit.js','./supplier-old-debt.js','./debt-details-ui.js','./debt-payment.js','./debt-payment-ui.js','./supplier-payment-review.js','./purchase-model.js','./currency.js','./currency-ui.js');
@@ -17,6 +17,7 @@ SHELL.push('./inventory-product-entry.js','./inventory-product-entry-ui.js');
 SHELL.push('./inventory-product-form.js');
 SHELL.push('./inventory-choice.js','./inventory-choice-ui.js');
 SHELL.push('./inventory-capacity.js','./inventory-capacity-ui.js');
+SHELL.push('./inventory-pin-change.js','./inventory-pin-operation.js');
 SHELL.push('./inventory-category-draft.js');
 SHELL.push('./inventory-category-bar.js','./inventory-category-bar-ui.js');
 SHELL.push('./inventory-card.js','./inventory-card-ui.js');

@@ -30,6 +30,7 @@ run(['tests/inventory-view-state-browser-smoke.mjs']);
 run(['tests/inventory-product-entry-browser-smoke.mjs']);
 run(['tests/inventory-choice-browser-smoke.mjs']);
 run(['tests/inventory-capacity-browser-smoke.mjs']);
+run(['tests/inventory-pin-browser-smoke.mjs']);
 run(['tests/report-browser-smoke.mjs']);
 run(['tests/accounts-browser-smoke.mjs']);
 run(['tests/supplier-old-debt-browser-smoke.mjs']);
