@@ -1,5 +1,6 @@
 import {escape,money} from './ui.js';
 import {createOperation} from './operations.js';
+import {roundedWholeDisplay} from './money-display.js';
 import {returnPayload,unpaidCreditSale,returnItems,returnTotals,stepReturnQuantity,canReturnSale,validateReturnSelection,returnJournalPayload,verifyReturnResult,expectedReturnRefund} from './return.js';
 
 export function openReturn({api,projectId,mode,sale,storage,onSaved,isCurrent=()=>true}){
@@ -20,8 +21,14 @@ export function openReturn({api,projectId,mode,sale,storage,onSaved,isCurrent=()
   const credit=pendingPayload?pendingPayload.p_refund_account_id===null:unpaidCreditSale(sale);
   dialog.querySelector('.body').innerHTML=`<form><fieldset><p>إجمالي المبيعة الحالي: ${money(sale.total,2)}</p><div data-items>${items.map((item,index)=>`<article class="panel"><b>${escape(item.product_name||item.name||'صنف')}</b><p class="muted">${pendingPayload?`الكمية في المرتجع المعلّق: ${escape(item.quantity)}`:`المباع ${escape(item.sold)} · المتاح للإرجاع ${escape(item.max)} · سعر الوحدة ${money(item.unit_price,2)}`}</p><div class="row"><button type="button" data-minus="${index}" aria-label="تقليل كمية المرتجع">−</button><input data-qty="${index}" aria-label="كمية مرتجع ${escape(item.product_name||item.name||'صنف')}" type="number" min="0" max="${escape(item.max)}" step="any" value="${escape(item.quantity)}" ${item.max?'':'disabled'}><button type="button" data-plus="${index}" aria-label="زيادة كمية المرتجع" ${item.max?'':'disabled'}>+</button></div></article>`).join('')}</div>${credit?'<p class="muted">هذه مبيعة بالدين. سيخفض المرتجع دين الزبون ويعيد الكمية للمخزون دون رد مبلغ من حساب.</p>':`<label>حساب رد المبلغ<select name="account" required>${accounts.map(account=>`<option value="${escape(account.id)}">${escape(account.name)}</option>`).join('')}</select></label>`}<label>السبب اختياري<textarea name="reason"></textarea></label></fieldset><p>قيمة المرتجع: <b data-total></b></p><p data-after-label>قيمة المبيعة بعد المرتجع: <b data-after></b></p><p role="alert"></p><button type="submit" class="primary">تأكيد المرتجع</button></form>`;
   const form=dialog.querySelector('form'),fields=form.querySelector('fieldset'),error=form.querySelector('[role=alert]'),submit=form.querySelector('[type=submit]');
-  const totals=()=>{const total=returnTotals(items,sale.total);form.querySelector('[data-total]').textContent=pendingPayload?(expectedRefund!==null?money(expectedRefund,2):total.refund>0?money(total.refund,2):'غير متاح — الطلب محفوظ'):money(total.refund,2);form.querySelector('[data-after-label]').hidden=!!pendingPayload;form.querySelector('[data-after]').textContent=money(total.remaining,2);};
-  const setQuantity=(index,value)=>{items[index].quantity=value;form.querySelector(`[data-qty="${index}"]`).value=value;totals();};
+  const roundingNote=document.createElement('p');roundingNote.className='muted small';roundingNote.dataset.returnRounding='';roundingNote.setAttribute('role','status');form.querySelector('[data-after-label]').before(roundingNote);
+  const totals=()=>{
+   form.querySelector('[data-after-label]').hidden=!!pendingPayload;
+   if(pendingPayload){form.querySelector('[data-total]').textContent=expectedRefund!==null?money(expectedRefund,2):'غير متاح — الطلب محفوظ';roundingNote.textContent='طلب محفوظ للتحقق بنفس القيم؛ لا تُحسب قيمة مالية جديدة من بيانات المبيعة الحالية.';return;}
+   try{const total=returnTotals(items,sale.total),server=expectedReturnRefund({p_items:items.filter(item=>item.quantity>0).map(item=>({sale_item_id:item.id,quantity:item.quantity}))},items);form.querySelector('[data-total]').textContent=money(total.refund,2);form.querySelector('[data-after]').textContent=money(roundedWholeDisplay(total.remaining));roundingNote.textContent=money(total.refund,2)!==money(server,2)?`المبلغ المتوقع من الخادم بعد تقريب كل سطر: ${money(server,2)}؛ المعاينة تجمع القيم قبل التقريب.`:'';}
+   catch(errorValue){form.querySelector('[data-total]').textContent='راجع كميات وأسعار المرتجع';form.querySelector('[data-after]').textContent='—';roundingNote.textContent=errorValue.message;}
+  };
+  const setQuantity=(index,value)=>{if(!current()||busy||operation||blocked)return;items[index].quantity=value;form.querySelector(`[data-qty="${index}"]`).value=value;totals();};
   form.querySelectorAll('[data-qty]').forEach(input=>input.oninput=()=>setQuantity(+input.dataset.qty,Math.max(0,Math.min(items[+input.dataset.qty].max,Number(input.value)||0))));
   form.querySelectorAll('[data-plus],[data-minus]').forEach(button=>button.onclick=()=>{const index=+(button.dataset.plus??button.dataset.minus);setQuantity(index,stepReturnQuantity(items[index].quantity,button.dataset.plus!==undefined?1:-1,items[index].max));});
   totals();
@@ -38,7 +45,7 @@ export function openReturn({api,projectId,mode,sale,storage,onSaved,isCurrent=()
      validateReturnSelection(payload,items,accounts);
      if(!storage)throw new Error('تخزين الجلسة مطلوب لحماية إعادة المحاولة');
      const amount=expectedReturnRefund(payload,items);if(!Number.isFinite(amount)||amount<=0)throw new Error('قيمة المرتجع يجب أن تكون موجبة');
-     const candidate=createOperation('return_sharikx2_sale_web_v1',payload);storage.setItem(key,JSON.stringify({payload,requestId:candidate.requestId,expectedRefund:amount}));expectedRefund=amount;pendingPayload=payload;operation=candidate;
+     const candidate=createOperation('return_sharikx2_sale_web_v1',payload);storage.setItem(key,JSON.stringify({payload,requestId:candidate.requestId,expectedRefund:amount}));expectedRefund=amount;pendingPayload=payload;operation=candidate;totals();
     }
     busy=true;fields.disabled=true;submit.disabled=true;dialog.querySelector('[data-close]').disabled=true;submit.textContent='جارٍ اعتماد المرتجع…';error.textContent='';
     const result=await operation.run(api);

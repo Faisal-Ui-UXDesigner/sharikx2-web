@@ -1,0 +1,45 @@
+import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+import {startPreviewServer} from '../scripts/preview-server.mjs';
+const require=createRequire(import.meta.url);
+const {chromium}=require('C:/Users/HP/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const browser=await chromium.launch({headless:true,channel:'msedge'}),preview=await startPreviewServer({root:fileURLToPath(new URL('..',import.meta.url))});
+try{
+ const page=await browser.newPage({viewport:{width:390,height:844},timezoneId:'Asia/Tokyo',serviceWorkers:'block'}),errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/*',route=>new URL(route.request().url()).origin===preview.origin?route.continue():route.abort());
+ await page.goto(preview.origin+'/styles.css');await page.setContent('<html dir="rtl"><head><link rel="stylesheet" href="/styles.css"></head><body><main id="fixture"></main></body></html>');
+ await page.evaluate(async()=>{
+  const {renderInventoryHistory}=await import('/inventory-history-ui.js');
+  const item=(quantity=1)=>({name:'سكر',unit:'علبة',quantity,purchasePrice:.1,expectedSalePrice:.3});
+  const entry=(id,before,after)=>({historyVersion:2,itemId:id,historyRecordedAt:'2026-10-13 10:00',before,after});
+  window.data={state:{inventoryHistory:[entry('changed',item(.1),{...item(.3),name:'<svg>',unit:'صندوق',purchasePrice:.2,expectedSalePrice:.4}),entry('deleted',item(),null),entry('added',null,{...item(),expectedSalePrice:0}),entry('same',item(),item())]}};
+  window.original=JSON.stringify(data);window.active=true;window.reads=0;window.writes=0;
+  window.api={financeState:async()=>{reads++;if(window.hold)return new Promise(resolve=>window.release=resolve);if(window.fail)throw Error('تعذر التحميل');return structuredClone(data);},saveFinanceState:()=>{writes++;throw Error('forbidden');}};
+  window.show=()=>renderInventoryHistory({api,projectId:'fixture',container:document.querySelector('#fixture'),isCurrent:()=>active});await show();
+ });
+ assert.equal(await page.locator('.inventory-history-card').count(),4);
+ assert.equal(await page.locator('.inventory-history-card svg').count(),0);
+ const changed=page.locator('.inventory-history-card').first();
+ assert.equal(await changed.locator('.badge.history-tone-primary').count(),5);
+ assert.match(await changed.innerText(),/الوحدة السابقة/);assert.match(await changed.innerText(),/الوحدة الجديدة/);
+ assert.equal(await changed.locator('.history-tone-profit').count(),1);
+ assert.equal(await page.locator('.inventory-history-card').nth(1).locator('.badge.history-tone-negative').count(),1);
+ assert.equal(await page.locator('.inventory-history-card').nth(2).locator('.history-value b.history-tone-muted').count(),1);
+ assert.equal(await page.locator('.inventory-history-card').nth(3).locator('.badge.history-tone-muted').count(),1);
+ assert.equal(await changed.locator('.history-badges').evaluate(el=>getComputedStyle(el).flexWrap),'nowrap');
+ await changed.locator('.history-badges').focus();assert.equal(await changed.locator('.history-badges').evaluate(el=>el===document.activeElement),true);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.evaluate(async()=>{window.hold=true;window.pending=show();});await page.waitForFunction(()=>window.release);
+ await page.evaluate(async()=>{window.hold=false;window.data={state:{inventoryHistory:[]}};await show();window.release({state:{inventoryHistory:[{historyVersion:2,itemId:'stale',after:{name:'متأخر'}}]}});await pending;});
+ assert.equal(await page.locator('.inventory-history-card').count(),0);assert.match(await page.locator('#fixture').innerText(),/لا توجد تغييرات/);
+ await page.evaluate(async()=>{window.fail=true;await show();});await page.locator('[data-retry]').waitFor();
+ await page.evaluate(()=>window.fail=false);await page.locator('[data-retry]').click();await page.getByText('لا توجد تغييرات مسجلة على البضاعة حتى الآن.').waitFor();
+ assert.equal(await page.evaluate(()=>writes===0&&localStorage.length===0&&sessionStorage.length===0),true);
+ await page.evaluate(async()=>{window.data=JSON.parse(original);await show();});
+ assert.equal(await page.evaluate(()=>JSON.stringify(data)===original),true);
+ await page.evaluate(async()=>{window.active=false;const prior=reads;await show();window.staleSafe=reads===prior;});assert.equal(await page.evaluate(()=>staleSafe),true);
+ assert.deepEqual(errors,[]);
+ console.log('PASS: native history badge/profit tones, unit labels, horizontal keyboard badges, safe names, exact immutable model, stale same-container responses, retry/empty/read-only guards and mobile RTL');
+}finally{await browser.close();await preview.close();}

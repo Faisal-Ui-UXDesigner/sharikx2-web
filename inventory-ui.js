@@ -1,30 +1,33 @@
-import {escape,money,timestamp} from './ui.js';
-import {normalizeProduct,filterProducts,inventorySummary,normalizePurchaseHistory,visibleInventoryRows} from './inventory.js';
+import {normalizeProduct,filterProducts,inventorySummary,visibleInventoryRows} from './inventory.js';
+import {renderInventoryDetails,updateInventoryPopularity} from './inventory-details-ui.js';
 import {openProductEditor,assertProductArchiveAllowed} from './inventory-mutation.js';
 import {renderInventoryHistory} from './inventory-history-ui.js';
-import {categorySet,visibleCategories,categorySettingsState,display} from './inventory-category.js';
+import {visibleCategories,categorySettingsState} from './inventory-category.js';
 import {openInventoryCategorySettings} from './inventory-category-ui.js';
-import {loadInventoryPopularity,isTrending} from './inventory-popularity.js';
-import {pinnedIds,isPinned,togglePinned,sortPinnedRows,savePinnedState} from './inventory-pinned.js';
+import {inventoryCardMarkup} from './inventory-card-ui.js';
+import {renderInventoryCategoryBar} from './inventory-category-bar-ui.js';
+import {renderInventorySummary,openInventoryStatistics} from './inventory-statistics-ui.js';
+import {readInventoryPopularity,refreshInventoryPopularity} from './inventory-popularity-cache.js';
+import {pinnedIds,togglePinned,sortPinnedRows,savePinnedState} from './inventory-pinned.js';
+import {createInventoryViewStore} from './inventory-view-state.js';
+import {openInventoryProductEntry} from './inventory-product-entry-ui.js';
+const activeRenders=new WeakMap();
 
-const number=value=>Number.isFinite(Number(value))?Number(value):0;
 
-function productCard(item,popularity=0,pinned=false,mode='viewer'){
- return '<button type="button" class="panel inventory-card" data-product-id="'+escape(item.id)+'"><div class="row"><span><b>'+escape(item.name||'صنف')+'</b>'+(isTrending(popularity)?'<span class="badge">رائج</span>':'')+'<small class="muted">'+escape(item.category||'بدون تصنيف')+' · '+escape(item.barcode||'بدون باركود')+'</small></span><span class="inventory-pin" data-pin-id="'+escape(item.id)+'" role="button" tabindex="0" aria-label="'+(pinned?'إلغاء تثبيت الصنف':'تثبيت الصنف')+'">'+(pinned?'📌':'📍')+'</span><strong>'+money(item.saleValue)+'</strong></div><div class="metrics"><span>الكمية<br><b>'+item.quantity.toLocaleString('ar-u-nu-latn',{maximumFractionDigits:3})+' '+escape(item.displayUnit)+'</b></span><span>تكلفة الوحدة<br><b>'+money(item.cost*item.piecesPerUnit,4)+'</b></span><span>سعر البيع<br><b>'+money(item.salePrice*item.piecesPerUnit,2)+'</b></span></div></button>';
-}
-function detailsMarkup(item,history,popularityCount=null){
- const historyRows=normalizePurchaseHistory(history).map(row=>'<article class="panel"><b>'+escape(row.purchaseDate?timestamp(row.purchaseDate):'تاريخ غير متوفر')+'</b><p class="muted">المورد: '+escape(row.supplierName)+'</p><p>الكمية: '+number(row.quantity_pieces).toLocaleString('ar-u-nu-latn')+' قطعة · تكلفة القطعة: '+money(row.unit_cost,2)+'</p><strong>'+money(row.line_total)+'</strong></article>').join('')||'<p class="muted">لم يُسجّل شراء لهذا الصنف عبر فاتورة.</p>';
- return '<h2>'+escape(item.name||'صنف')+'</h2><div class="panel"><p>التصنيف: '+escape(item.category||'بدون تصنيف')+'</p><p>الباركود: '+escape(item.barcode||'—')+'</p><p>الوحدة: '+escape(item.displayUnit)+'</p><p>الكمية الحالية: <b>'+item.quantity.toLocaleString('ar-u-nu-latn',{maximumFractionDigits:3})+' '+escape(item.displayUnit)+'</b></p><p>تكلفة الشراء الحالية: <b>'+money(item.cost*item.piecesPerUnit,4)+'</b></p><p>سعر البيع المتوقع: <b>'+money(item.salePrice*item.piecesPerUnit,2)+'</b></p><p>قيمة الشراء: <b>'+money(item.purchaseValue)+'</b></p><p>قيمة البيع المتوقعة: <b>'+money(item.saleValue)+'</b></p><p>الربح المتوقع: <b>'+money(item.expectedProfit)+'</b></p>'+(item.lowStockQuantity>0?'<p>تنبيه نقص البضاعة عند: '+item.lowStockQuantity+' '+escape(item.displayUnit)+'</p>':'')+(popularityCount!=null?'<p>عدد مرات البيع خلال 60 يومًا: <b>'+popularityCount+'</b></p>':'<p class="muted">بيانات البيع غير متاحة بعد.</p>')+(item.notes?'<p>ملاحظات: '+escape(item.notes)+'</p>':'')+'</div><h3>سجل الشراء</h3>'+historyRows;
-}
 export async function renderInventory(options){
  const {container,isCurrent}=options;
+ if(!isCurrent()||!container.isConnected)return;
+ const token={};activeRenders.set(container,token);
+ const screenCurrent=()=>isCurrent()&&container.isConnected&&activeRenders.get(container)===token;
+ const view=(options.viewStore||createInventoryViewStore()).forScope(options.projectId,options.mode);
  container.innerHTML='<div class="tabs"><button data-inventory-tab="current" class="primary" aria-pressed="true">البضاعة الحالية</button><button data-inventory-tab="history" aria-pressed="false">سجل الجرد</button></div><section data-inventory-body></section>';
  const body=container.querySelector('[data-inventory-body]');
  let generation=0;
  const show=async tab=>{
-  if(!isCurrent()||!container.isConnected)return;
+  if(!screenCurrent())return;
+  view.dispatch({type:'tab',value:tab});
   const revision=++generation;
-  const current=()=>isCurrent()&&container.isConnected&&revision===generation;
+  const current=()=>screenCurrent()&&revision===generation;
   // Close an editor owned by the outgoing inventory screen.
   document.querySelectorAll('dialog.inventory-editor').forEach(dialog=>dialog.remove());
   body.innerHTML='<div class="skeleton"></div>';
@@ -32,7 +35,7 @@ export async function renderInventory(options){
    const selected=button.dataset.inventoryTab===tab;
    button.classList.toggle('primary',selected);button.setAttribute('aria-pressed',String(selected));
   });
-  const args={...options,container:body,isCurrent:current};
+  const args={...options,container:body,isCurrent:current,view};
   try{
    if(tab==='history')await renderInventoryHistory(args);
    else await renderCurrentInventory(args);
@@ -44,45 +47,54 @@ export async function renderInventory(options){
   }
  };
  container.querySelectorAll('[data-inventory-tab]').forEach(button=>button.onclick=()=>show(button.dataset.inventoryTab));
- await show('current');
+ await show(view.getState().tab);
 }
 
-async function renderCurrentInventory({api,projectId,container,isCurrent,mode,onSaved}){
+async function renderCurrentInventory({api,projectId,project,container,isCurrent,mode,onSaved,onPlans,view}){
  const rows=(await api.allRows('products',projectId,'*',{active:'eq.true'})).map(normalizeProduct);
  if(!isCurrent()||!container.isConnected)return;
  const productsById=new Map(rows.map(row=>[String(row.id),row]));
  let totals=inventorySummary(rows);
- let popularity=new Map(),popularityLoaded=false;
- let visibleLimit=20;
+ const cachedPopularity=readInventoryPopularity(api,projectId);
+ let popularity=cachedPopularity.counts||new Map(),popularityLoaded=cachedPopularity.counts!==null,popularityCached=cachedPopularity.cached;
  let settings={customCategories:[],hiddenCategories:[],aliases:{}},financeState={};
  try{const snapshot=await api.financeState(projectId);settings=categorySettingsState(snapshot);financeState=snapshot.state||{};}catch(error){if(mode==='owner')throw error;}
+ if(!isCurrent()||!container.isConnected)return;
  const inventoryCategories=rows.map(row=>String(row.category||'').trim()).filter(Boolean);
  let pinned= new Set(pinnedIds(financeState));
  const categories=visibleCategories({customCategories:settings.customCategories,hiddenCategories:settings.hiddenCategories,inventoryCategories});
- container.innerHTML='<h2>البضاعة</h2><div class="actions">'+(mode==='owner'?'<button class="primary" data-add-product>إضافة صنف</button><button class="outline" data-category-settings>إعدادات التصنيفات</button>':'')+'</div><div data-inventory-summary></div><div class="input-pair"><label>بحث<input data-inventory-search type="search" placeholder="اسم الصنف أو الباركود"></label><label>التصنيف<select data-inventory-category><option value="الكل">الكل</option>'+categories.map(x=>'<option value="'+escape(x)+'">'+escape(display(settings.aliases,x))+'</option>').join('')+'</select></label></div><div data-inventory-list></div>';
- const summary=container.querySelector('[data-inventory-summary]'),list=container.querySelector('[data-inventory-list]'),search=container.querySelector('[data-inventory-search]'),category=container.querySelector('[data-inventory-category]');
+ container.innerHTML='<h2>البضاعة</h2><div data-inventory-summary></div>'+(mode==='owner'?'<button type="button" class="outline inventory-category-settings" data-category-settings>إعدادات التصنيفات</button>':'')+'<div class="inventory-sticky-controls" data-inventory-controls><input data-inventory-search type="search" aria-label="ابحث باسم الصنف أو الباركود" placeholder="ابحث باسم الصنف أو الباركود" enterkeyhint="search">'+(mode==='owner'?'<div class="actions inventory-add-actions"><button type="button" class="primary" data-scan-add-product>مسح باركود</button><button type="button" class="outline" data-add-product>إضافة يدوياً</button></div>':'')+'<div class="inventory-category-bar" data-inventory-category-bar></div></div><h3 class="inventory-results-title">الأصناف الحالية</h3><div data-inventory-list></div>';
+ const summary=container.querySelector('[data-inventory-summary]'),list=container.querySelector('[data-inventory-list]'),search=container.querySelector('[data-inventory-search]'),categoryBar=container.querySelector('[data-inventory-category-bar]');
+ search.value=view.getState().query;
+ let selectedCategory=view.getState().category;
  const current=()=>isCurrent()&&container.isConnected;
- const editProduct=product=>openProductEditor({api,projectId,mode,product,rows,onSaved,isCurrent:current,categoryOptions:visibleCategories({customCategories:settings.customCategories,hiddenCategories:settings.hiddenCategories,inventoryCategories,requiredCategory:product?.category}),categoryLabels:settings.aliases});
- container.querySelector('[data-category-settings]')?.addEventListener('click',()=>openInventoryCategorySettings({api,projectId,container,isCurrent:current,inventoryCategories,onSaved:()=>onSaved?.()}));
+ const editorOptions=product=>({api,projectId,project,mode,product,rows,onSaved,onPlans,container,isCurrent:current,categoryOptions:visibleCategories({customCategories:settings.customCategories,hiddenCategories:settings.hiddenCategories,inventoryCategories,requiredCategory:product?.category}),categoryLabels:settings.aliases});
+ const editProduct=product=>{if(current())return openProductEditor(editorOptions(product));};
+ container.querySelector('[data-category-settings]')?.addEventListener('click',()=>openInventoryCategorySettings({api,projectId,container,isCurrent:current,inventoryCategories,mode,onSaved:()=>onSaved?.()}));
+ let detailsDialog=null;
  const openDetails=async item=>{
   if(!item||!current())return;
+  if(detailsDialog?.isConnected){detailsDialog.focus();return;}
   const dialog=document.createElement('dialog');dialog.innerHTML='<div class="details"><div class="skeleton"></div></div><div class="actions">'+(mode==='owner'?'<button data-edit class="outline">تعديل</button><button data-archive class="outline">حذف الصنف</button>':'')+'<button data-close class="primary">إغلاق</button></div>';container.append(dialog);dialog.showModal();dialog.querySelector('[data-close]').onclick=()=>dialog.remove();
-  dialog.addEventListener('cancel',event=>{event.preventDefault();dialog.remove();});
-  dialog.querySelector('[data-edit]')?.addEventListener('click',()=>{dialog.remove();editProduct(item);});
+  detailsDialog=dialog;
+  dialog.dataset.productDetailsId=String(item.id);
+  dialog.querySelector('[data-close]').onclick=()=>{if(!archiving)dialog.remove();};
+  dialog.addEventListener('cancel',event=>{event.preventDefault();if(!archiving)dialog.remove();});
+  dialog.querySelector('[data-edit]')?.addEventListener('click',()=>{if(archiving||!current()||!dialog.isConnected)return;dialog.remove();editProduct(item);});
   let archiving=false;
   const showError=message=>{
-   let alert=dialog.querySelector('[role=alert]');
-   if(!alert){alert=document.createElement('p');alert.setAttribute('role','alert');dialog.insertBefore(alert,dialog.querySelector('.actions'));}
+   let alert=dialog.querySelector('[data-archive-error]');
+   if(!alert){alert=document.createElement('p');alert.setAttribute('role','alert');alert.dataset.archiveError='true';dialog.insertBefore(alert,dialog.querySelector('.actions'));}
    alert.textContent=message;
   };
   dialog.querySelector('[data-archive]')?.addEventListener('click',async()=>{
-   if(archiving||!current())return;
+   if(archiving||!current()||!dialog.isConnected)return;
    try{assertProductArchiveAllowed(mode,item);}catch(error){showError(error.message);return;}
    if(!window.confirm('هل تريد حذف '+(item.name||'هذا الصنف')+' من البضاعة؟'))return;
    archiving=true;
-   const button=dialog.querySelector('[data-archive]');button.disabled=true;
+   const buttons=[...dialog.querySelectorAll('.actions button')];buttons.forEach(button=>button.disabled=true);
    try{await api.archiveProduct(item.id);}
-   catch(error){showError(error.message||'تعذر حذف الصنف؛ لم تتغير بيانات المخزون');archiving=false;button.disabled=false;return;}
+   catch(error){if(current()&&dialog.isConnected){showError(error.message||'تعذر حذف الصنف؛ لم تتغير بيانات المخزون');buttons.forEach(button=>button.disabled=false);}archiving=false;return;}
    dialog.remove();
    const index=rows.indexOf(item);
    if(index>=0)rows.splice(index,1);
@@ -90,20 +102,16 @@ async function renderCurrentInventory({api,projectId,container,isCurrent,mode,on
    totals=inventorySummary(rows);
    if(current()){draw();onSaved?.();}
   });
-  try{const history=await api.productPurchaseHistory(projectId,item.id);if(current()&&dialog.isConnected)dialog.querySelector('.details').innerHTML=detailsMarkup(item,history,popularityLoaded?(popularity.get(String(item.id))||0):null);}catch(error){if(current()&&dialog.isConnected)dialog.querySelector('.details').textContent=error.message;}
+  await renderInventoryDetails({api,projectId,item,container:dialog.querySelector('.details'),isCurrent:()=>current()&&dialog.isConnected,aliases:settings.aliases,popularityCount:popularityLoaded?(popularity.get(String(item.id))||0):null,popularityCached});
  };
  const draw=()=>{
-  const filtered=filterProducts(sortPinnedRows(rows,{...financeState,inventoryPinnedIds:[...pinned]}),search.value,category.value),visible=visibleInventoryRows(filtered,visibleLimit);
-  summary.innerHTML=`<div class="metrics panel inventory-summary-card" role="button" tabindex="0" aria-label="البضاعة بسعر الشراء، اضغط لعرض الإحصائيات">
-   <span>عدد الأصناف<br><b>${totals.items}</b></span>
-   <span>قيمة الشراء<br><b>${money(totals.purchaseValue)}</b></span>
-   <span>الربح المتوقع<br><b>${money(totals.expectedProfit)}</b></span>
-  </div>`;
-  list.innerHTML=visible.map(item=>productCard(item,popularity.get(String(item.id))||0,pinned.has(String(item.id)),mode)).join('')||'<div class="panel"><p class="muted">لا توجد أصناف مطابقة.</p></div>';
-  if(filtered.length>visible.length){const more=document.createElement('button');more.type='button';more.className='outline';more.dataset.inventoryMore='true';more.textContent=`عرض المزيد من الأصناف (${filtered.length-visible.length})`;more.onclick=()=>{const top=container.scrollTop;visibleLimit+=20;draw();container.scrollTop=top;};list.append(more);}
+  const filtered=filterProducts(sortPinnedRows(rows,{...financeState,inventoryPinnedIds:[...pinned]}),search.value,selectedCategory),visible=visibleInventoryRows(filtered,view.getState().visibleLimit);
+  renderInventorySummary(summary,totals);
+  list.innerHTML=visible.map(item=>inventoryCardMarkup(item,{aliases:settings.aliases,popularity:popularityLoaded?(popularity.get(String(item.id))||0):null,pinned:pinned.has(String(item.id)),mode})).join('')||'<p class="muted">'+(search.value.trim()?'لا توجد أصناف مطابقة للبحث.':'لا توجد أصناف في هذا التصنيف.')+'</p>';
+  if(filtered.length>visible.length){const more=document.createElement('button');more.type='button';more.className='outline';more.dataset.inventoryMore='true';more.textContent=`عرض المزيد من الأصناف (${filtered.length-visible.length})`;more.onclick=()=>{if(!current())return;const top=window.scrollY;view.dispatch({type:'more'});draw();window.scrollTo({top,behavior:'instant'});};list.append(more);}
  };
- const showStatistics=()=>{const dialog=document.createElement('dialog');dialog.dataset.inventoryStatistics='true';dialog.innerHTML='<h2>إحصائيات البضاعة</h2><div class="panel"><p>البضاعة بسعر الشراء<br><b data-purchase-total></b></p><p>قيمة البيع المتوقعة<br><b data-sale-total></b></p><p>الربح المتوقع<br><b data-profit-total></b></p></div><button data-close class="primary">إغلاق</button>';container.append(dialog);dialog.showModal();dialog.querySelector('[data-purchase-total]').textContent=money(totals.purchaseValue);dialog.querySelector('[data-sale-total]').textContent=money(totals.saleValue);dialog.querySelector('[data-profit-total]').textContent=money(totals.expectedProfit);dialog.querySelector('[data-close]').onclick=()=>dialog.remove();dialog.addEventListener('cancel',event=>{event.preventDefault();dialog.remove();});};
- summary.onclick=showStatistics;summary.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();showStatistics();}};
+ const showStatistics=()=>openInventoryStatistics({container,totals,isCurrent:current});
+ summary.onclick=showStatistics;
  // Delegate list clicks once; filtering does not rebuild event handlers.
  list.addEventListener('click',event=>{
   const pin=event.target.closest('[data-pin-id]');
@@ -111,9 +119,18 @@ async function renderCurrentInventory({api,projectId,container,isCurrent,mode,on
   const button=event.target.closest('[data-product-id]');
   if(button&&list.contains(button))openDetails(productsById.get(button.dataset.productId));
  });
- search.oninput=()=>{visibleLimit=20;draw();};
- category.onchange=()=>{visibleLimit=20;draw();};
- container.querySelector('[data-add-product]')?.addEventListener('click',()=>editProduct(null));
+ search.oninput=()=>{if(!current())return;view.dispatch({type:'query',value:search.value});draw();};
+ search.onkeydown=event=>{if(event.key==='Enter'&&current()){event.preventDefault();search.blur();}};
+ selectedCategory=renderInventoryCategoryBar({container:categoryBar,categories,aliases:settings.aliases,selected:selectedCategory,isCurrent:current,onSelect:value=>{selectedCategory=value;view.dispatch({type:'category',value});draw();}});
+ view.dispatch({type:'restore-category',value:selectedCategory});
+ categoryBar.scrollLeft=view.getState().categoryScroll;
+ categoryBar.onscroll=()=>{if(current())view.dispatch({type:'scroll',value:categoryBar.scrollLeft});};
+ container.querySelector('[data-add-product]')?.addEventListener('click',()=>openInventoryProductEntry({...editorOptions(null),entryMode:'manual'}));
+ container.querySelector('[data-scan-add-product]')?.addEventListener('click',()=>openInventoryProductEntry({...editorOptions(null),entryMode:'scan'}));
  draw();
- loadInventoryPopularity(api,projectId).then(counts=>{if(!current())return;popularity=counts;popularityLoaded=true;draw();}).catch(()=>{});
+ refreshInventoryPopularity(api,projectId).then(result=>{
+  if(!current()||result.counts===null)return;
+  popularity=result.counts;popularityLoaded=true;popularityCached=result.cached;draw();
+  if(detailsDialog?.isConnected){const item=productsById.get(detailsDialog.dataset.productDetailsId);if(item)updateInventoryPopularity(detailsDialog.querySelector('.details'),item,popularity.get(String(item.id))||0,Date.now(),popularityCached);}
+ }).catch(()=>{});
 }

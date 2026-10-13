@@ -10,6 +10,7 @@ export function validateSaleDraft(draft,projectId){
  }
  if(draft.customer!==null&&(!draft.customer||typeof draft.customer.id!=='string'||!draft.customer.id||typeof draft.customer.name!=='string'||typeof draft.customer.phone!=='string'))throw new Error('بيانات زبون المسودة غير صالحة');
  if(draft.accountId!==null&&(typeof draft.accountId!=='string'||!draft.accountId))throw new Error('حساب المسودة غير صالح');
+ if(draft.customerInput!==undefined&&draft.customerInput!==null){const input=draft.customerInput;if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length!==2||!Object.hasOwn(input,'name')||!Object.hasOwn(input,'phone')||typeof input.name!=='string'||input.name.length>120||typeof input.phone!=='string'||input.phone.length>64)throw new Error('بيانات الزبون المدخلة في المسودة غير صالحة');}
  salePriceTotals(draft.cart);return JSON.parse(JSON.stringify(draft));
 }
 export function readSaleDrafts(storage,projectId){

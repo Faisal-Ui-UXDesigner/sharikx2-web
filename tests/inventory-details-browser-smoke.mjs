@@ -1,0 +1,43 @@
+import {createRequire} from 'node:module';import assert from 'node:assert/strict';import {fileURLToPath} from 'node:url';import {startPreviewServer} from '../scripts/preview-server.mjs';
+const require=createRequire(import.meta.url),{chromium}=require('C:/Users/HP/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const browser=await chromium.launch({headless:true,channel:'msedge'}),preview=await startPreviewServer({root:fileURLToPath(new URL('..',import.meta.url))});
+try{
+ const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/*',route=>new URL(route.request().url()).origin===preview.origin?route.continue():route.abort());
+ await page.goto(preview.origin+'/styles.css');await page.setContent('<html dir="rtl"><head><link rel="stylesheet" href="/styles.css"></head><body><main id="fixture"></main></body></html>');
+ await page.evaluate(async()=>{
+  const {renderInventory}=await import('/inventory-ui.js');window.active=true;window.reads=0;window.writes=0;window.hold=true;
+  window.row={id:'a',project_id:'p',name:'<svg> سكر',category:'مواد',notes:'<img> ملاحظة',purchase_unit:'علبة',pieces_per_purchase_unit:3,quantity_pieces:3,weighted_unit_cost:.12345,default_sale_price:.15,low_stock_level:6};window.original=JSON.stringify(row);
+  window.api={allRows:async(table)=>table==='products'?[structuredClone(row)]:[],financeState:async()=>({state:{inventoryCategoryNames:[{key:'مواد',name:'تموين'}]},revision:1}),productPurchaseHistory:async()=>{reads++;if(hold)return new Promise(resolve=>window.release=resolve);if(window.fail)throw Error('تعذر تحميل السجل التجريبي');return [{product_id:'a',quantity_pieces:.3,unit_cost:.12345,line_total:.04,purchase:{project_id:'p',purchased_at:'2026-10-13T10:00:00Z',supplier:{name:'<svg> المورد'}}}];},archiveProduct:async()=>{writes++;if(window.holdArchive)return new Promise(resolve=>window.finishArchive=resolve);return {id:'a',active:false};},saveFinanceState:async()=>{writes++;throw Error('forbidden');}};
+  window.show=mode=>renderInventory({api,projectId:'p',container:document.querySelector('#fixture'),isCurrent:()=>active,mode});await show('viewer');
+ });
+ await page.locator('[data-product-id="a"]').click();await page.locator('[data-product-information]').waitFor();
+ assert.match(await page.locator('[data-product-information]').innerText(),/تموين/);
+ assert.match(await page.locator('[data-product-information]').innerText(),/0.3704/);
+ assert.equal(await page.locator('dialog svg,dialog img').count(),0);
+ assert.equal(await page.locator('dialog [data-edit],dialog [data-archive]').count(),0);
+ assert.match(await page.locator('[data-product-purchases]').innerText(),/جاري تحميل/);
+ await page.evaluate(()=>document.querySelector('[data-product-id]').click());assert.equal(await page.locator('dialog').count(),1);assert.equal(await page.evaluate(()=>reads),1);
+ await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').count(),0);
+ await page.evaluate(()=>{window.release([]);window.hold=false;window.fail=true;});
+ await page.locator('[data-product-id="a"]').click();await page.locator('[data-purchase-history-retry]').waitFor();
+ const information=await page.locator('[data-product-information]').innerText();assert.match(information,/تكلفة الشراء الحالية/);
+ await page.evaluate(()=>window.fail=false);await page.locator('[data-purchase-history-retry]').click();await page.getByText('المورد: <svg> المورد').waitFor();
+ assert.equal(await page.locator('[data-product-information]').innerText(),information);
+ assert.match(await page.locator('[data-product-purchases]').innerText(),/0.1235/);
+ assert.match(await page.locator('[data-product-purchases]').innerText(),/الكمية المشتراة/);
+ assert.match(await page.locator('[data-product-purchases]').innerText(),/إجمالي الصنف/);
+ assert.equal(await page.locator('dialog svg').count(),0);assert.equal(await page.evaluate(()=>writes),0);
+ assert.equal(await page.evaluate(()=>JSON.stringify(row)===original),true);
+ await page.locator('dialog [data-close]').click();await page.evaluate(()=>{window.hold=true;});await page.locator('[data-product-id="a"]').click();await page.waitForFunction(()=>window.release);
+ await page.locator('[data-inventory-tab="history"]').evaluate(button=>button.click());await page.evaluate(()=>window.release([]));assert.equal(await page.locator('dialog').count(),0);
+ await page.evaluate(async()=>{window.hold=false;window.row.quantity_pieces=0;await show('owner');window.holdArchive=true;window.confirm=()=>true;});
+ await page.locator('[data-product-id="a"]').click();await page.locator('dialog [data-archive]').click();await page.waitForFunction(()=>window.finishArchive);
+ assert.equal(await page.locator('dialog .actions button:disabled').count(),3);await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').count(),1);
+ await page.evaluate(()=>document.querySelector('dialog [data-archive]').click());assert.equal(await page.evaluate(()=>writes),1);
+ await page.evaluate(()=>window.finishArchive({id:'a',active:false}));await page.waitForFunction(()=>!document.querySelector('dialog'));
+ assert.equal(await page.locator('[data-product-id]').count(),0);
+ assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
+ console.log('PASS: immediate precise product details/alias/safe notes with held history, independent error/retry, native purchase rows/four-decimal cost, duplicate/closed/stale read guards, viewer no writes, busy archive Escape/duplicate protection and mobile RTL');
+}finally{await browser.close();await preview.close();}

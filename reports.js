@@ -1,5 +1,8 @@
 // Android references: ReportPeriod, ReportSummaryData, ReportDetailsModel, ReportDebtRules.
 // Android arithmetic, with confirmed server operations reconciled into its input arrays.
+import {decimalSum} from './decimal-sum.js';
+import {auditInstant} from './date-display.js';
+import {palestineDate} from './financial.js';
 const array = value => Array.isArray(value) ? value.filter(row => row && typeof row === 'object') : [];
 const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 export const REPORT_TYPES = ['الجميع', 'متفرقات', 'المشتريات', 'المبيعات'];
@@ -17,17 +20,17 @@ export function reportPeriod(start, end = start, range = false) {
 }
 
 export function reportSummary(sales = 0, purchases = 0, wages = 0, expenses = 0) {
-  return {sales, purchases, wages, expenses, net: sales - purchases - wages - expenses};
+  return {sales, purchases, wages, expenses, net: decimalSum([number(sales),-number(purchases),-number(wages),-number(expenses)])};
 }
 
 export function reportDebtTotals(sales, purchases, period) {
   // Android ReportDebtRules uses the first ten ISO characters of created_at.
   // Outstanding amounts on invoices in this period, not the entire project's debts.
-  const sum = (rows, excluded) => array(rows).reduce((total, row) => {
+  const sum = (rows, excluded) => decimalSum(array(rows).map(row => {
     const date = String(row.created_at || '').slice(0, 10);
-    if (excluded.includes(row.status) || date.length !== 10 || date < period.from || date > period.to) return total;
-    return total + Math.max(0, number(row.debt_amount));
-  }, 0);
+    if (excluded.includes(row.status) || date.length !== 10 || date < period.from || date > period.to) return 0;
+    return Math.max(0, number(row.debt_amount));
+  }));
   return {customer: sum(sales, ['pending', 'cancelled']),
     supplier: sum(purchases, ['draft', 'cancelled', 'returned'])};
 }
@@ -37,37 +40,41 @@ export function buildReport(state, period, type = 'الجميع') {
   const days = new Map();
   const day = date => {
     if (typeof date !== 'string' || date.length !== 10 || date < period.from || date > period.to) return null;
-    if (!days.has(date)) days.set(date, {date, ...reportSummary(), legacy: 0, totalExpenses: 0, expenseRows: []});
+    if (!days.has(date)) days.set(date, {date, sales:[],purchases:[],wages:[],expenses:[],legacy:[],totalExpenses:[],expenseRows:[]});
     return days.get(date);
   };
   for (const row of array(state?.revenues)) {
     const data = day(row.date);
-    if (data) data.sales += number(row.amount);
+    if (data) data.sales.push(number(row.amount));
   }
   for (const row of array(state?.entries)) {
     const data = day(row.date);
     if (!data) continue;
-    data.sales += number(row.revenue);
-    data.legacy += number(row.expenses);
-    data.expenses += number(row.expenses);
-    data.totalExpenses += number(row.expenses);
+    data.sales.push(number(row.revenue));
+    data.legacy.push(number(row.expenses));
+    data.expenses.push(number(row.expenses));
+    data.totalExpenses.push(number(row.expenses));
   }
   for (const row of array(state?.expenses)) {
     const data = day(row.date);
     if (!data) continue;
     const amount = number(row.amount), kind = row.type || 'مصروفات';
-    data.totalExpenses += amount;
-    if (kind === 'مشتريات') data.purchases += amount;
-    if (kind === 'يوميات') data.wages += amount;
-    if (kind === 'مصروفات') data.expenses += amount;
+    data.totalExpenses.push(amount);
+    if (kind === 'مشتريات') data.purchases.push(amount);
+    if (kind === 'يوميات') data.wages.push(amount);
+    if (kind === 'مصروفات') data.expenses.push(amount);
     data.expenseRows.push({...row, type: kind, amount});
   }
-  const summary = reportSummary();
+  const keys=['sales','purchases','wages','expenses'];
+  const totals=Object.fromEntries(keys.map(key=>[key,[]]));
   for (const data of days.values()) {
-    data.net = data.sales - data.purchases - data.wages - data.expenses;
-    for (const key of ['sales', 'purchases', 'wages', 'expenses']) summary[key] += data[key];
+    for(const key of [...keys,'legacy','totalExpenses']){
+      if(Object.hasOwn(totals,key))for(const value of data[key])totals[key].push(value);
+      data[key]=decimalSum(data[key]);
+    }
+    data.net = reportSummary(data.sales,data.purchases,data.wages,data.expenses).net;
   }
-  summary.net = summary.sales - summary.purchases - summary.wages - summary.expenses;
+  const summary=reportSummary(...keys.map(key=>decimalSum(totals[key])));
   const details = [...days.values()].sort((a, b) => b.date.localeCompare(a.date)).filter(data => {
     if (type === 'المبيعات') return data.sales !== 0;
     if (type === 'المشتريات') return data.purchases !== 0;
@@ -98,13 +105,9 @@ export function buildReport(state, period, type = 'الجميع') {
 }
 
 export function operationDate(value) {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return value;
-  const date = new Date(value || '');
-  if (!Number.isFinite(date.getTime())) throw new Error('تعذر قراءة تاريخ إحدى العمليات');
-  const parts = new Intl.DateTimeFormat('en', {timeZone:'Asia/Hebron',
-    year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
-  const part = kind => parts.find(p => p.type === kind).value;
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  const instant=auditInstant(value);
+  if(instant===null)throw new Error('تعذر قراءة تاريخ إحدى العمليات');
+  return palestineDate(instant);
 }
 
 export function reconcileReportState(state, sales, expenses) {
@@ -136,7 +139,7 @@ export function reconcileReportState(state, sales, expenses) {
     const type = ['daily_wage','daily_wages'].includes(row.category) ? 'يوميات' : 'مصروفات';
     localExpenses.push({id:row.id,sharikx2ExpenseId:row.id,
       date:operationDate(row.occurred_at || row.created_at),amount:number(row.amount),
-      type,description:row.description || ''});
+      type,description:row.description || '',...(Object.hasOwn(row,'receipt_path')?{receipt_path:row.receipt_path}:{})});
   }
   // Inventory purchase invoices are not miscellaneous expenses. Preserve explicit
   // legacy purchase entries; never append invoice totals as another cash expense.

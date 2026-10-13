@@ -1,4 +1,4 @@
-import {saleUnitPrice,salePriceTotals} from './sale-pricing.js';
+import {saleUnitPrice,salePriceTotals,saleDiscountedTotal} from './sale-pricing.js';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function validatePendingSale(saved,projectId){
  const invalid=()=>{throw new Error('تعذر قراءة طلب المبيعة السابقة. تحقق من السجل قبل إنشاء بديل.');};
@@ -20,7 +20,7 @@ export function saleExpectedTotal(payload){
  const discount=payload.p_discount;if(typeof discount!=='number'||!Number.isFinite(discount)||discount<0)throw new Error('خصم الطلب غير صالح');
  const subtotal=salePriceTotals(payload.p_items.map(item=>({price:item.unit_sale_price,quantity:item.quantity}))).serverSubtotal;
  if(discount>subtotal)throw new Error('خصم الطلب أكبر من الإجمالي');
- return Math.round((subtotal-discount+Number.EPSILON)*100)/100;
+ return saleDiscountedTotal(subtotal,discount);
 }
 export function confirmSaleResult(result,payload){
  const expected=saleExpectedTotal(payload),value=result?.total;

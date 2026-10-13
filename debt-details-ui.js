@@ -40,7 +40,7 @@ export async function openDebtDetails({api,container,projectId,kind,person,mode,
         };
       }
       const edit=document.createElement('button');edit.type='button';edit.dataset.detailsEditCustomer='';edit.textContent='تعديل بيانات الزبون';dialog.querySelector('.actions').prepend(edit);
-      edit.onclick=()=>{if(current())openCustomerEditor({api,projectId,customer:person,mode,isCurrent:current,onSaved:()=>{dialog.remove();onSaved?.();}});};
+      edit.onclick=()=>{if(current())openCustomerEditor({api,projectId,customer:person,mode,storage,isCurrent:current,onSaved:()=>{dialog.remove();onSaved?.();}});};
     }
     if(mode==='owner'&&Number(person.calculated_debt)>0.009&&onCollect&&(!supplier||person.active!==false)){
       const collect=document.createElement('button');collect.type='button';collect.dataset.detailsCollect='';collect.textContent='تسديد دفعة';dialog.querySelector('.actions').prepend(collect);

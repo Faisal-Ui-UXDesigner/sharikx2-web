@@ -1,4 +1,5 @@
 import {activePartnerShares,roundPartnerShares} from './partner-shares.js';
+import {normalizePartnerSnapshot} from './financial.js';
 export function retentionPayload(share,cap){
  const percentage=Number(share),limit=Number(cap);
  if((typeof share!=='number'&&typeof share!=='string')||String(share).trim()===''||!Number.isFinite(percentage)||percentage<0||percentage>100)throw new Error('أدخل نسبة بين 0 و100');
@@ -6,6 +7,7 @@ export function retentionPayload(share,cap){
  return {share:Math.round(percentage*10)/10,cap:limit};
 }
 export function updateRetentionState(snapshot,share,cap){
+ normalizePartnerSnapshot(snapshot);
  const state=snapshot?.state;if(!state||typeof state!=='object'||Array.isArray(state))throw new Error('بيانات المشروع غير متاحة');
  const settings=retentionPayload(share,cap),{active,total}=activePartnerShares(state.partners),target=(1000-Math.round(settings.share*10))/10,delta=(target-total)/active.length;
  let assigned=0;

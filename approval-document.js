@@ -1,0 +1,46 @@
+import {escape} from './ui.js';
+import {currencyCode,currencySymbol} from './currency.js';
+import {partnerCashDate,partnerCashNumber} from './partner-cash-input.js';
+import {partnerDecimalSum as sum} from './partner-history.js';
+
+export function approvalDocumentTime(now=new Date()){
+ if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw new Error('وقت إنشاء التقرير غير صالح');
+ const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Hebron',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now).map(row=>[row.type,row.value]));
+ return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+}
+function text(value){if(typeof value!=='string')throw new Error('بيانات التقرير النصية غير صالحة');return escape(value);}
+function time(value){if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2} (?:[01]\d|2[0-3]):[0-5]\d$/.test(value)||!partnerCashDate(value.slice(0,10)))throw new Error('وقت إنشاء التقرير غير صالح');return value;}
+function table(title,headers,rows){
+ return `<section><h2>${text(title)}</h2><div class="table-wrap"><table><thead><tr>${headers.map(label=>`<th scope="col">${text(label)}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(row=>`<tr>${row.map(cell=>`<td${cell.numeric?` class="number" data-value="${cell.raw}"`:''}>${cell.html}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${headers.length}">لا توجد سجلات في هذه المعاينة.</td></tr>`}</tbody></table></div></section>`;
+}
+
+// Standalone, scriptless draft from one captured preview. Never performs reads,
+// approval, reconciliation, or currency conversion during document generation.
+export function approvalDocument(preview,{projectName,currency='ILS',generatedAt=approvalDocumentTime()}={}){
+ const name=typeof projectName==='string'&&projectName.trim()?projectName.trim():'مشروع SharikX2';
+ if(!partnerCashDate(preview?.period?.start)||!partnerCashDate(preview?.period?.end)||preview.period.start>preview.period.end||!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(preview.month)||preview.financials?.approved!==false||!preview.inventory||!preview.outcome)throw new Error('معاينة التقرير غير مكتملة أو مثبتة');
+ generatedAt=time(generatedAt);const symbol=currencySymbol(currencyCode(currency)),f=preview.financials,r=preview.report,o=preview.outcome;
+ const s=value=>({html:text(value??'')}),n=(value,decimals=2,suffix=symbol)=>{value=partnerCashNumber(value);return {numeric:true,raw:String(value),html:escape(new Intl.NumberFormat('ar-u-nu-latn',{maximumFractionDigits:decimals}).format(value)+(suffix?' '+suffix:''))};};
+ const amounts=(title,rows)=>table(title,['البند','القيمة'],rows.map(([label,value])=>[s(label),n(value)]));
+ const current=new Map(o.partners.map(row=>[row.id,row]));
+ const d=value=>({html:`<bdi dir="ltr">${text(value??'')}</bdi>`});
+ const sections=[
+  table('المبلغ المتروك للمشروع',['البند','القيمة'],[[s('نسبة المشروع'),n(preview.retention.share,1,'%')],[s('سقف المبلغ المتروك'),n(preview.retention.cap)],[s('المتروك في الفترات السابقة'),n(f.cumulativeReinvestment)]]),
+  amounts('ملخص الفترة', [['مبيعات الفترة',r.totals.revenue],['إجمالي المصاريف',r.totals.expenses],['صافي الحركات وليس الربح المعتمد',r.totals.net],['مشتريات',r.totals.purchases],['يوميات',r.totals.wages],['مصروفات تشغيلية',r.totals.operating],['مصروفات قديمة',r.totals.legacy],['مصروفات أخرى',r.totals.other]]),
+  amounts('السيولة وحماية رأس المال', [['الموجودات قبل تسوية الذمم',f.projectAssets],['المبلغ المحمي قبل التثبيت',f.protectedBefore],['المبلغ المحمي بعد التثبيت',f.protectedAfter],['النقص المطلوب تغطيته',f.deficit],['الفائض',f.surplus],['المعوض من الأرباح السابقة',f.absorbedPriorProfit],['إعادة تخصيص أرباح سابقة',f.reallocatedPriorProfit],['المبلغ المتروك للمشروع',f.reinvestmentAmount],['ربح الفترة القابل للتوزيع',f.distributableProfit],['ربح غير مخصص لشريك',preview.allocation.unallocated],['التعويض الموزع فعليًا في المحاكاة',o.absorbedAssigned],['تعويض غير موزع',o.absorbedUnassigned],['المتاح النهائي للشركاء',o.totalAvailable]]),
+  table('الشركاء',['الشريك','رأس المال','نسبة الربح','ربح سابق','ربح الفترة','مسحوب خلال الفترة','تسوية متوقعة','تعويض أرباح سابقة','المتاح النهائي'],r.partnerReport.partners.map(row=>{const end=current.get(row.id);if(!end)throw new Error('أرصدة التقرير غير مكتملة');return [s(row.name),n(row.capital),n(row.share,1,'%'),n(row.priorGrossProfit),n(row.newProfit),n(row.withdrawnInPeriod),n(end.settled),n(end.absorbed),n(end.available)];})),
+  table('حصص شركاء غير حاليين',['الشريك','حصة الفترة'],r.partnerReport.historical.map(row=>[s(row.name),n(row.profit)])),
+  table('الأرصدة النهائية المتوقعة',['الشريك','سحوبات مسجلة لكل الفترات','أصل ذمم مسدد لكل الفترات','الربح غير المسحوب','الذمة المتبقية','المتاح النهائي'],o.partners.map(row=>[s(row.name),n(row.withdrawn),n(row.settledDebt),n(row.unwithdrawnProfit),n(row.outstandingDebt),n(row.available)])),
+  table('التسويات المتوقعة للذمم',['الشريك','الوصف','مسدد قبل المعاينة','تسوية متوقعة','المتبقي'],r.settlements.map(row=>[s(row.name),s(row.description),n(row.settledBefore),n(row.settlement),n(row.remainingDebt)])),
+  table('البضاعة الحالية',['الصنف','الوحدة','الكمية','سعر الشراء','سعر البيع المتوقع','قيمة الشراء','قيمة البيع','الربح المتوقع','آخر تحديث'],preview.inventory.items.map(row=>[s(row.name),s(row.unit),n(row.quantity,2,''),n(row.purchasePrice,4),n(row.salePrice,4),n(row.purchaseValue),n(row.saleValue),n(row.expectedProfit),d(row.updatedAt)])),
+  amounts('إجمالي البضاعة الحالية',[['قيمة الشراء',preview.inventory.totals.purchaseValue],['قيمة البيع المتوقع',preview.inventory.totals.saleValue],['الربح المتوقع وليس نقدًا متاحًا',preview.inventory.totals.expectedProfit]]),
+  table('التفاصيل اليومية',['التاريخ','المبيعات','المشتريات','اليوميات','التشغيلية','القديمة والأخرى','إجمالي المصاريف','فرق اليوم'],r.days.map(row=>[d(row.date),n(row.revenue),n(row.purchases),n(row.wages),n(row.operating),n(sum([row.legacy,row.other])),n(row.expenses),n(row.net)])),
+  table('سجل المصاريف',['التاريخ','النوع','الوصف','المبلغ','فاتورة مرفقة','المصدر'],[...r.ledgers.expenses,...r.ledgers.legacy].map(row=>[d(row.date),s(row.type),s(row.description),n(row.amount),s(({present:'نعم',absent:'لا',unknown:'غير متحقق'})[row.attachment]),s(({confirmed:'عملية مؤكدة',finance_state:'بيانات المشروع',legacy:'سجل قديم'})[row.source])])),
+  table('المسحوبات والتسويات المسجلة',['التاريخ','الشريك','نوع الحركة','المبلغ','الوصف'],[...r.ledgers.withdrawals,...r.ledgers.settlements].map(row=>[d(row.date),s(row.name),s(row.type==='withdrawal'?'سحب نقدي':'تسوية ذمة من الربح'),n(row.amount),s(row.description)])),
+  amounts('إجماليات السجل دون جمع التسوية مع النقد',[['سحوبات نقدية مسجلة',r.ledgers.totals.cashWithdrawn],['تسويات ذمم مسجلة',r.ledgers.totals.debtSettled]]),
+  amounts('مصدر الموجودات',r.sources.map(row=>[row.label,row.value]))
+ ];
+ const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>${text(name)} — معاينة غير مثبتة</title><style>body{font:14px Tahoma,Arial,sans-serif;color:#182534;background:#fff;margin:24px;line-height:1.6}h1{font-size:24px}h2{font-size:18px;margin:24px 0 8px}p{margin:8px 0}.warning{border:2px solid #9a4e00;padding:12px;background:#fff5e8}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #bcc7d0;padding:8px;text-align:right;overflow-wrap:anywhere;vertical-align:top}th{background:#e9eff5}td.number{direction:ltr;text-align:left;font-variant-numeric:tabular-nums}thead{display:table-header-group}tr{break-inside:avoid}@page{size:A4 landscape;margin:12mm}@media print{body{margin:0;font-size:11px}table{table-layout:fixed;font-size:12px}.table-wrap{overflow:visible}th,td{padding:5px}h2{break-after:avoid}.warning{background:white}h1{font-size:20px}}</style></head><body><h1>${text(name)}</h1><p class="warning">معاينة غير مثبتة. لم يُحفظ اعتماد أو تُنفّذ تسوية أو حركة نقدية. هذا ليس ملف الاعتماد الرسمي للأندرويد.</p><p>الفترة: <bdi dir="ltr">${text(preview.period.start)}</bdi> إلى <bdi dir="ltr">${text(preview.period.end)}</bdi>. شهر الحساب: <bdi dir="ltr">${text(preview.month)}</bdi>.</p><p>وقت إنشاء النسخة: <bdi dir="ltr">${text(generatedAt)}</bdi> بتوقيت فلسطين. العملة: ${text(currencyCode(currency))}.</p><p>النسخة مبنية على القراءات الملتقطة عند فتح المعاينة، وليست لقطة ذرّية واحدة. المخزون هو المخزون الحالي، وليس إعادة بناء لمخزون نهاية الفترة. تنسيق الأرقام لا يغير القيم الحسابية.</p>${sections.join('')}<footer><p>تسوية الذمة لا تخصم النقد مرة ثانية. التفاصيل اليومية تشمل جميع المصاريف القديمة والأخرى. التسويات المتوقعة تعرض الذمم التي تدخل خطة التسوية فقط، وليس كامل أرشيف الذمم.</p><p>تنزيل هذه النسخة لا يحفظ الحسابات ولا يثبت صلاحية السحب أو توافر السيولة. بيانات المشروع الواردة حساسة؛ شاركها فقط مع الأشخاص المخولين.</p></footer></body></html>`;
+ const safeName=name.replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g,'_').replace(/[. ]+$/,'').slice(0,80)||'SharikX2';
+ return Object.freeze({html,filename:`${safeName}_${preview.period.start}_${preview.period.end}_preview.html`,generatedAt});
+}

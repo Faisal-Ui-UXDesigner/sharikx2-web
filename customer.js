@@ -1,6 +1,6 @@
 import {customerInput,customerCreatePayload,requireCreatedCustomer,customerJournal,clearCustomerJournal} from './customer-contract.js';
 export {customerInput} from './customer-contract.js';
-export function openCustomer({api,projectId,onSaved,onClose,mode='owner',storage,isCurrent=()=>true}){
+export function openCustomer({api,projectId,onSaved,onClose,initialValues=null,mode='owner',storage,isCurrent=()=>true}){
  if(mode!=='owner')throw new Error('المشروع للمشاهدة فقط');
  if(!isCurrent())return;
  if(document.querySelector('dialog.customer-create'))return;
@@ -10,6 +10,7 @@ export function openCustomer({api,projectId,onSaved,onClose,mode='owner',storage
  const dialog=document.createElement('dialog');dialog.className='customer-create';dialog.innerHTML='<h2>إضافة زبون</h2><form><fieldset><label>اسم الزبون<input name="name" required minlength="2" maxlength="120" autocomplete="name"></label><label>رقم الجوال<input name="phone" type="tel" inputmode="numeric" required maxlength="64" autocomplete="tel"></label></fieldset><p role="alert"></p><p class="muted small" data-customer-recovery></p><div class="actions"><button class="primary" type="submit">حفظ الزبون</button><button type="button" data-close>إلغاء</button></div></form>';document.body.append(dialog);dialog.showModal();
  const form=dialog.querySelector('form'),fields=form.querySelector('fieldset'),save=form.querySelector('[type=submit]'),close=form.querySelector('[data-close]'),error=form.querySelector('[role=alert]'),note=form.querySelector('[data-customer-recovery]');
  const current=()=>dialog.isConnected&&isCurrent();
+ if(initialValues){form.elements.name.value=String(initialValues.name||'');form.elements.phone.value=String(initialValues.phone||'');}
  let observer,ended=false;
  const remove=()=>{if(ended)return;ended=true;observer?.disconnect();dialog.remove();onClose?.();};
  const closeDialog=()=>{if(!busy)remove();};close.onclick=closeDialog;dialog.oncancel=event=>{event.preventDefault();closeDialog();};dialog.onclose=remove;

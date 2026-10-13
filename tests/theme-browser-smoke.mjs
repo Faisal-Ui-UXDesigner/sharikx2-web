@@ -14,7 +14,7 @@ try{
  // Android's default is dark even when the operating system prefers light.
  assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(8, 11, 23)');
  await page.evaluate(async()=>{
-  const {Api}=await import('/api.js');Api.prototype.restore=async()=>({id:'project',name:'مشروع اختبار',currency:'JOD'});Api.prototype.join=Api.prototype.restore;Api.prototype.rows=async()=>[];
+  const {Api}=await import('/api.js');Api.prototype.restore=async()=>({id:'11111111-1111-4111-8111-111111111111',name:'مشروع اختبار',currency:'JOD'});Api.prototype.join=Api.prototype.restore;Api.prototype.rows=async()=>[];
  });
  await page.locator('[data-login]').click();await page.locator('[name=phone]').fill('0591234567');await page.locator('[name=password]').fill('1234');await page.locator('form button').click();
  await page.locator('[data-menu]').click();await page.locator('[data-go=settings]').click();
@@ -40,7 +40,7 @@ try{
  await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
  assert.equal(await page.locator('[data-login]').count(),1);
  // Viewer can change device appearance, without currency write controls.
- await page.evaluate(async()=>{const {Api}=await import('/api.js');Api.prototype.join=async()=>({id:'project',name:'مشاهدة',currency:'ILS'});Api.prototype.rows=async()=>[];});
+ await page.evaluate(async()=>{const {Api}=await import('/api.js');Api.prototype.join=async()=>({id:'11111111-1111-4111-8111-111111111111',name:'مشاهدة',currency:'ILS'});Api.prototype.rows=async()=>[];});
  await page.locator('[data-viewer]').click();await page.locator('[name=pin]').fill('1234');await page.locator('form button').click();await page.locator('[data-menu]').click();await page.locator('[data-go=settings]').click();
  assert.equal(await page.locator('.currency-settings form').count(),0);await page.locator('[data-theme-mode=dark]').click();assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'dark');
  // Missing storage still permits appearance changes, with an honest persistence notice.

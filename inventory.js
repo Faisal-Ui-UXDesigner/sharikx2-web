@@ -1,14 +1,23 @@
+import {decimalSum,decimalProduct} from './decimal-sum.js';
+export const INVENTORY_PAGE_SIZE=40;
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 
 export function normalizeProduct(row={}){
  const piecesPerUnit=Math.max(1,number(row.pieces_per_purchase_unit||row.piecesPerPurchaseUnit||1));
- const pieces=Math.max(0,row.quantity_pieces!=null?number(row.quantity_pieces):number(row.quantity)*piecesPerUnit);
+ const pieces=Math.max(0,row.quantity_pieces!=null?number(row.quantity_pieces):decimalProduct(number(row.quantity),piecesPerUnit));
  const unit=row.purchase_unit||row.unit||row.base_unit||'قطعة';
  const cost=row.weighted_unit_cost!=null?number(row.weighted_unit_cost):row.purchasePrice!=null?number(row.purchasePrice)/piecesPerUnit:number(row.unit_cost);
  const salePrice=number(row.default_sale_price??row.expectedSalePrice)/((row.default_sale_price!=null)?1:piecesPerUnit);
- return {...row,displayUnit:unit,piecesPerUnit,pieces,quantity:pieces/piecesPerUnit,cost,salePrice,
+ const quantity=row.quantity_pieces==null?Math.max(0,number(row.quantity)):pieces/piecesPerUnit;
+ // Value legacy purchase units directly; division into pieces is for display only.
+ const valuationQuantity=row.quantity_pieces==null?Math.max(0,number(row.quantity)):quantity;
+ const purchaseValue=row.weighted_unit_cost!=null||row.purchasePrice==null?decimalProduct(pieces,cost):decimalProduct(valuationQuantity,number(row.purchasePrice));
+ const saleValue=row.default_sale_price!=null?decimalProduct(pieces,salePrice):decimalProduct(valuationQuantity,number(row.expectedSalePrice));
+ const purchaseUnitCost=row.weighted_unit_cost!=null||row.purchasePrice==null?decimalProduct(cost,piecesPerUnit):number(row.purchasePrice);
+ const saleUnitPrice=row.default_sale_price!=null?decimalProduct(salePrice,piecesPerUnit):number(row.expectedSalePrice);
+ return {...row,displayUnit:unit,piecesPerUnit,pieces,quantity,cost,salePrice,purchaseUnitCost,saleUnitPrice,
    lowStockQuantity:row.low_stock_level!=null?number(row.low_stock_level)/piecesPerUnit:number(row.lowStockLevel),
-   purchaseValue:pieces*cost,saleValue:pieces*salePrice,expectedProfit:pieces*(salePrice-cost)};
+   purchaseValue,saleValue,expectedProfit:decimalSum([saleValue,-purchaseValue])};
 }
 export function filterProducts(rows,query='',category='الكل'){
  const q=String(query||'').trim().toLocaleLowerCase();
@@ -19,18 +28,14 @@ export function filterProducts(rows,query='',category='الكل'){
  });
 }
 export function inventorySummary(rows){
- const totals={items:0,pieces:0,purchaseValue:0,saleValue:0,expectedProfit:0};
+ const terms={pieces:[],purchaseValue:[],saleValue:[],expectedProfit:[]};
  for(const row of rows){
   const item=normalizeProduct(row);
-  totals.items++;
-  totals.pieces+=item.pieces;
-  totals.purchaseValue+=item.purchaseValue;
-  totals.saleValue+=item.saleValue;
-  totals.expectedProfit+=item.expectedProfit;
+  for(const key of Object.keys(terms))terms[key].push(item[key]);
  }
- return totals;
+ return {items:rows.length,...Object.fromEntries(Object.entries(terms).map(([key,values])=>[key,decimalSum(values)]))};
 }
-export function visibleInventoryRows(rows,limit=20){const value=Math.max(0,Number(limit)||0);return (Array.isArray(rows)?rows:[]).slice(0,value);}
+export function visibleInventoryRows(rows,limit=INVENTORY_PAGE_SIZE){const value=Math.max(0,Number(limit)||0);return (Array.isArray(rows)?rows:[]).slice(0,value);}
 const historyTime=value=>{
  const time=Date.parse(value);
  return Number.isFinite(time)?time:Number.NEGATIVE_INFINITY;

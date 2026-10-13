@@ -1,9 +1,10 @@
 import {escape, money} from './ui.js';
 import {REPORT_TYPES, reportPeriod, loadReport} from './reports.js';
 import {hasActiveSubscription} from './subscription.js';
+import {palestineDate} from './financial.js';
 
 export function createReportState(now = new Date()) {
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const today = palestineDate(now);
   return {start: today, end: today, range: false, type: 'الجميع', expanded: new Set()};
 }
 

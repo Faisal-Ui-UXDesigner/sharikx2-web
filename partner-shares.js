@@ -16,6 +16,7 @@ export function activePartnerShares(partners){
  return {active,ids,total};
 }
 export function rebalancePartnerShares(partners,partnerId,value){
+ if(!['number','string'].includes(typeof value)||String(value).trim()==='')throw new Error('أدخل نسبة شريك صالحة');
  const {active,ids,total}=activePartnerShares(partners);
  const targetTotal=(1000-Math.round(Math.max(0,100-total)*10))/10,targetShare=Math.round(Number(value)*10)/10;
  if(!Number.isFinite(targetShare)||targetShare<0||targetShare>targetTotal+.0001)throw new Error(`نسبة الشريك يجب أن تكون بين 0 و${targetTotal}`);
@@ -32,4 +33,5 @@ export function partnerSaveRevision(snapshot){
 }
 export function partnerSaveResult(result,revision){if(!Number.isSafeInteger(result?.revision)||result.revision!==revision+1)throw new Error('تعذر تأكيد حفظ بيانات الشركاء');return result;}
 function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])]));return value;}
-export function partnerSaveMatches(snapshot,state,revision){return snapshot?.revision===revision+1&&JSON.stringify(canonical(snapshot.state))===JSON.stringify(canonical(state));}
+export function partnerSnapshotMatches(snapshot,state,revision){return snapshot?.revision===revision&&JSON.stringify(canonical(snapshot.state))===JSON.stringify(canonical(state));}
+export function partnerSaveMatches(snapshot,state,revision){return partnerSnapshotMatches(snapshot,state,revision+1);}

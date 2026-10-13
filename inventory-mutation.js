@@ -1,5 +1,10 @@
-import {escape} from './ui.js';
 import {openBarcodeScanner,normalizeBarcode} from './barcode-scanner.js';
+import {decimalProduct} from './decimal-sum.js';
+import {inventoryProductEntry,entryBarcode,inventoryUnitChoice,changeInventoryUnitChoice,selectedInventoryUnit,CUSTOM_INVENTORY_UNIT,INVENTORY_UNITS} from './inventory-product-entry.js';
+import {inventoryProductForm} from './inventory-product-form.js';
+import {inventoryCategoryChoice,changeInventoryCategoryChoice,selectedInventoryCategory,inventoryChoiceRows} from './inventory-choice.js';
+import {openInventoryChoice} from './inventory-choice-ui.js';
+const editors=new WeakMap();
 export function productPayload(projectId,values,{id=null}={}){
  const name=String(values.name||'').trim(),barcode=String(values.barcode||'').trim(),category=String(values.category||'').trim(),unit=String(values.unit||'').trim();
  const pieces=Number(values.piecesPerUnit),sale=Number(values.salePrice),low=Number(values.lowStock||0);
@@ -7,10 +12,11 @@ export function productPayload(projectId,values,{id=null}={}){
  if(!barcode)throw new Error('أدخل باركود الصنف');
  if(!category)throw new Error('أدخل تصنيف الصنف');
  if(!unit)throw new Error('أدخل وحدة الصنف');
- if(!Number.isInteger(pieces)||pieces<1)throw new Error('عدد القطع داخل الوحدة غير صحيح');
+ if(!Number.isFinite(pieces)||pieces<1)throw new Error('عدد القطع داخل الوحدة غير صحيح');
  if(!Number.isFinite(sale)||sale<=0)throw new Error('أدخل سعر البيع المتوقع');
  if(!Number.isFinite(low)||low<0)throw new Error('حد التنبيه غير صحيح');
- const payload={name,barcode,category,base_unit:'قطعة',purchase_unit:unit,pieces_per_purchase_unit:pieces,default_sale_price:sale/pieces,low_stock_level:low*pieces,notes:String(values.notes||'').trim()};
+ const pieceSalePrice=sale/pieces;if(!Number.isFinite(pieceSalePrice)||pieceSalePrice<=0)throw new Error('سعر البيع المحوّل غير صالح');
+ const payload={name,barcode,category,base_unit:'قطعة',purchase_unit:unit,pieces_per_purchase_unit:pieces,default_sale_price:pieceSalePrice,low_stock_level:decimalProduct(low,pieces),notes:String(values.notes||'').trim()};
  if(!id)payload.project_id=projectId;
  return payload;
 }
@@ -30,50 +36,80 @@ export function productEditorValues(product){
  return {
   name:product.name,barcode:product.barcode,category:product.category,
   unit:product.displayUnit,piecesPerUnit:product.piecesPerUnit,
-  salePrice:Number(product.salePrice)*Number(product.piecesPerUnit||1),
+  salePrice:product.saleUnitPrice??Number(product.salePrice)*Number(product.piecesPerUnit||1),
   lowStock:Number(product.lowStockQuantity||0),notes:product.notes
  };
 }
 
-export function openProductEditor({api,projectId,mode,product=null,rows=[],onSaved,isCurrent=()=>true,categoryOptions=[],categoryLabels={}}){
+export function openProductEditor({api,projectId,mode,product=null,rows=[],onSaved,isCurrent=()=>true,categoryOptions=[],categoryLabels={},container=null,entryMode='manual',initialBarcode='',authorizeCreate=()=>true}){
  if(mode!=='owner')throw new Error('المشروع للمشاهدة فقط');
+ container??=document.body;
+ if(!isCurrent()||!container.isConnected)return null;
+ const existing=editors.get(container);if(existing?.isConnected){existing.focus();return existing;}
+ const entry=inventoryProductEntry({product,entryMode,barcode:initialBarcode});
  const d=document.createElement('dialog');d.className='inventory-editor';
- const categoryMarkup=categoryOptions.length?'<select name="category" required><option value="" disabled>اختر التصنيف</option>'+categoryOptions.map(value=>`<option value="${escape(value)}">${escape(categoryLabels[value]||value)}</option>`).join('')+'</select>':'<input name="category" required maxlength="100">';
- d.innerHTML='<h2>'+(product?'تعديل الصنف':'إضافة صنف')+'</h2><form><fieldset><label>اسم الصنف<input name="name" required maxlength="150"></label><label>الباركود<div class="input-pair"><input name="barcode" required maxlength="100" inputmode="numeric"><button type="button" data-camera-scan class="outline">مسح</button></div></label><label>التصنيف'+categoryMarkup+'</label><label>وحدة الشراء<input name="unit" required maxlength="40"></label><label>عدد القطع داخل الوحدة<input name="piecesPerUnit" type="number" min="1" step="1" required></label><label>سعر البيع المتوقع للوحدة<input name="salePrice" type="number" min="0.01" step="0.01" required></label><label>حد تنبيه النقص<input name="lowStock" type="number" min="0" step="0.01"></label><label>ملاحظات<textarea name="notes" maxlength="500"></textarea></label></fieldset><p role="alert"></p><button class="primary">حفظ</button><button type="button" data-close class="outline">إلغاء</button></form>';
- document.body.append(d);d.showModal();
- const f=d.querySelector('form'),error=f.querySelector('[role=alert]'),button=f.querySelector('button');
- d.querySelector('[data-camera-scan]').onclick=()=>openBarcodeScanner({isCurrent:()=>d.isConnected&&isCurrent()&&!saving,onDetected:value=>{if(d.isConnected&&isCurrent()&&!saving)f.elements.barcode.value=normalizeBarcode(value);}});
+ d.innerHTML=inventoryProductForm({editing:!!product});
+ container.append(d);editors.set(container,d);d.showModal();
+ const f=d.querySelector('form'),error=f.querySelector('[role=alert]'),button=f.querySelector('button.primary');
+ const current=()=>d.isConnected&&container.isConnected&&isCurrent();
+ d.querySelector('[data-camera-scan]').hidden=!entry.barcodeEditable;
+ d.querySelector('[data-camera-scan]').onclick=()=>{if(current()&&!saving)openBarcodeScanner({container:d,isCurrent:()=>current()&&!saving,onDetected:value=>{if(current()&&!saving)f.elements.barcode.value=normalizeBarcode(value);}});};
  const normalized=productEditorValues(product);
- if(categoryOptions.length)f.elements.category.value='';
  for(const key of ['name','barcode','category','unit','piecesPerUnit','salePrice','lowStock','notes'])if(normalized[key]!=null)f.elements[key].value=normalized[key];
+ f.elements.barcode.value=entry.barcode;f.elements.barcode.readOnly=!entry.barcodeEditable;f.elements.barcode.required=!entry.barcodeOptional;
+ f.elements.barcode.placeholder=entry.barcodeOptional?'رقم الباركود (اختياري)':'رقم الباركود';
+ f.elements.piecesPerUnit.value=entry.piecesPerUnit;
+ let unit=inventoryUnitChoice(normalized.unit);const unitSelect=f.elements.unitChoice;
+ const showUnit=()=>{unitSelect.value=unit.selected;f.elements.unit.hidden=unit.selected!==CUSTOM_INVENTORY_UNIT;f.elements.unit.value=unit.selected===CUSTOM_INVENTORY_UNIT?unit.customUnit:unit.selected;d.querySelector('[data-choose-unit]').textContent=unit.selected===CUSTOM_INVENTORY_UNIT?'أخرى':unit.selected;};
+ f.elements.unit.oninput=()=>{if(current()&&!saving&&!activePicker?.isConnected&&unit.selected===CUSTOM_INVENTORY_UNIT)unit=changeInventoryUnitChoice(unit,{type:'custom',value:f.elements.unit.value});};showUnit();
+ let category=inventoryCategoryChoice(categoryOptions,categoryLabels,normalized.category||'');
+ const showCategory=()=>{const custom=category.selectedPosition===category.options.length-1;f.elements.customCategory.hidden=!custom;f.elements.customCategory.value=category.customCategory;f.elements.category.value=category.options[category.selectedPosition].key;const trigger=d.querySelector('[data-choose-category]');trigger.textContent=category.options[category.selectedPosition].label;trigger.classList.toggle('muted',category.selectedPosition===0);};
+ f.elements.customCategory.oninput=()=>{if(current()&&!saving&&!activePicker?.isConnected&&category.selectedPosition===category.options.length-1)category=changeInventoryCategoryChoice(category,{type:'custom',value:f.elements.customCategory.value});};showCategory();
+ let activePicker=null;
+ const choose=(trigger,title,options,firstPosition,selectedPosition,onSelect)=>{
+  if(!current()||saving||activePicker?.isConnected)return;
+  trigger.setAttribute('aria-expanded','true');
+  const controls=[f.querySelector('fieldset'),button,d.querySelector('[data-close]')],disabled=controls.map(control=>control.disabled);controls.forEach(control=>control.disabled=true);
+  activePicker=openInventoryChoice({container:d,title,rows:inventoryChoiceRows(options,firstPosition,selectedPosition),isCurrent:current,onSelect,onClose:()=>{activePicker=null;if(current()){trigger.setAttribute('aria-expanded','false');controls.forEach((control,index)=>control.disabled=disabled[index]);trigger.focus();}}});
+ };
+ d.querySelector('[data-choose-category]').onclick=()=>choose(d.querySelector('[data-choose-category]'),'اختر التصنيف',category.options,1,category.selectedPosition,position=>{category=changeInventoryCategoryChoice(category,{type:'select',position});showCategory();});
+ const unitOptions=[...INVENTORY_UNITS.map(key=>({key,label:key})),{key:CUSTOM_INVENTORY_UNIT,label:'أخرى'}];
+ d.querySelector('[data-choose-unit]').onclick=()=>choose(d.querySelector('[data-choose-unit]'),'اختر الوحدة',unitOptions,0,unitOptions.findIndex(option=>option.key===unit.selected),position=>{unit=changeInventoryUnitChoice(unit,{type:'select',value:unitOptions[position].key});showUnit();});
+ if(Number(normalized.lowStock||0)===0)f.elements.lowStock.value='';
  let saving=false;
  const creationId=product?null:crypto.randomUUID();
- const close=()=>d.remove();
+ const manualFallback='MANUAL-'+Date.now();
+ const close=()=>{if(!saving&&!activePicker?.isConnected)d.remove();};
  d.querySelector('[data-close]').onclick=close;
  d.addEventListener('cancel',event=>{event.preventDefault();close();});
  f.onsubmit=async event=>{
   event.preventDefault();
-  if(saving||!isCurrent())return;
+  if(saving||activePicker?.isConnected||!current())return;
   error.textContent='';
   try{
    const values=Object.fromEntries(new FormData(f));
+   values.barcode=entryBarcode(entry,values.barcode,manualFallback);values.piecesPerUnit=entry.piecesPerUnit;
+   values.category=selectedInventoryCategory(category);
+   values.unit=selectedInventoryUnit(unit);
    assertUniqueBarcode(rows,values.barcode,product?.id);
    const payload=productPayload(projectId,values,{id:product?.id});
+   if(!product&&!authorizeCreate())return;
    saving=true;
    f.querySelector('fieldset').disabled=true;
-   button.disabled=true;
+   button.disabled=true;d.querySelector('[data-close]').disabled=true;
    if(product)await api.updateProduct(product.id,payload);
    else await api.createProduct({...payload,id:creationId});
   }catch(e){
-   if(d.isConnected)error.textContent=e.message||'تعذر حفظ الصنف';
+   if(current())error.textContent=e.message||'تعذر حفظ الصنف';
    return;
   }finally{
    saving=false;
    f.querySelector('fieldset').disabled=false;
    button.disabled=false;
+   d.querySelector('[data-close]').disabled=false;
   }
-  close();
-  if(isCurrent())onSaved?.();
+  const notify=current();close();
+  if(notify)onSaved?.();
  };
  return d;
 }

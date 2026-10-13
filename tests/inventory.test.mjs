@@ -52,11 +52,12 @@ test('archiving atomically requires empty active stock and only deactivates the 
  await assert.rejects(api.archiveProduct('a'),/كمية المخزون/);
 });
 
-test('product edits exclude project and stock fields and reject fractional piece factors',()=>{
+test('product edits exclude project and stock fields and preserve native fractional piece factors',()=>{
  const values={name:'سكر',barcode:'100',category:'مواد',unit:'علبة',piecesPerUnit:3,salePrice:12};
  const payload=productPayload('p',values,{id:'a'});
  assert.equal('project_id' in payload,false);assert.equal('quantity_pieces' in payload,false);
- assert.throws(()=>productPayload('p',{...values,piecesPerUnit:1.5}),/عدد القطع/);
+ assert.equal(productPayload('p',{...values,piecesPerUnit:1.5}).pieces_per_purchase_unit,1.5);
+ assert.throws(()=>productPayload('p',{...values,piecesPerUnit:.5}),/عدد القطع/);
  assert.throws(()=>openProductEditor({mode:'viewer'}),/للمشاهدة/);
 });
 

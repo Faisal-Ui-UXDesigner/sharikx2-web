@@ -3,6 +3,11 @@ import {PAGE_SIZE,requirePage,collectPages} from './pagination.js';
 import {projectCurrencyPayload,projectCurrencyResult} from './currency.js';
 import {customerCreatePayload,requireCreatedCustomer} from './customer-contract.js';
 import {supplierChanges,supplierUpdateResult} from './supplier-contract.js';
+import {customerEditChanges,customerUpdateResult} from './customer-edit.js';
+import {supplierCreatePayload,supplierCreateResult} from './supplier-create.js';
+import {sharePin,sharingProjectResult,sharingSaveResult} from './project-sharing.js';
+import {controlDeviceId,deviceControlRows,deviceControlPayload,readDeviceIdentity} from './device-control.js';
+import {deviceRequestScope,deviceWriteError} from './device-write-gate.js';
 
 function storedSession(value){
   if(typeof value?.access_token!=='string'||!value.access_token||typeof value.refresh_token!=='string'||!value.refresh_token||!Number.isFinite(value.expires_at)||value.expires_at<=0)return null;
@@ -18,11 +23,33 @@ export function netMonthlySales(rows) {
 }
 export class Api {
   constructor(config,storage=null) {
-    this.config=config;this.auth=null;this.refreshing=null;this.generation=0;this.storage=storage;
+    this.config=config;this.auth=null;this.refreshing=null;this.generation=0;this.storage=storage;this.deviceContext=null;this.deviceEpoch=0;
     this.sessionKey=`sharikx2-auth:${config.url}`;
     try {this.auth=storedSession(JSON.parse(storage?.getItem(this.sessionKey)||'null'));}catch{}
   }
-  clearSession(){this.generation++;this.auth=null;this.refreshing=null;try{this.storage?.removeItem(this.sessionKey);}catch{}}
+  clearSession(){this.generation++;this.auth=null;this.refreshing=null;this.clearDeviceContext();try{this.storage?.removeItem(this.sessionKey);}catch{}}
+  clearDeviceContext(){this.deviceEpoch++;this.deviceContext=null;}
+  setDeviceContext({projectId,mode,identityStorage}){
+    if(typeof projectId!=='string'||!projectId.trim()||!['owner','viewer'].includes(mode))throw new Error('سياق حماية الجهاز غير صالح');
+    this.deviceEpoch++;this.deviceContext=Object.freeze({projectId,mode,identityStorage});
+  }
+  assertDeviceEpoch(epoch,dispatched=false){if(epoch!==this.deviceEpoch){const error=deviceWriteError(dispatched?'تغيّر المشروع بعد الطلب؛ أعد التحقق من نتيجته الأصلية':'تغيّر المشروع أثناء التحقق؛ لم يُرسل طلب جديد','DEVICE_CONTEXT_CHANGED');if(dispatched)delete error.notDispatched;throw error;}}
+  async assertDeviceWrite(projectId){
+    const context=this.deviceContext,epoch=this.deviceEpoch,generation=this.generation;
+    if(!context)return; // Onboarding/initial seed, before an opened project.
+    if(context.mode!=='owner'||context.projectId!==projectId)throw deviceWriteError('التعديل متاح لمالك المشروع الحالي فقط');
+    if(globalThis.navigator?.onLine===false)throw deviceWriteError('يلزم الاتصال بالإنترنت للتحقق من الجهاز المسؤول');
+    const identity=()=>readDeviceIdentity(context.identityStorage,this.config.url),deviceId=identity();
+    const row=await this.deviceControl(projectId);this.assertGeneration(generation);this.assertDeviceEpoch(epoch);
+    if(!row||row.active_device_id!==deviceId)throw deviceWriteError('هذا المتصفح ليس الجهاز المسؤول؛ افتح حماية الجهاز لتسجيله أو طلب نقل التحكم');
+    // Native claim renews ONLY an already matching controller here. First
+    // registration requires an explicit action in the device dialog.
+    if(identity()!==deviceId)throw deviceWriteError('تغيّرت هوية المتصفح قبل الحفظ');
+    const ack=deviceControlPayload(await this.rpc('claim_sharikx2_device_control_v1',{p_project_id:projectId,p_device_id:deviceId,p_device_name:'متصفح SharikX2'}));
+    this.assertGeneration(generation);this.assertDeviceEpoch(epoch);
+    if(!ack.is_active||ack.generation!==row.generation||identity()!==deviceId)throw deviceWriteError('انتقل التحكم أثناء التحقق؛ لم يُرسل طلب الحفظ');
+    return deviceId;
+  }
   assertGeneration(generation){if(generation!==this.generation)throw new Error('SESSION_CLOSED');}
   async fetch(path, options={}, token=this.config.publicKey) {
     if (!this.config.publicKey) throw new Error('إعداد اتصال الويب غير مكتمل بعد');
@@ -55,11 +82,24 @@ export class Api {
   }
   async request(path,options={}) {
     assertIsolatedPath(path);
-    const generation=this.generation;
+    options={...options,headers:options.headers?{...options.headers}:undefined};
+    if(options.body!==undefined&&typeof options.body!=='string')throw new Error('طلب الشبكة يجب أن يكون ملتقطًا كنص ثابت');
+    const generation=this.generation,deviceEpoch=this.deviceEpoch;let writeIdentity;
+    if(this.deviceContext){
+      const scope=deviceRequestScope(path,options);
+      if(scope.kind!=='read'){
+        if(this.deviceContext.mode!=='owner'||scope.projectId!==this.deviceContext.projectId)throw deviceWriteError('طلب التعديل لا يخص مشروع المالك الحالي');
+        if(scope.kind==='write')writeIdentity=await this.assertDeviceWrite(scope.projectId);
+      }
+    }
+    this.assertGeneration(generation);this.assertDeviceEpoch(deviceEpoch);
     const token=await this.session();
     this.assertGeneration(generation);
+    this.assertDeviceEpoch(deviceEpoch);
+    if(writeIdentity&&readDeviceIdentity(this.deviceContext.identityStorage,this.config.url)!==writeIdentity)throw deviceWriteError('تغيّرت هوية المتصفح قبل إرسال الحفظ');
     const result=await this.fetch(path,options,token);
     this.assertGeneration(generation);
+    this.assertDeviceEpoch(deviceEpoch,true);
     return result;
   }
   rpc(name,body) {return this.request(`/rest/v1/rpc/${name}`,{method:'POST',body:JSON.stringify(body)});}
@@ -68,9 +108,39 @@ export class Api {
   saveFinanceState(id,state,revision=0) {return this.rpc('save_sharikx2_finance_state_v1',{p_project_id:id,p_state:state,p_expected_revision:revision});}
   transferOpening(id,from,to,amount) {return this.rpc('transfer_sharikx2_account_v2',{p_project_id:id,p_from_account_id:from,p_to_account_id:to,p_amount:amount,p_note:'توزيع رأس المال الافتتاحي'});}
   join(pin) {return this.rpc('join_sharikx2_project_v1',{p_share_pin:pin});}
+  async deviceControl(projectId){
+    if(typeof projectId!=='string'||!projectId.trim())throw new Error('هوية المشروع غير صالحة');const generation=this.generation;
+    const query=new URLSearchParams({project_id:`eq.${projectId}`,select:'project_id,active_device_id,active_device_name,generation,last_seen_at,requested_device_id,requested_device_name,requested_at',limit:'2'});
+    const rows=await this.request(`/rest/v1/sharikx2_device_control?${query}`);this.assertGeneration(generation);return deviceControlRows(rows,projectId);
+  }
+  async requestDeviceTransfer(projectId,deviceId,deviceName){
+    if(typeof projectId!=='string'||!projectId.trim()||typeof deviceName!=='string'||!deviceName.trim()||deviceName.length>120)throw new Error('بيانات طلب الجهاز غير صالحة');
+    const captured=controlDeviceId(deviceId),generation=this.generation;
+    const result=await this.rpc('request_sharikx2_device_transfer_v1',{p_project_id:projectId,p_device_id:captured,p_device_name:deviceName});this.assertGeneration(generation);return deviceControlPayload(result);
+  }
+  async claimDeviceControl(projectId,deviceId){
+    if(typeof projectId!=='string'||!projectId.trim())throw new Error('هوية المشروع غير صالحة');const captured=controlDeviceId(deviceId),generation=this.generation;
+    const result=await this.rpc('claim_sharikx2_device_control_v1',{p_project_id:projectId,p_device_id:captured,p_device_name:'متصفح SharikX2'});this.assertGeneration(generation);return deviceControlPayload(result);
+  }
+  async sharingProject(projectId){
+    if(typeof projectId!=='string'||!projectId.trim())throw new Error('هوية المشروع غير صالحة');const generation=this.generation;
+    const rows=await this.request(`/rest/v1/sharikx2_projects?id=eq.${encodeURIComponent(projectId)}&select=id,name,share_pin,subscription_status,subscription_expires_at,archived_at&limit=1`);this.assertGeneration(generation);return sharingProjectResult(rows,projectId);
+  }
+  async setSharingPin(projectId,pin){
+    if(typeof projectId!=='string'||!projectId.trim())throw new Error('هوية المشروع غير صالحة');const captured=sharePin(pin),generation=this.generation;
+    const result=await this.rpc('set_sharikx2_share_pin_v1',{p_project_id:projectId,p_share_pin:captured});this.assertGeneration(generation);return sharingSaveResult(result,projectId,captured);
+  }
   summary(id) {return this.rpc('get_sharikx2_financial_summary_v2',{p_project_id:id});}
   financialActivity(id,from=null,to=null) {return this.rpc('get_sharikx2_financial_activity_v2',{p_project_id:id,p_from:from,p_to:to});}
   financeState(id) {return this.rpc('get_sharikx2_finance_state_v1',{p_project_id:id});}
+  async projectCreatedAt(projectId){
+    if(typeof projectId!=='string'||!projectId.trim())throw new Error('هوية المشروع غير صالحة');
+    const generation=this.generation;
+    const rows=await this.request(`/rest/v1/sharikx2_projects?id=eq.${encodeURIComponent(projectId)}&select=id,created_at&limit=1`);
+    this.assertGeneration(generation);
+    if(!Array.isArray(rows)||rows.length!==1||rows[0]?.id!==projectId||typeof rows[0].created_at!=='string'||!Number.isFinite(Date.parse(rows[0].created_at))||Date.parse(rows[0].created_at)<=0)throw new Error('تعذر قراءة تاريخ بداية المشروع');
+    return rows[0].created_at;
+  }
   async allRows(table,id,select='*',filters={}) {
     const generation=this.generation,queryFilters=Object.freeze({...filters});
     return collectPages(offset=>this.rows(table,id,select,offset,queryFilters),{assertCurrent:()=>this.assertGeneration(generation)});
@@ -85,6 +155,11 @@ export class Api {
   debts(id) {return this.rpc('get_sharikx2_debt_balances_v2',{p_project_id:id});}
   updateSupplier(projectId,id,changes) {const captured=supplierChanges(changes);return this.request(`/rest/v1/sharikx2_suppliers?id=eq.${encodeURIComponent(id)}&project_id=eq.${encodeURIComponent(projectId)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(captured)}).then(rows=>supplierUpdateResult(rows,projectId,id,captured));}
   archiveSupplier(projectId,id) {return this.updateSupplier(projectId,id,{active:false});}
+  async createSupplier(projectId,supplier){
+    const payload=supplierCreatePayload(projectId,supplier);
+    try{return supplierCreateResult(await this.request('/rest/v1/sharikx2_suppliers',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)}),payload);}
+    catch(error){if(error.status!==409)throw error;return supplierCreateResult(await this.rows('suppliers',projectId,'*',0,{id:`eq.${payload.id}`}),payload);}
+  }
   supplierCredits(projectId,supplierId) {
     const q=new URLSearchParams({project_id:`eq.${projectId}`,supplier_id:`eq.${supplierId}`,remaining_amount:'gt.0',select:'id,amount,remaining_amount,source_purchase_id,created_at',order:'created_at.asc,id.asc'});
     return this.request(`/rest/v1/sharikx2_supplier_credits?${q}`).catch(error=>{if(error.status===404)return [];throw error;});
@@ -94,7 +169,11 @@ export class Api {
     try{return requireCreatedCustomer(await this.request('/rest/v1/sharikx2_customers',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)}),payload);}
     catch(error){if(error.status!==409)throw error;const existing=await this.rows('customers',projectId,'*',0,{id:`eq.${payload.id}`});return requireCreatedCustomer(existing,payload);}
   }
-  updateCustomer(projectId,id,changes){return this.request(`/rest/v1/sharikx2_customers?id=eq.${encodeURIComponent(id)}&project_id=eq.${encodeURIComponent(projectId)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(changes)}).then(rows=>{if(!Array.isArray(rows)||rows.length!==1||String(rows[0].id)!==String(id))throw new Error('تعذر تأكيد تعديل الزبون');return rows[0];});}
+  updateCustomer(projectId,id,changes,expected){
+    const captured=customerEditChanges(changes);let predicate='';
+    if(expected!==undefined){if(typeof expected?.name!=='string'||(expected.phone!==null&&typeof expected.phone!=='string'))throw new Error('بيانات المقارنة للزبون غير صالحة');predicate=`&name=eq.${encodeURIComponent(expected.name)}&phone=${expected.phone===null?'is.null':`eq.${encodeURIComponent(expected.phone)}`}&active=eq.true`;}
+    return this.request(`/rest/v1/sharikx2_customers?id=eq.${encodeURIComponent(id)}&project_id=eq.${encodeURIComponent(projectId)}${predicate}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(captured)}).then(rows=>customerUpdateResult(rows,projectId,id,captured));
+  }
   rows(table,id,select='*',offset=0,filters={}) {
     if(!/^[a-z_]+$/.test(table)||!Number.isInteger(offset)||offset<0)throw new Error('INVALID_QUERY');
     const query=new URLSearchParams({project_id:`eq.${id}`,select,limit:String(PAGE_SIZE),offset:String(offset),order:['products','customers','suppliers'].includes(table)?'name.asc,id.asc':'created_at.desc,id.desc'});
@@ -124,11 +203,13 @@ export class Api {
     }
   }
   async updateProduct(id,changes) {
-    const rows=await this.request(`/rest/v1/sharikx2_products?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(changes)});
+    const scope=this.deviceContext?`&project_id=eq.${encodeURIComponent(this.deviceContext.projectId)}`:'';
+    const rows=await this.request(`/rest/v1/sharikx2_products?id=eq.${encodeURIComponent(id)}${scope}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(changes)});
     return requireProductResult(rows,id);
   }
   async archiveProduct(id) {
-    const rows=await this.request(`/rest/v1/sharikx2_products?id=eq.${encodeURIComponent(id)}&quantity_pieces=eq.0&active=eq.true`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({active:false})});
+    const scope=this.deviceContext?`&project_id=eq.${encodeURIComponent(this.deviceContext.projectId)}`:'';
+    const rows=await this.request(`/rest/v1/sharikx2_products?id=eq.${encodeURIComponent(id)}${scope}&quantity_pieces=eq.0&active=eq.true`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({active:false})});
     if(!Array.isArray(rows)||rows.length===0)throw new Error('تعذر حذف الصنف؛ قد تكون كمية المخزون تغيرت. أعد تحميل البضاعة');
     const product=requireProductResult(rows,id);
     if(product.active!==false)throw new Error('تعذر تأكيد حذف الصنف؛ أعد تحميل البضاعة');

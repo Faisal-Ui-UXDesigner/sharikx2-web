@@ -25,8 +25,8 @@ test('financial data helpers keep period and partner shapes deterministic',()=>{
   assert.deepEqual(financialPeriod('all','2026-10-06'),{from:null,to:null});
   assert.equal(movementLabel('sale_refund'),'مرتجع مبيعة');
   assert.equal(movementLabel('unknown'),'حركة مالية');
-  assert.deepEqual(normalizePartnerSnapshot({state:{partners:[{name:'A',share:60}],formerPartners:[{name:'B'}],reinvestmentShare:10,reinvestmentCap:25}}),{
-    current:[{name:'A',share:60}],former:[{name:'B'}],totalShare:60,projectShare:40,retentionShare:40,retentionCap:25});
+  assert.deepEqual(normalizePartnerSnapshot({state:{partners:[{id:'a',name:'A',share:60}],formerPartners:[{name:'B'}],reinvestmentShare:10,reinvestmentCap:25}}),{
+    current:[{id:'a',name:'A',share:60,capital:0}],former:[{name:'B',capital:0,settlementCapital:0,settlementBalance:0}],totalShare:60,projectShare:40,retentionShare:40,retentionCap:25});
   assert.equal(palestineDate('2026-10-01T22:30:00Z'),'2026-10-02');
 });
 

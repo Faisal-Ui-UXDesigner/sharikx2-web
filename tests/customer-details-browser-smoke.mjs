@@ -19,7 +19,7 @@ try{
    calls.push({table,id,select,filters});if(window.fail)throw new Error('فشل تجريبي');
    if(window.holdRead)await new Promise(resolve=>(window.releaseReads??=[]).push(resolve));
    return table==='sales'?[{sale_number:9,total:12.5,status:'debt',created_at:'2026-10-01',items:[{product_name:'<img src=x>',quantity:2,line_total:12.5}]}]:[{amount:2,note:'<script>note</script>',created_at:'2026-10-02'}];
-  },updateCustomer:async(id,customer,changes)=>{updates.push({id,customer,changes});if(window.holdUpdate)await new Promise(resolve=>window.releaseUpdate=resolve);return {id:customer,...changes};}};
+  },updateCustomer:async(id,customer,changes)=>{updates.push({id,customer,changes});if(window.holdUpdate)await new Promise(resolve=>window.releaseUpdate=resolve);return {id:customer,project_id:id,...changes};}};
   window.show=options=>openDebtDetails({api,container:document.querySelector('#fixture'),projectId:'project',kind:'customers',person:{id:'customer',name:'زبون',phone:'0590000000',calculated_debt:10.5},mode:'owner',isCurrent:()=>window.current,onSaved:()=>window.saved++,onCollect:()=>window.collected++,...options});
   await show();
  });

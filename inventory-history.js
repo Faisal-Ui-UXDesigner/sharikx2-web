@@ -1,3 +1,5 @@
+import {decimalSum,decimalProduct} from './decimal-sum.js';
+import {auditInstant} from './date-display.js';
 const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const text=(row,key,fallback='')=>row?.[key]==null?fallback:String(row[key]);
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
@@ -11,7 +13,7 @@ export function historyQuantity(item){
  return saved>0||!Object.hasOwn(item,'quantity_pieces')?saved:number(item.quantity_pieces)/Math.max(1,number(item.piecesPerPurchaseUnit));
 }
 export function historyUnit(item){return item?text(item,'unit','وحدة').trim()||'وحدة':'وحدة';}
-export function historyProfit(item){return historyQuantity(item)*(number(item?.expectedSalePrice)-number(item?.purchasePrice));}
+export function historyProfit(item){return decimalProduct(historyQuantity(item),decimalSum([number(item?.expectedSalePrice),-number(item?.purchasePrice)]));}
 export const sameHistoryNumber=(a,b)=>Math.abs(number(a)-number(b))<0.0001;
 
 function summary(row,index){
@@ -20,9 +22,9 @@ function summary(row,index){
  const source=after||before;
  const key=legacy?'legacy-'+text(row,'historyId',String(index)):
   text(row,'itemId')||(source?text(source,'id',text(source,'name')):text(row,'historyId'));
- const parsed=Date.parse(recordedAt.replace(' ','T')+'Z');
+ const parsed=auditInstant(recordedAt);
  return {itemKey:key,date:recordedAt.length>=10?recordedAt.slice(0,10):'',recordedAt,
-  action:text(row,'historyAction','تحديث الجرد'),legacy,before,after,count:1,timestamp:Number.isFinite(parsed)?parsed:0};
+  action:text(row,'historyAction','تحديث الجرد'),legacy,before,after,count:1,timestamp:parsed??0};
 }
 
 export function inventoryHistorySummaries(history=[],inventory=[]){
@@ -73,11 +75,35 @@ export function historyChanges(change){
  }
  for(const [key,label,badge] of [['quantity','الكمية','تغيرت الكمية'],['purchasePrice','سعر الشراء','تغير سعر الشراء'],['expectedSalePrice','سعر البيع المتوقع','تغير سعر البيع']]){
   const left=number(before[key]),right=number(after[key]);
-  if(!sameHistoryNumber(left,right)){badges.push(badge);rows.push({kind:key==='quantity'?'quantity':'money',label,before:left,after:right,difference:right-left});}
+  if(!sameHistoryNumber(left,right)){badges.push(badge);rows.push({kind:key==='quantity'?'quantity':'money',label,before:left,after:right,difference:decimalSum([right,-left])});}
  }
  const left=historyProfit(before),right=historyProfit(after);
- if(!sameHistoryNumber(left,right))rows.push({kind:'profit',label:'تأثير التعديل على الربح المتوقع',before:left,after:right,difference:right-left});
+ if(!sameHistoryNumber(left,right))rows.push({kind:'profit',label:'تأثير التعديل على الربح المتوقع',before:left,after:right,difference:decimalSum([right,-left])});
  return {kind:'changed',badges:badges.length?badges:['تم تأكيد الجرد'],rows};
+}
+
+// Pure display schema: semantic tones and value kinds, never HTML/currency state.
+export function historyCardModel(change){
+ const details=historyChanges(change),source=change.after||change.before;
+ const badgeTone=details.kind==='deleted'?'negative':details.kind==='legacy'||details.badges[0]==='تم تأكيد الجرد'?'muted':'primary';
+ const model={name:source?.name??'صنف',count:change.count??1,date:change.date??'',
+  badges:details.badges.map(label=>({label,tone:badgeTone})),caption:'',values:[],changes:[]};
+ if(details.kind==='changed'){
+  model.changes=details.rows.map(row=>row.kind==='text'?{...row,
+   beforeLabel:row.label==='الوحدة'?'الوحدة السابقة':'الاسم السابق',
+   afterLabel:row.label==='الوحدة'?'الوحدة الجديدة':'الاسم الجديد'}:
+   {...row,tone:row.kind==='profit'?(row.difference>0?'profit':'negative'):'standard'});
+  return model;
+ }
+ const legacy=details.kind==='legacy',item=details.item;
+ model.caption=legacy?'سجل سابق يعرض القيم التي كانت محفوظة قبل التحديث.':details.kind==='added'?'القيمة عند الإضافة':'القيمة عند الحذف';
+ if(!item)return model;
+ model.values=[{label:'الوحدة',kind:'text',value:historyUnit(item)},
+  {label:'الكمية',kind:'quantity',value:legacy?number(item.quantity):Math.max(0,historyQuantity(item))},
+  {label:'سعر الشراء',kind:'unitCost',value:number(item.purchasePrice)},
+  {label:'سعر البيع المتوقع',kind:'money',value:number(item.expectedSalePrice)}];
+ if(!legacy){const profit=historyProfit(item);model.values.push({label:'الربح المتوقع',kind:'money',value:profit,tone:profit>0?'profit':'muted'});}
+ return model;
 }
 
 export async function loadInventoryHistory(api,projectId){

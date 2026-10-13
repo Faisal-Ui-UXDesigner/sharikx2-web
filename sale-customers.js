@@ -22,12 +22,13 @@ export function bindSaleCustomers({api,projectId,container,select,mode,storage,i
   catch(e){if(editable())onError(e);}
   finally{loading=false;load.disabled=false;load.textContent='تحميل جميع الزبائن';}
  };
- add.onclick=()=>{
+ const create=(initialValues=null,afterCreated)=>{
   if(!editable()||document.querySelector('dialog.customer-create'))return;
   creating=true;onEditing(true);
   const finish=()=>{creating=false;onEditing(false);};
-  try{const child=openCustomer({api,projectId,mode,storage,isCurrent:()=>current()&&canEdit(),onClose:finish,onSaved:customer=>{if(!editable())return;register(customer);select.value=customer.id;status.textContent='تم اختيار الزبون المضاف';}});if(!child)finish();}
+  try{const child=openCustomer({api,projectId,mode,storage,initialValues,isCurrent:()=>current()&&canEdit(),onClose:finish,onSaved:customer=>{if(!editable())return;register(customer);select.value=customer.id;status.textContent='تم اختيار الزبون المضاف';afterCreated?.(customer);}});if(!child)finish();}
   catch(e){finish();if(current())onError(e);}
  };
- return Object.freeze({register,get:id=>catalog.get(id)});
+ add.onclick=()=>create();
+ return Object.freeze({register,get:id=>catalog.get(id),create});
 }
