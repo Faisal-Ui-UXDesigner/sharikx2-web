@@ -1,5 +1,6 @@
 import {Api} from './api.js';
 import {appShellMarkup} from './app-shell-ui.js';
+import {bindAppShellLayout} from './app-shell-layout.js';
 import {appendContactAction} from './contact-ui.js';
 import {escape,money,timestamp,status,setCurrency} from './ui.js';
 import {openExpense,renderExpenses} from './expense.js';
@@ -38,13 +39,16 @@ let project=null,mode='owner',screen='cashier',epoch=0,accountPeriod='month';
 let reportState=createReportState();
 let inventoryViewStore=createInventoryViewStore();
 let installPrompt=null;
+let releaseShellLayout=()=>{};
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;const button=document.createElement('button');button.className='outline';button.textContent='تثبيت التطبيق';button.onclick=async()=>{button.disabled=true;await installPrompt.prompt();installPrompt=null;button.remove();};document.querySelector('#notice')?.append(button);});
 function notice(message){document.querySelector('#notice').textContent=message;}
-function entry(){epoch++;api.clearDeviceContext();project=null;setCurrency('ILS');reportState=createReportState();inventoryViewStore=createInventoryViewStore();openOnboarding({app,api,storage:sessionStore,onOpen:(opened,role)=>{project=opened;mode=role;setCurrency(project.currency);screen='cashier';shell();void promptOpeningDistribution({api,storage:sessionStore,projectId:opened.id,mode:role,isCurrent:()=>project?.id===opened.id&&mode===role,onComplete:shell}).catch(error=>{if(project?.id===opened.id)notice(error.message);});}});}
+function entry(){releaseShellLayout();releaseShellLayout=()=>{};epoch++;api.clearDeviceContext();project=null;setCurrency('ILS');reportState=createReportState();inventoryViewStore=createInventoryViewStore();openOnboarding({app,api,storage:sessionStore,onOpen:(opened,role)=>{project=opened;mode=role;setCurrency(project.currency);screen='cashier';shell();void promptOpeningDistribution({api,storage:sessionStore,projectId:opened.id,mode:role,isCurrent:()=>project?.id===opened.id&&mode===role,onComplete:shell}).catch(error=>{if(project?.id===opened.id)notice(error.message);});}});}
 function shell(){
+ releaseShellLayout();
  const revision=++epoch;
  api.setDeviceContext({projectId:project.id,mode,identityStorage:identityStore});
  app.innerHTML=appShellMarkup({project,mode,screen});
+ releaseShellLayout=bindAppShellLayout(app.querySelector('.native-app'));
  app.querySelector('[data-menu]').onclick=()=>{const dialog=document.createElement('dialog');dialog.innerHTML=`<h2>القائمة</h2><div class="menu-list"><button data-go="settings">الإعدادات</button><button data-go="accounts">الحسابات</button><button data-go="cashier">الكاشير</button><button data-go="products">البضاعة</button><button data-go="partners">الشركاء</button><button data-go="reports">التقارير</button><button data-logout>تسجيل الخروج</button></div><button data-close class="outline">إغلاق</button>`;app.append(dialog);dialog.showModal();dialog.querySelector('[data-close]').onclick=()=>dialog.remove();dialog.querySelector('[data-logout]').onclick=()=>{api.clearSession();dialog.remove();entry();};dialog.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{screen=b.dataset.go;dialog.remove();shell();});};
  app.querySelector('[data-notifications]').onclick=()=>{const d=document.createElement('dialog');d.innerHTML='<h2>الإشعارات</h2><p class="muted">لا توجد إشعارات لعرضها حاليًا.</p><button class="primary">إغلاق</button>';app.append(d);d.showModal();d.querySelector('button').onclick=()=>d.remove();};
  app.querySelector('[data-plan]').onclick=()=>{const d=document.createElement('dialog');d.innerHTML=`<h2>حالة الحساب</h2><div class="panel">${mode==='viewer'?'المشروع متاح للمشاهدة فقط':project.subscription_status==='active'?'الاشتراك فعّال':'الخطة المجانية فعّالة'}</div><button class="primary">فهمت</button>`;app.append(d);d.showModal();d.querySelector('button').onclick=()=>d.remove();};

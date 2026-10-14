@@ -1,7 +1,10 @@
 /* Reference: 720px Android screenshots, approximately 393 CSS px. Scoped to
    application chrome; no fake system status bar, credentials or sample data. */
 .native-app{max-width:420px;padding:25px 14px 105px;line-height:1.6}
-.native-app .app-header{min-height:104px;gap:12px;margin-bottom:12px;align-items:flex-start}
+.native-app .app-header{position:sticky;top:0;z-index:30;background:var(--bg);min-height:104px;gap:12px;margin-bottom:12px;align-items:flex-start;max-height:45dvh;overflow-y:auto;padding-top:env(safe-area-inset-top);box-shadow:0 -32px 0 32px var(--bg)}
+.native-app #content :is(button,input,select,summary,[tabindex]){scroll-margin-top:calc(var(--native-header-height,104px) + 12px);scroll-margin-bottom:calc(var(--native-navigation-height,71px) + 28px)}
+.native-app .inventory-sticky-controls{top:var(--native-header-height,104px);z-index:10}
+.native-app [data-inventory-list] :is(button,[tabindex]){scroll-margin-top:calc(var(--native-header-height,104px) + var(--native-controls-height,200px) + 12px)}
 .native-app .project-heading{min-width:0;flex:1}
 .native-app .project-heading h1{display:flex;align-items:center;gap:9px;font-size:30px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
 .native-app .project-pencil{display:inline-flex;flex-shrink:0;margin:0;transform:rotate(-12deg);color:var(--primary)}
@@ -162,3 +165,4 @@
 .native-app details.account-details>summary{cursor:pointer;font-size:15px;color:var(--muted);padding:12px}
 @media(min-width:720px){.native-app{max-width:540px;padding-top:32px}.native-app>nav{max-width:512px}.native-app .cashier-grid button{min-height:164px}}
 @media(max-width:350px){.native-app{padding-inline:10px}.native-app .project-heading h1{font-size:25px}.native-app .project-heading>small{font-size:10px}.native-app .header-tools{gap:5px}.native-app .plan-info{font-size:11px}.native-app .subscribe{padding-inline:8px;font-size:12px}.native-app .activity-record{padding-inline:12px}.native-app .activity-record .badge{min-width:76px}}
+@media(max-height:550px){.native-app .app-header{max-height:35dvh;min-height:0}.native-app .inventory-sticky-controls{position:static}.native-app [data-inventory-list] :is(button,[tabindex]){scroll-margin-top:calc(var(--native-header-height,104px) + 12px)}}

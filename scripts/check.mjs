@@ -16,6 +16,7 @@ console.log('Running unit tests');
 run(['--test',...unitTests]);
 console.log('Running isolated browser regressions');
 run(['tests/native-pages-browser-smoke.mjs']);
+run(['tests/app-shell-layout-browser-smoke.mjs']);
 run(['tests/cashier-history-browser-smoke.mjs']);
 run(['tests/home-financial-browser-smoke.mjs']);
 run(['tests/inventory-browser-smoke.mjs']);

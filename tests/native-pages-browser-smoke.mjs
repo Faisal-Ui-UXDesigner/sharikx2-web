@@ -46,6 +46,11 @@ try{
  assert.match(await page.locator('.activity-record').first().innerText(),/فيصل\s+•\s+0590000001/);
  assert.match(await page.locator('.activity-record').first().innerText(),/دين مشطوب/);
  await capture('cashier');
+ await mkdir('tests/screenshots/native-v123',{recursive:true});
+ await page.locator('[data-activity]>h2').scrollIntoViewIfNeeded();await page.evaluate(()=>window.scrollBy(0,100));
+ assert.ok(await page.locator('.app-header').evaluate(header=>Math.abs(header.getBoundingClientRect().top)<1));
+ assert.ok(await page.locator('nav').evaluate(nav=>nav.getBoundingClientRect().bottom<=innerHeight));
+ await page.screenshot({path:'tests/screenshots/native-v123/cashier-scrolled.png'});
  await page.locator('[data-page=products]').click();await page.locator('[data-product-id]').waitFor();
  assert.equal(await page.locator('[data-inventory-search]').isVisible(),true);assert.equal(await page.locator('[data-category-settings] svg').count(),1);
  await capture('inventory');
@@ -65,6 +70,7 @@ try{
  assert.deepEqual((await page.locator('.home-statistic strong').allTextContents()).map(text=>text.replace(/\u200e/g,'')),['50 ₪','10 ₪','43 ₪','-3 ₪','0 ₪','100 ₪']);
  assert.equal(await page.locator('details.account-details').getAttribute('open'),null);await capture('accounts');
  await page.locator('[data-home-financial]').scrollIntoViewIfNeeded();await page.screenshot({path:'tests/screenshots/native-v122/accounts-overview.png'});
+ assert.ok(await page.locator('.app-header').evaluate(header=>Math.abs(header.getBoundingClientRect().top)<1));
  assert.equal(await page.locator('[data-home-account-rows] [data-account=cash]').count(),1);
  await page.locator('[data-project-value]').click();await page.locator('.home-value-details').waitFor();assert.match(await page.locator('.home-value-details').innerText(),/1,940/);
  await page.locator('[data-project-value]').evaluate(button=>button.click());assert.equal(await page.locator('dialog').count(),1);await page.keyboard.press('Escape');
