@@ -1,6 +1,7 @@
 import {escape,money} from './ui.js';
 import {loadFinancialAccounts,movementsForAccount,statementText} from './statement.js';
 import {renderHomeStatistics} from './home-statistics-ui.js';
+import {renderHomeFinancial} from './home-financial-ui.js';
 
 const metric=(title,value)=>`<span>${escape(title)}<br><b class="${Number(value)<0?'negative':''}">${money(value,2)}</b></span>`;
 const movement=row=>`<article class="panel row"><span>${escape(row.accountName)} • ${escape(row.typeName)}${row.date?` • <bdi dir="ltr">${escape(row.date)}</bdi>`:''}</span><b dir="ltr" class="${row.incoming?'positive':'negative'}">${row.incoming?'+':'−'}${money(row.amount,2)}</b></article>`;
@@ -46,7 +47,7 @@ function openStatement({container,project,data,isCurrent}){
  if(typeof navigator.share==='function')addAction('مشاركة الكشف','shareStatement',()=>navigator.share({title:'كشف حساب '+project.name,text}));
 }
 
-export async function renderFinancialAccounts({api,project,container,isCurrent,periodMode='month',onPeriodChange}){
+export async function renderFinancialAccounts({api,project,container,isCurrent,periodMode='month',onPeriodChange,mode='viewer',onTransfer}){
  const data=await loadFinancialAccounts(api,project.id,periodMode);
  if(!isCurrent()||!container.isConnected)return;
  const {summary:s,activity,model}=data;
@@ -80,9 +81,11 @@ export async function renderFinancialAccounts({api,project,container,isCurrent,p
   const details=document.createElement('details');details.className='account-details';details.innerHTML='<summary>تفاصيل الحسابات وكشف الحركات</summary>';
   while(container.firstChild)details.append(container.firstChild);
   const daily=document.createElement('section');daily.dataset.homeStatistics='';
-  const liquidity=document.createElement('section');liquidity.className='panel account-liquidity';liquidity.innerHTML=`<h2>رصيد السيولة في الحسابات</h2><strong>${money(model.liquidity,2)}</strong>`;
-  for(const button of details.querySelectorAll('[data-account]'))liquidity.append(button);
-  container.append(daily,liquidity,details);
+  const financial=document.createElement('section');financial.dataset.homeFinancial='';
+  const accountButtons=[...details.querySelectorAll('[data-account]')];
+  container.append(daily,financial,details);
+  let valueDialog=null;
+  renderHomeFinancial({summary:s,projectId:project.id,container:financial,accountButtons,mode,onTransfer,isCurrent:current,onDetails:value=>{if(valueDialog?.isConnected){valueDialog.focus();return;}valueDialog=openReadDialog(container,'الموجود في المشروع',`<div class="home-value-details">${[['السيولة',value.liquidity],['ديون الزبائن',value.customerDebt],['البضاعة بسعر الشراء',value.inventoryCost],['ديون الموردين',-value.supplierDebt],['صافي قيمة المشروع',value.netProjectValue]].map(([title,amount])=>`<div class="row"><span>${escape(title)}</span><b class="${amount<0?'negative':''}">${money(amount,2)}</b></div>`).join('')}</div><p class="muted small">السيولة + ديون الزبائن + قيمة البضاعة بسعر الشراء − ديون الموردين. القيمة المعروضة من الملخص المؤكد، دون إضافة أي رصيد مرتين.</p>`);}});
   await renderHomeStatistics({api,projectId:project.id,summary:s,container:daily,isCurrent:current});
  }
 }

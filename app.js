@@ -64,10 +64,9 @@ async function load(content,revision){try{
  }else if(screen==='faq'){
   renderFaq({container:content,isCurrent:()=>revision===epoch,onBack:()=>{screen='settings';shell();}});
  }else if(screen==='accounts'){
-  await renderFinancialAccounts({api,project,container:content,isCurrent:()=>revision===epoch,periodMode:accountPeriod,onPeriodChange:value=>{accountPeriod=value;shell();}});
+  await renderFinancialAccounts({api,project,container:content,isCurrent:()=>revision===epoch,periodMode:accountPeriod,onPeriodChange:value=>{accountPeriod=value;shell();},mode,onTransfer:mode==='owner'&&window.SHARIKX2_CONFIG.transfers===true?()=>openTransfer({api,projectId:project.id,mode,storage:sessionStore,onSaved:shell}):undefined});
   if(revision!==epoch)return;
   renderCurrencySettings({api,container:content,project,mode,isCurrent:()=>revision===epoch,onSaved:shell});
-  if(mode==='owner'&&window.SHARIKX2_CONFIG.transfers===true){const b=document.createElement('button');b.className='outline';b.textContent='التحويل بين الحسابات';content.append(b);b.onclick=()=>openTransfer({api,projectId:project.id,mode,storage:sessionStore,onSaved:shell});}
  }else if(['customers','suppliers'].includes(screen)){
   const data=await api.debts(project.id);if(revision!==epoch)return;
   const kind=screen,normalized=normalizeDebtSnapshot(data,kind),rows=normalized.rows;let archived=false,count=20;

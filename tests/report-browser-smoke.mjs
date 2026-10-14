@@ -40,7 +40,7 @@ await page.route('**/*',async route=>{
   else if(url.pathname==='/rest/v1/sharikx2_sales'){
     const offset=Number(url.searchParams.get('offset'));
     data=[...Array.from({length:45},(_,i)=>({id:String(i),status:'debt',created_at:'2026-10-01T12:00:00Z',debt_amount:1,total:i===0?32:2})),
-      {id:'46',status:'paid',created_at:'2026-10-02T12:00:00Z',debt_amount:0,total:30}].slice(offset,offset+20);
+      {id:'46',sale_number:46,status:'paid',created_at:'2026-10-02T12:00:00Z',debt_amount:0,total:30}].filter(row=>!url.searchParams.has('id')||'eq.'+row.id===url.searchParams.get('id')).slice(offset,offset+20);
   }else if(['/rest/v1/sharikx2_purchases','/rest/v1/sharikx2_debt_writeoffs','/rest/v1/sharikx2_purchase_returns'].includes(url.pathname))data=[];
   else if(url.pathname==='/rest/v1/sharikx2_expenses')data=[
     {id:'expense',category:'operating_expense',amount:7,occurred_at:'2026-10-01T10:00:00Z',created_at:'2026-10-01T10:00:00Z',description:'<img src=x onerror=alert(1)>'},
@@ -135,6 +135,7 @@ try{
   await page.locator('[data-start]').fill('2026-10-01');
   await page.waitForFunction(()=>document.querySelector('[data-customer-debt]')?.textContent.includes('45'));
   await page.locator('[data-page=cashier]').click();
+  await page.locator('[data-search]').fill('46');
   await page.locator('.activity-record').first().click();
   await page.waitForFunction(()=>document.querySelector('dialog .details .panel'));
   assert.equal(await page.locator('[data-return]').isVisible(),false);

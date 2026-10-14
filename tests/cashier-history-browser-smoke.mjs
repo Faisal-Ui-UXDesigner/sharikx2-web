@@ -1,0 +1,40 @@
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import {mkdir} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import {startPreviewServer} from '../scripts/preview-server.mjs';
+const require=createRequire(import.meta.url),{chromium}=require('C:/Users/HP/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const browser=await chromium.launch({headless:true,channel:'msedge'}),preview=await startPreviewServer({root:fileURLToPath(new URL('..',import.meta.url))});
+try{
+ const page=await browser.newPage({viewport:{width:393,height:874},serviceWorkers:'block'}),errors=[];page.setDefaultTimeout(5000);page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/*',route=>new URL(route.request().url()).origin===preview.origin?route.continue():route.abort());
+ await page.clock.setFixedTime(new Date('2026-10-14T14:00:00Z'));await page.goto(preview.origin+'/styles.css');
+ await page.setContent('<html dir="rtl"><head><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/native-layout.css"></head><body><main class="workspace native-app"><section id="fixture"></section></main></body></html>');
+ await page.evaluate(async()=>{
+  const {renderActivity}=await import('/activity.js');window.active=true;window.fail=false;window.held=false;window.calls=0;window.selected=[];
+  window.sales=Array.from({length:45},(_,index)=>({id:'s'+index,sale_number:index,total:10.25,status:index%2?'debt':'completed',created_at:'2026-10-14T10:00:00Z'}));
+  sales.push({id:'old',sale_number:99,total:40,status:'written_off',customer:{name:'<svg>TEST',phone:'0590000001'},created_at:'2026-10-01T10:00:00Z'});
+  window.expenses=[{id:'e',amount:3.5,category:'daily_wage',description:'أجرة',account:{name:'الصندوق'},occurred_at:'2026-10-14T11:00:00Z',created_at:'2026-10-13T10:00:00Z'}];window.original=JSON.stringify({sales,expenses});
+  window.api={allRows:async kind=>{calls++;if(held)return new Promise(resolve=>window.releases.push(()=>resolve(structuredClone(kind==='sales'?sales:expenses))));if(fail&&kind==='expenses')throw null;return structuredClone(kind==='sales'?sales:expenses);}};
+  window.show=()=>renderActivity({api,projectId:'p',container:document.querySelector('#fixture'),mode:'viewer',isCurrent:()=>active,onSale:id=>selected.push(id)});await show();
+ });
+ assert.equal(await page.locator('.activity-record').count(),20);assert.match(await page.locator('.activity-record').first().innerText(),/يوميات\s+أجرة\s+الصندوق/);
+ assert.equal(await page.locator('.activity-record').first().locator('.badge').count(),0);assert.match(await page.locator('.activity-record').first().innerText(),/2026-10-14 • 14:00/);
+ const badge=page.locator('.badge.activity-status-complete').first();assert.equal(await badge.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(35, 155, 95)');assert.equal(await badge.evaluate(el=>el.getBoundingClientRect().height),38);
+ await page.locator('[data-more]').click();assert.equal(await page.locator('.activity-record').count(),40);await page.locator('[data-more]').click();assert.equal(await page.locator('.activity-record').count(),46);
+ await page.locator('[data-search]').fill(' test ');assert.equal(await page.locator('.activity-record').count(),1);assert.match(await page.locator('.activity-record').innerText(),/دين مشطوب/);assert.equal(await page.locator('.activity-record svg').count(),0);
+ await page.locator('.activity-record').click();assert.deepEqual(await page.evaluate(()=>selected),['old']);
+ await page.locator('[data-search]').fill('الصندوق');assert.equal(await page.locator('.activity-record').count(),1);await page.locator('.activity-record').click();await page.locator('dialog').waitFor();await page.keyboard.press('Escape');
+ await page.locator('[data-search]').fill('missing');assert.match(await page.locator('[data-records]').innerText(),/لا توجد نتائج مطابقة/);
+ await page.evaluate(async()=>{window.fail=true;await show();});assert.match(await page.getByRole('alert').innerText(),/تعذر تحميل/);assert.equal(await page.locator('.activity-record').count(),0);
+ await page.evaluate(()=>window.fail=false);await page.locator('[data-retry-activity]').click();await page.locator('.activity-record').first().waitFor();
+ await page.evaluate(async()=>{window.held=true;window.releases=[];window.pending=show();});await page.waitForFunction(()=>releases.length===2);
+ await page.evaluate(async()=>{window.held=false;await show();document.querySelector('[data-search]').value='99';document.querySelector('[data-search]').dispatchEvent(new Event('input'));releases.forEach(release=>release());await pending;});
+ assert.equal(await page.locator('.activity-record').count(),1);assert.match(await page.locator('.activity-record').innerText(),/99/);
+ await page.evaluate(async()=>{window.held=true;window.releases=[];window.pending=show();});await page.waitForFunction(()=>releases.length===2);
+ await page.evaluate(async()=>{window.active=false;document.querySelector('#fixture').innerHTML='<p>شاشة جديدة</p>';releases.forEach(release=>release());await pending;});assert.equal(await page.locator('#fixture').innerText(),'شاشة جديدة');
+ await page.evaluate(async()=>{window.active=true;window.held=false;await show();});
+ assert.equal(await page.evaluate(()=>JSON.stringify({sales,expenses})===original),true);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await mkdir('tests/screenshots/native-v122',{recursive:true});await page.screenshot({path:'tests/screenshots/native-v122/activity.png'});
+ assert.deepEqual(errors,[]);console.log('PASS: native today/history search, complete paginated source before display, expense effective date, status colors/size, escaping, exact amounts, retry/null failure, same-container and stale guards with unchanged source');
+}finally{await browser.close();await preview.close();}
