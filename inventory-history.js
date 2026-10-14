@@ -106,6 +106,21 @@ export function historyCardModel(change){
  return model;
 }
 
+// Ordered, immutable presentation snapshot. Keep contiguous date runs rather than
+// regrouping by date: malformed/legacy timestamps must not reorder the audit trail.
+export function inventoryHistoryScreenModel(summaries=[]){
+ const sections=[];
+ for(const summary of summaries){
+  const card=historyCardModel(summary),date=String(card.date);
+  for(const key of ['badges','values','changes'])card[key]=Object.freeze(card[key].map(row=>Object.freeze(row)));
+  Object.freeze(card);
+  let section=sections.at(-1);
+  if(!section||section.date!==date){section={date,label:date||'تاريخ غير محدد',cards:[]};sections.push(section);}
+  section.cards.push(card);
+ }
+ return Object.freeze({empty:sections.length===0,sections:Object.freeze(sections.map(section=>Object.freeze({...section,cards:Object.freeze(section.cards)})))});
+}
+
 export async function loadInventoryHistory(api,projectId){
  const snapshot=await api.financeState(projectId);
  if(!object(snapshot)||!Object.hasOwn(snapshot,'state')||(snapshot.state!==null&&!object(snapshot.state)))throw new Error('تعذر قراءة سجل الجرد');
