@@ -1,0 +1,4 @@
+import {escape} from './ui.js';
+export function approvalReadinessMarkup(status){
+ return `<section class="panel" data-approval-readiness><h3>ضوابط الاعتماد — فحص محلي فقط</h3><p data-approval-month-eligibility>${status.monthEligible?'الشهر يطابق نافذة الاعتماد الزمنية':'الشهر غير متاح للاعتماد حاليًا وفق نافذة الأندرويد'}</p><p data-approval-readiness-block>${escape(status.message||'لا يظهر مانع ضمن شروط القراءة المحلية المفحوصة')}</p><p>عمليات في قوائم المزامنة: ${status.queued}</p><p>سجلات معلقة لهذا المشروع في المتصفح: ${status.journals}</p>${status.pendingSnapshot||status.pendingCloud?'<p class="negative">توجد بيانات مشروع أو حركات غير مؤكدة المزامنة.</p>':''}<p class="muted">هذه النتيجة لا تتحقق من صلاحية التحكم بالجهاز أو جميع الأجهزة الأخرى، ولا تمنح صلاحية مالية. تثبيت الحسابات وتصديرها غير مفعّلين في نسخة الويب؛ العرض لا يحفظ أي اعتماد.</p></section>`;
+}

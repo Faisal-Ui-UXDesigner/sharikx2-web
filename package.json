@@ -1,1 +1,1 @@
-{"name":"sharikx2-web","version":"0.1.0","private":true,"type":"module","scripts":{"build":"node scripts/build.mjs","test":"node --test tests/*.test.mjs"}}
+{"name":"sharikx2-web","version":"0.1.0","private":true,"type":"module","scripts":{"build":"node scripts/build.mjs","test":"node --test tests/*.test.mjs","check":"node scripts/check.mjs"}}
