@@ -1,0 +1,126 @@
+/* Reference: 720px Android screenshots, approximately 393 CSS px. Scoped to
+   application chrome; no fake system status bar, credentials or sample data. */
+.native-app{max-width:420px;padding:25px 14px 105px;line-height:1.6}
+.native-app .app-header{min-height:104px;gap:12px;margin-bottom:12px;align-items:flex-start}
+.native-app .project-heading{min-width:0;flex:1}
+.native-app .project-heading h1{display:flex;align-items:center;gap:9px;font-size:30px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+.native-app .project-pencil{display:inline-flex;flex-shrink:0;margin:0;transform:rotate(-12deg);color:var(--primary)}
+.native-app .project-heading>small{font-size:12px;margin-top:5px}
+.native-app .plan-line{gap:4px;margin-top:4px;min-height:39px}
+.native-app .plan-info{display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:13px;padding:0}
+.native-app .subscribe{font-size:14px;min-height:38px;padding:4px 12px;border-radius:16px;color:var(--primary)}
+.native-app .header-tools{direction:ltr;gap:12px;padding-top:1px}
+.native-app .header-tools button{min-height:32px;padding:3px;color:var(--text)}
+.native-app>[data-device-banner]{padding:12px;font-size:12px;margin-bottom:16px}
+.native-app>[data-device-banner] p{margin:0 0 7px}
+.native-app>[data-device-banner] button{min-height:32px;padding:3px 9px;font-size:12px;border-radius:9px;margin-inline-end:5px}
+.native-app>nav{width:calc(100% - 28px);max-width:392px;height:71px;bottom:max(14px,env(safe-area-inset-bottom));padding:6px 7px;border-radius:28px;box-shadow:0 -6px 0 var(--bg);z-index:20}
+.native-app>nav button{min-width:0;min-height:56px;border-radius:20px;padding:3px 0;gap:2px;font-weight:400}
+.native-app>nav .nav-label{font-size:11px;font-weight:400}
+.native-app>nav .cashier-nav .nav-icon{width:55px;height:55px;margin:0;background:var(--primary);color:var(--onPrimary)}
+.native-app>nav .cashier-nav .nav-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.native-app>nav button.selected:not(.cashier-nav){background:color-mix(in srgb,var(--primary) 10%,var(--panel));color:var(--primary)}
+.native-app #content>h2,.native-app .cashier-intro h2{font-size:23px;font-weight:600;margin:16px 0 10px}
+.native-app .panel{border-radius:18px;padding:18px;margin-bottom:12px}
+.native-app .tabs{gap:12px;margin-bottom:14px}
+.native-app .tabs>button{min-height:45px;padding:8px 4px;border-radius:9px;font-size:14px;min-width:0}
+.native-app .cashier-intro{margin:0}
+.native-app .cashier-intro h2{margin:0 0 6px;font-size:26px}
+.native-app .cashier-intro p{font-size:13px;line-height:1.8;margin:0}
+.native-app .cashier-grid{gap:10px 12px;margin:18px 6px 24px}
+.native-app .cashier-grid button{min-height:143px;border-radius:20px;padding:22px 7px 17px;gap:18px}
+.native-app .cashier-grid b{font-size:17px;font-weight:400}
+.native-app .action-icon{width:58px;height:58px;border-radius:0;background:transparent}
+.native-app .action-icon img{width:50px;height:50px}
+.native-app .purchase-action{min-height:51px;border-radius:17px;font-size:15px;margin:0 5px 24px;width:calc(100% - 10px)}
+.native-app .purchase-action img{width:31px;height:31px;right:19px}
+.native-app section[data-activity]>h2{font-size:21px;font-weight:600;margin:4px 2px 12px}
+.native-app .activity-search{margin:0 0 6px}
+.native-app .activity-search input{height:55px;background:var(--field);padding:10px 52px 10px 12px;font-size:14px;border-radius:18px;margin:0}
+.native-app .activity-search>span{left:auto;right:18px;top:13px;display:flex}
+.native-app .activity-record{min-height:86px;padding:11px 18px;gap:10px;margin-bottom:7px;text-align:right}
+.native-app .activity-record b{font-size:15px;font-weight:400}
+.native-app .activity-record p{font-size:12px;line-height:1.55}
+.native-app .activity-record small{font-size:10px;display:block;line-height:1.5;color:var(--muted)}
+.native-app .activity-record strong{display:block;font-size:16px;font-weight:600;white-space:nowrap}
+.native-app .activity-record .badge{font-size:12px;padding:8px 13px;border-radius:24px;min-width:96px;line-height:1.4;color:white}
+.native-app .activity-record .status-completed,.native-app .activity-record .status-paid{background:#219b63}
+.native-app .activity-record .status-written_off{background:#80818b}
+.native-app .activity-record .status-cancelled{background:var(--red)}
+.native-app .activity-record .status-debt,.native-app .activity-record .status-credit{background:var(--surface);color:var(--primary)}
+.native-app [data-inventory-body]>h2{display:none}
+.native-app .inventory-category-settings{display:flex;align-items:center;justify-content:center;position:relative;background:var(--surface);border-radius:16px;min-height:48px;margin:8px 0 14px;width:100%;font-size:15px}
+.native-app .inventory-category-settings svg{position:absolute;right:17px}
+.native-app [data-inventory-search]{height:56px;margin:0 0 14px;border-radius:18px;font-size:14px;padding:12px 46px 12px 12px}
+.native-app .inventory-search-wrap{position:relative}
+.native-app .inventory-search-wrap>svg{position:absolute;right:19px;top:16px;color:var(--muted);pointer-events:none}
+.native-app .inventory-add-actions{gap:12px;margin:0 0 20px}
+.native-app .inventory-add-actions button{display:flex;align-items:center;justify-content:center;gap:19px;min-height:48px;padding:8px 6px;border-radius:16px;font-size:15px}
+.native-app .inventory-add-actions .outline{background:var(--surface)}
+.native-app .inventory-category-bar{margin:0 0 20px;gap:8px;padding-block:0}
+.native-app .inventory-category-bar button{min-height:38px;padding:6px 16px;font-size:13px;border-radius:24px}
+.native-app .inventory-results-title{font-size:18px;margin:0 0 14px;font-weight:600}
+.native-app .inventory-card{min-height:60px;padding:8px 17px;margin-bottom:8px}
+.native-app .inventory-card-name{font-size:17px;font-weight:600}
+.native-app .inventory-card-description{font-size:13px}
+.native-app .inventory-category-badge{font-size:12px;padding:2px 8px;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--primary)}
+.native-app .inventory-pin{border-color:transparent;background:transparent}
+.native-app .inventory-summary-card{min-height:51px;padding:10px 12px;font-size:15px;margin-bottom:20px}
+.native-app .inventory-summary-card b{font-size:17px}
+.native-app [data-screen-heading]{display:none}
+.native-app .partner-directory-card>h2{font-size:21px;font-weight:600;margin:0 0 10px}
+.native-app .partner-directory-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0 18px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.native-app .partner-directory-row b{font-size:18px;font-weight:600}
+.native-app .partner-directory-row p{font-size:12px;margin:2px 0 0}
+.native-app .partner-directory-row>strong{font-size:15px;font-weight:600}
+.native-app [data-project-share]{font-size:13px;text-align:right;margin:4px 0 12px;color:var(--muted)}
+.native-app .partner-main-actions{display:flex;flex-direction:column;gap:7px}
+.native-app .partner-main-actions>button{width:100%;min-height:46px;font-size:15px;border-radius:15px;background:var(--surface)}
+.native-app .partner-main-actions>[data-edit-distribution]{color:var(--primary)}
+.native-app .partner-main-actions>[data-add-partner]{background:var(--primary);color:var(--onPrimary)}
+.native-app .partner-secondary{margin-top:16px}
+.native-app .partner-secondary summary{cursor:pointer;color:var(--muted);padding:10px 0;font-size:13px}
+.native-app .partner-secondary button{margin-block:4px;max-width:100%}
+.native-app .project-sharing{margin-bottom:14px}
+.native-app .project-sharing h3{font-size:21px;font-weight:600;margin:0 0 2px}
+.native-app .project-sharing p{font-size:13px;color:var(--muted);margin:2px 0 8px}
+.native-app .project-sharing>p:not([data-sharing-availability]){display:none}
+.native-app .project-sharing [data-open-sharing]{width:100%;background:var(--primary);color:var(--onPrimary);font-size:15px;min-height:51px;border-radius:17px}
+.native-app .report-tabs{margin-bottom:16px}
+.native-app .report-accounts{min-height:51px;border-radius:18px;margin:0 0 12px;font-size:15px}
+.native-app .report-date-panel{padding:16px 18px 22px;margin-bottom:20px}
+.native-app .report-date-panel h3{font-size:20px;font-weight:600;margin:0 0 10px}
+.native-app .report-dates label{font-size:0;margin:0}
+.report-date-value{display:none}
+.native-app .report-dates label{position:relative}
+.native-app .report-date-value{display:flex;align-items:center;justify-content:space-between;position:absolute;inset:0 14px;font-size:15px;pointer-events:none;z-index:1}
+.native-app .report-dates input{color:transparent}
+.native-app .report-dates input::-webkit-datetime-edit,.native-app .report-dates input::-webkit-calendar-picker-indicator{opacity:0}
+.native-app .report-sync-note{font-size:12px;text-align:right;line-height:2;margin:0 4px 14px}
+.native-app .report-dates input{font-size:15px;height:52px;min-width:0;padding:10px 14px;border-radius:10px;margin:0;direction:rtl}
+.native-app .report-summary{padding:25px 18px 18px}
+.native-app .report-summary h2{font-size:21px;font-weight:600;margin:8px 0 14px}
+.native-app .report-caption{display:none}
+.native-app .report-summary .report-metrics{display:flex;flex-direction:column;border:0;padding:0;gap:8px;margin:0}
+.native-app .report-summary .report-metric{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:11px 14px;min-height:48px}
+.native-app .report-summary .report-metric small{font-size:14px}
+.native-app .report-summary .report-metric strong{font-size:15px;white-space:nowrap;color:var(--text)}
+.native-app .report-summary .report-metric.negative strong{color:var(--red)}
+.native-app .report-summary .report-metric.positive strong{color:var(--profit)}
+.native-app .report-summary .report-metric.muted strong{color:var(--red)}
+.native-app .report-summary .report-net{margin-top:6px}
+.native-app .home-month{text-align:center;font-size:15px;color:var(--muted);margin:24px 0 25px}
+.native-app .home-statistics h2{font-size:21px;font-weight:600;margin:0 0 14px}
+.native-app .home-statistics-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.native-app .home-statistic{min-height:100px;padding:19px 14px;border:1px solid var(--border);background:var(--panel);border-radius:17px}
+.native-app .home-statistic small{display:block;color:var(--muted);font-size:13px;margin-bottom:8px}
+.native-app .home-statistic strong{font-size:21px;font-weight:600;display:block}
+.native-app .home-statistic .primary-tone{color:var(--primary)}
+.native-app .home-statistics .home-explanation{font-size:11px;line-height:2;margin:10px 0 20px;color:var(--muted)}
+.native-app .account-liquidity{margin-top:20px}
+.native-app .account-liquidity h2{font-size:20px;margin:0 0 12px}
+.native-app .account-liquidity>strong{display:block;text-align:left;font-size:24px;color:var(--primary);margin-bottom:12px}
+.native-app details.account-details{margin-top:18px}
+.native-app details.account-details>summary{cursor:pointer;font-size:15px;color:var(--muted);padding:12px}
+@media(min-width:720px){.native-app{max-width:540px;padding-top:32px}.native-app>nav{max-width:512px}.native-app .cashier-grid button{min-height:164px}}
+@media(max-width:350px){.native-app{padding-inline:10px}.native-app .project-heading h1{font-size:25px}.native-app .project-heading>small{font-size:10px}.native-app .header-tools{gap:5px}.native-app .plan-info{font-size:11px}.native-app .subscribe{padding-inline:8px;font-size:12px}.native-app .activity-record{padding-inline:12px}.native-app .activity-record .badge{min-width:76px}}

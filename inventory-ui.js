@@ -12,6 +12,7 @@ import {pinnedIds,sortPinnedRows} from './inventory-pinned.js';
 import {createInventoryPinOperation} from './inventory-pin-operation.js';
 import {createInventoryViewStore} from './inventory-view-state.js';
 import {openInventoryProductEntry} from './inventory-product-entry-ui.js';
+import {icon} from './icons.js';
 const activeRenders=new WeakMap();
 
 
@@ -64,7 +65,7 @@ async function renderCurrentInventory({api,projectId,project,container,isCurrent
  const inventoryCategories=rows.map(row=>String(row.category||'').trim()).filter(Boolean);
  let pinned= new Set(pinnedIds(financeState));
  const categories=visibleCategories({customCategories:settings.customCategories,hiddenCategories:settings.hiddenCategories,inventoryCategories});
- container.innerHTML='<h2>البضاعة</h2><div data-inventory-summary></div>'+(mode==='owner'?'<button type="button" class="outline inventory-category-settings" data-category-settings>إعدادات التصنيفات</button>':'')+'<div class="inventory-sticky-controls" data-inventory-controls><input data-inventory-search type="search" aria-label="ابحث باسم الصنف أو الباركود" placeholder="ابحث باسم الصنف أو الباركود" enterkeyhint="search">'+(mode==='owner'?'<div class="actions inventory-add-actions"><button type="button" class="primary" data-scan-add-product>مسح باركود</button><button type="button" class="outline" data-add-product>إضافة يدوياً</button></div>':'')+'<div class="inventory-category-bar" data-inventory-category-bar></div></div><h3 class="inventory-results-title">الأصناف الحالية</h3><div data-inventory-list></div>';
+ container.innerHTML='<h2>البضاعة</h2><div data-inventory-summary></div>'+(mode==='owner'?'<button type="button" class="outline inventory-category-settings" data-category-settings>'+icon('filter',20)+'إعدادات البضاعة</button>':'')+'<div class="inventory-sticky-controls" data-inventory-controls><div class="inventory-search-wrap">'+icon('search',23)+'<input data-inventory-search type="search" aria-label="ابحث باسم الصنف أو الباركود" placeholder="ابحث باسم الصنف أو الباركود" enterkeyhint="search"></div>'+(mode==='owner'?'<div class="actions inventory-add-actions"><button type="button" class="primary" data-scan-add-product>'+icon('scan',22)+'<span>مسح باركود</span></button><button type="button" class="outline" data-add-product>'+icon('plus',22)+'<span>إضافة يدوياً</span></button></div>':'')+'<div class="inventory-category-bar" data-inventory-category-bar></div></div><h3 class="inventory-results-title">الأصناف الحالية</h3><div data-inventory-list></div>';
  const summary=container.querySelector('[data-inventory-summary]'),list=container.querySelector('[data-inventory-list]'),search=container.querySelector('[data-inventory-search]'),categoryBar=container.querySelector('[data-inventory-category-bar]');
  search.value=view.getState().query;
  let selectedCategory=view.getState().category;

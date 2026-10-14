@@ -47,3 +47,4 @@ nav{max-width:700px;gap:0;border-radius:25px;padding:8px 6px;bottom:10px}nav but
 .opening-distribution{overflow-wrap:anywhere}
 .onboarding .setup-invalid{color:var(--red)}
 .partner-distribution [data-distribution-warning]{color:var(--red);border:1px solid var(--red);border-radius:8px;padding:9px 12px}
+.report-date-value{display:none}

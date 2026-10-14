@@ -15,6 +15,7 @@ for(const folder of ['scripts','tests']){
 console.log('Running unit tests');
 run(['--test',...unitTests]);
 console.log('Running isolated browser regressions');
+run(['tests/native-pages-browser-smoke.mjs']);
 run(['tests/inventory-browser-smoke.mjs']);
 run(['tests/inventory-decimal-browser-smoke.mjs']);
 run(['tests/inventory-history-model-browser-smoke.mjs']);

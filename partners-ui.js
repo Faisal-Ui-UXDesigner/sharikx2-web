@@ -16,7 +16,7 @@ import {openPartnerWithdrawal} from './partner-withdrawal-ui.js';
 import {openPartnerProfitSummary} from './partner-profit-summary-ui.js';
 import {readFinanceEdit} from './finance-edit.js';
 import {financeEditStorage,openFinanceEditRecovery} from './finance-edit-ui.js';
-export async function renderPartners({api,projectId,project,storage,container,mode,isCurrent=()=>true,onSaved}){
+export async function renderPartners({api,projectId,project,storage,container,mode,isCurrent=()=>true,onSaved,onPlans}){
  if(!isCurrent())return;
  container.innerHTML='<h2>الشركاء</h2><div class="skeleton"></div>';
  try{
@@ -35,7 +35,9 @@ export async function renderPartners({api,projectId,project,storage,container,mo
   const formerMarkup=()=>partners.former.map(row=>`<article class="panel" data-former-partner><h3>${escape(row.name)}</h3><p>تاريخ الخروج: ${escape(row.exitDate)}</p>${row.metrics.map(metric=>`<p data-settlement-field="${metric.field}" class="settlement-${metric.tone}">${escape(metric.title)}: ${money(metric.value,2)}</p>`).join('')}</article>`).join('')||'<div class="panel">لا يوجد شركاء سابقون حتى الآن.</div>';
   container.innerHTML=`<h2>الشركاء</h2><section class="tabs"><button type="button" data-partner-tab="current" class="primary" aria-pressed="true">الشركاء الحاليون</button><button type="button" data-partner-tab="former" aria-pressed="false">الشركاء السابقون</button></section><section data-partner-list>${currentMarkup()}</section><section class="panel" data-retention ${mode==='owner'?'':'hidden'}><h3>إعدادات المبلغ المتروك للمشروع</h3><p>النسبة التي تبقى من الربح داخل المشروع</p><p>النسبة: ${partnerPercent(partners.retentionShare)}</p><p>الحد الأعلى للمبلغ: ${money(partners.retentionCap,2)}</p></section><p role="alert" data-partner-error></p>`;
   const list=container.querySelector('[data-partner-list]');
-  let sharingPanel;if(project?.id===projectId)sharingPanel=renderProjectSharing({api,container,project,mode,isCurrent:current});
+  const nativeLayout=!!container.closest('.native-app');
+  let nativeDirectory;
+  let sharingPanel;if(project?.id===projectId)sharingPanel=renderProjectSharing({api,container,project,mode,isCurrent:current,onPlans});
   let additionButton,distributionButton,settlementButton;
   if(mode==='owner'){settlementButton=document.createElement('button');settlementButton.type='button';settlementButton.className='danger';settlementButton.dataset.reviewPartnerSettlement='';settlementButton.textContent='مراجعة تصفية وإخراج شريك';container.querySelector('.tabs').after(settlementButton);settlementButton.onclick=()=>{if(!current()||!settlementButton.isConnected||settlementButton.hidden)return;try{openPartnerSettlementReview({api,storage,projectId,snapshot:historySnapshot,mode,isCurrent:()=>current()&&settlementButton.isConnected&&!settlementButton.hidden,onSaved});}catch(error){container.querySelector('[data-partner-error]').textContent=error.message;}};}
   if(mode==='owner'&&partners.current.length){distributionButton=document.createElement('button');distributionButton.type='button';distributionButton.dataset.editDistribution='';distributionButton.textContent='تعديل توزيع الشركاء';container.querySelector('.tabs').after(distributionButton);distributionButton.onclick=()=>{if(!current()||!distributionButton.isConnected||distributionButton.hidden)return;try{openPartnerDistribution({api,storage,projectId,snapshot:historySnapshot,mode,isCurrent:()=>current()&&distributionButton.isConnected&&!distributionButton.hidden,onSaved});}catch(error){container.querySelector('[data-partner-error]').textContent=error.message;}};}
@@ -54,6 +56,23 @@ export async function renderPartners({api,projectId,project,storage,container,mo
    const edit=document.createElement('button');edit.type='button';edit.dataset.editRetention='';edit.textContent='تعديل النسبة والحد الأعلى';edit.disabled=!partners.current.length;container.querySelector('[data-retention]').append(edit);
    edit.onclick=()=>{if(!current()||!edit.isConnected||container.querySelector('[data-retention]').hidden)return;try{openRetentionEditor({api,storage,projectId,snapshot,mode,isCurrent:current,onSaved});}catch(e){container.querySelector('[data-partner-error]').textContent=e.message;}};
   }
+  if(nativeLayout){
+   container.querySelector('h2').setAttribute('data-screen-heading','');
+   nativeDirectory=document.createElement('section');nativeDirectory.className='panel partner-directory-card';
+   nativeDirectory.innerHTML='<h2>الشركاء الحاليون</h2>'+partners.current.map(row=>`<div class="partner-directory-row"><div><b>${escape(row.name||'شريك')}</b><p class="muted">النسبة: ${partnerPercent(row.share)}</p></div><strong>${money(row.capital,2)}</strong></div>`).join('')+`<p class="muted">المتروك للمشروع: ${partnerPercent(partners.projectShare)}</p><div class="partner-main-actions"></div>`;
+   list.before(nativeDirectory);
+   const actions=nativeDirectory.querySelector('.partner-main-actions');
+   actions.append(debtsButton);
+   if(distributionButton){distributionButton.textContent='تعديل';actions.append(distributionButton);}
+   if(additionButton){additionButton.classList.add('primary');actions.append(additionButton);}
+   const extra=document.createElement('details');extra.className='partner-secondary';extra.innerHTML='<summary>تفاصيل الشركاء والأرباح والإعدادات</summary>';
+   list.before(extra);extra.append(list,container.querySelector('[data-retention]'));
+   for(const button of [...container.querySelectorAll(':scope > button')]){
+    if(button.dataset.verifyFinanceEdit!==undefined||button.dataset.verifyPartnerWithdrawal!==undefined)continue;
+    extra.append(button);
+   }
+   if(sharingPanel)container.querySelector('.tabs').after(sharingPanel);
+  }
   list.onclick=event=>{
    if(!current())return;
    const operating=event.target.closest('[data-partner-operating]');if(operating&&list.contains(operating)){openPartnerOperatingAccount({api,projectId,partnerId:operating.dataset.partnerOperating,isCurrent:()=>current()&&operating.isConnected});return;}
@@ -67,6 +86,6 @@ export async function renderPartners({api,projectId,project,storage,container,mo
    const button=event.target.closest('[data-edit-partner]');if(!button||!list.contains(button))return;
    try{openPartnerEditor({api,storage,projectId,snapshot,partner:partners.current.find(row=>row.id===button.dataset.editPartner),mode,isCurrent:current,onSaved});}catch(e){container.querySelector('[data-partner-error]').textContent=e.message;}
   };
-  container.querySelectorAll('[data-partner-tab]').forEach(button=>button.onclick=()=>{if(!current()||!button.isConnected)return;const selected=button.dataset.partnerTab;if(sharingPanel)sharingPanel.hidden=selected!=='current';if(additionButton)additionButton.hidden=selected!=='current';if(distributionButton)distributionButton.hidden=selected!=='current';if(settlementButton)settlementButton.hidden=selected!=='current';container.querySelectorAll('[data-partner-tab]').forEach(tab=>{const active=tab===button;tab.classList.toggle('primary',active);tab.setAttribute('aria-pressed',String(active));});list.innerHTML=selected==='current'?currentMarkup():formerMarkup();container.querySelector('[data-retention]').hidden=mode!=='owner'||selected!=='current';});
+  container.querySelectorAll('[data-partner-tab]').forEach(button=>button.onclick=()=>{if(!current()||!button.isConnected)return;const selected=button.dataset.partnerTab;if(nativeDirectory){nativeDirectory.hidden=selected!=='current';list.parentElement.open=selected==='former';}if(sharingPanel)sharingPanel.hidden=selected!=='current';if(additionButton)additionButton.hidden=selected!=='current';if(distributionButton)distributionButton.hidden=selected!=='current';if(settlementButton)settlementButton.hidden=selected!=='current';container.querySelectorAll('[data-partner-tab]').forEach(tab=>{const active=tab===button;tab.classList.toggle('primary',active);tab.setAttribute('aria-pressed',String(active));});list.innerHTML=selected==='current'?currentMarkup():formerMarkup();container.querySelector('[data-retention]').hidden=mode!=='owner'||selected!=='current';});
  }catch(e){if(!isCurrent()||!container.isConnected)return;container.innerHTML='<h2>الشركاء</h2><p role="alert"></p><button type="button" data-retry-partners>إعادة المحاولة</button>';container.querySelector('p').textContent=e.message;container.querySelector('button').onclick=()=>{if(isCurrent()&&container.isConnected)renderPartners({api,projectId,project,storage,container,mode,isCurrent,onSaved});};}
 }

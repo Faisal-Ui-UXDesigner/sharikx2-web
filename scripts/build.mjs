@@ -3,6 +3,7 @@ const key=process.env.SUPABASE_ANON_KEY||'';
 if(key.startsWith('sb_secret_'))throw new Error('A secret key must never be included in a browser build');
 if(key.split('.').length===3){const claims=JSON.parse(Buffer.from(key.split('.')[1],'base64url'));if(claims.role!=='anon')throw new Error('Only a public anon key is allowed');}
 await mkdir('dist',{recursive:true});
+for(const file of ['app-shell-ui.js','native-layout.css','home-statistics.js','home-statistics-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['money-display.js','sale-details.js','sale-details-ui.js'])await copyFile(file,`dist/${file}`);
 await copyFile('date-display.js','dist/date-display.js');
 await copyFile('decimal-sum.js','dist/decimal-sum.js');

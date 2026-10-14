@@ -1,10 +1,11 @@
 import {escape} from './ui.js';
 import {sharingAccess,sharePin,projectShareText,createSharingChange} from './project-sharing.js';
-export function renderProjectSharing({api,container,project,mode,isCurrent=()=>true}){
+export function renderProjectSharing({api,container,project,mode,isCurrent=()=>true,onPlans}){
  if(mode!=='owner'||!isCurrent()||!container.isConnected)return;
  const panel=document.createElement('section');panel.className='panel project-sharing';panel.innerHTML='<h3>مشاركة المشروع</h3><p>مشاركة SharikX2 بصلاحية مشاهدة فقط، دون صلاحية التعديل.</p><p data-sharing-availability></p><button type="button" data-open-sharing>مشاركة المشروع</button>';container.append(panel);
- const trigger=panel.querySelector('button');try{sharingAccess(project,project?.id,mode);panel.querySelector('[data-sharing-availability]').textContent='متاحة ضمن الاشتراك الفعّال.';}catch(error){trigger.disabled=true;panel.querySelector('[data-sharing-availability]').textContent=error.message;}
- trigger.onclick=()=>{if(isCurrent()&&panel.isConnected&&!panel.hidden&&!trigger.disabled)try{openProjectSharing({api,project,mode,isCurrent:()=>isCurrent()&&panel.isConnected&&!panel.hidden});}catch(error){panel.querySelector('[data-sharing-availability]').textContent=error.message;}};return panel;
+ let eligible=true;
+ const trigger=panel.querySelector('button');try{sharingAccess(project,project?.id,mode);panel.querySelector('[data-sharing-availability]').textContent='متاحة ضمن الاشتراك الفعّال.';}catch(error){eligible=false;trigger.disabled=typeof onPlans!=='function';if(onPlans)trigger.textContent='الاشتراك للمشاركة';panel.querySelector('[data-sharing-availability]').textContent=error.message;}
+ trigger.onclick=()=>{if(isCurrent()&&panel.isConnected&&!panel.hidden&&!trigger.disabled)try{if(!eligible&&onPlans){onPlans();return;}openProjectSharing({api,project,mode,isCurrent:()=>isCurrent()&&panel.isConnected&&!panel.hidden});}catch(error){panel.querySelector('[data-sharing-availability]').textContent=error.message;}};return panel;
 }
 export function openProjectSharing({api,project,mode,isCurrent=()=>true}){
  if(mode!=='owner')throw new Error('مشاركة المشروع متاحة للمالك فقط');

@@ -1,4 +1,5 @@
-import {escape, money} from './ui.js';
+import {escape, money, timestamp} from './ui.js';
+import {icon} from './icons.js';
 import {REPORT_TYPES, reportPeriod, loadReport} from './reports.js';
 import {hasActiveSubscription} from './subscription.js';
 import {palestineDate} from './financial.js';
@@ -13,7 +14,7 @@ const expense = (title, amount) => metric(title, money(amount > 0 ? -amount : 0)
 
 function summaryMarkup(report) {
   const {summary: s, period: p} = report;
-  return `<section class="panel report-summary"><h2>${p.range ? 'تقرير الفترة' : 'تقرير اليوم'}</h2><p class="muted report-caption"><bdi dir="ltr">${escape(p.from)}</bdi>${p.range ? ` <span>إلى</span> <bdi dir="ltr">${escape(p.to)}</bdi>` : ''}</p><div class="report-metrics">${metric('المبيعات', money(s.sales))}${expense('المشتريات', s.purchases)}${expense('مصاريف', s.expenses)}${expense('اليوميات', s.wages)}${metric('ديون زبائن', '<span data-customer-debt>جاري التحميل…</span>', 'negative')}${metric('ديون موردين', '<span data-supplier-debt>جاري التحميل…</span>', 'negative')}${metric('صافي الربح', money(s.net), `report-net ${s.net >= 0 ? 'positive' : 'negative'}`)}</div><p data-debt-error role="alert"></p><button data-retry-debt class="outline" hidden>إعادة تحميل الديون</button></section>`;
+  return `<section class="panel report-summary"><h2>إحصائيات التقرير</h2><p class="muted report-caption"><bdi dir="ltr">${escape(p.from)}</bdi>${p.range ? ` <span>إلى</span> <bdi dir="ltr">${escape(p.to)}</bdi>` : ''}</p><div class="report-metrics">${metric('المبيعات بعد المرتجعات', money(s.sales))}${metric('المشتريات بعد المرتجعات', money(s.purchases))}${expense('مصاريف', s.expenses)}${expense('اليوميات', s.wages)}${metric('ديون زبائن', '<span data-customer-debt>جاري التحميل…</span>', 'negative')}${metric('ديون موردين', '<span data-supplier-debt>جاري التحميل…</span>', 'negative')}${metric('صافي الربح', money(s.net), `report-net ${s.net >= 0 ? 'positive' : 'negative'}`)}</div><p data-debt-error role="alert"></p><button data-retry-debt class="outline" hidden>إعادة تحميل الديون</button></section>`;
 }
 
 function dayMarkup(data, expanded) {
@@ -29,7 +30,7 @@ export async function renderReports({api, project, container, state, isCurrent =
     const premium = hasActiveSubscription(project);
     if (!premium) state.range = false;
     const current = () => isCurrent() && request === generation;
-    container.innerHTML = `<h2>التقارير</h2><div class="tabs report-tabs"><button data-mode="day" class="${state.range ? '' : 'primary'}" aria-pressed="${!state.range}">يوم واحد</button><button data-mode="range" class="${state.range ? 'primary' : ''}" aria-pressed="${state.range}">${premium ? 'فترة' : 'فترة 🔒'}</button></div><button class="primary report-accounts" data-accounts>فتح الحسابات المالية</button><section class="panel"><h3>${state.range ? 'اختيار الفترة' : 'اختيار التاريخ'}</h3><div class="report-dates"><label>${state.range ? 'من' : 'التاريخ'}<input data-start type="date" required value="${escape(state.start)}"></label>${state.range ? `<label>إلى<input data-end type="date" required value="${escape(state.end)}"></label>` : ''}</div></section><div data-summary><div class="skeleton"></div></div>${state.range ? `<section class="panel"><label>نوع الحركة<select data-type>${REPORT_TYPES.map(type => `<option ${state.type === type ? 'selected' : ''}>${escape(type)}</option>`).join('')}</select></label>${state.type !== 'الجميع' ? `<p class="muted small">يعرض السجل الحركات حسب الفلتر المحدد: ${escape(state.type)}</p>` : ''}</section>` : ''}<h2>سجل العمليات</h2><section data-days><div class="skeleton"></div></section>`;
+    container.innerHTML = `<h2 data-screen-heading>التقارير</h2><div class="tabs report-tabs"><button data-mode="day" class="${state.range ? '' : 'primary'}" aria-pressed="${!state.range}">يوم واحد</button><button data-mode="range" class="${state.range ? 'primary' : ''}" aria-pressed="${state.range}">${premium ? 'فترة' : 'فترة 🔒'}</button></div><button class="primary report-accounts" data-accounts>فتح الحسابات المالية</button><section class="panel report-date-panel"><h3>${state.range ? 'تقرير الفترة' : 'تقرير اليوم'}</h3><div class="report-dates"><label>${state.range ? 'من' : 'التاريخ'}<span class="report-date-value" aria-hidden="true"><bdi dir="ltr">${escape(state.start)}</bdi>${icon('calendar',21)}</span><input data-start type="date" required value="${escape(state.start)}"></label>${state.range ? `<label>إلى<span class="report-date-value" aria-hidden="true"><bdi dir="ltr">${escape(state.end)}</bdi>${icon('calendar',21)}</span><input data-end type="date" required value="${escape(state.end)}"></label>` : ''}</div></section><div data-summary><div class="skeleton"></div></div>${state.range ? `<section class="panel"><label>نوع الحركة<select data-type>${REPORT_TYPES.map(type => `<option ${state.type === type ? 'selected' : ''}>${escape(type)}</option>`).join('')}</select></label>${state.type !== 'الجميع' ? `<p class="muted small">يعرض السجل الحركات حسب الفلتر المحدد: ${escape(state.type)}</p>` : ''}</section>` : ''}<h2>سجل العمليات</h2><section data-days><div class="skeleton"></div></section>`;
     container.querySelector('[data-accounts]').onclick = onAccounts;
     container.querySelectorAll('[data-mode]').forEach(button => button.onclick = () => {
       const range = button.dataset.mode === 'range';
@@ -60,7 +61,7 @@ export async function renderReports({api, project, container, state, isCurrent =
       const period = reportPeriod(state.start, state.end, state.range);
       const report = await loadReport(api, project.id, period, state.type);
       if (!current()) return;
-      summary.innerHTML = summaryMarkup(report);
+      summary.innerHTML = '<p class="report-sync-note muted">بيانات مؤكدة من المشروع المشترك<br>آخر تحميل: '+escape(timestamp(new Date().toISOString()))+'</p>'+summaryMarkup(report);
       days.innerHTML = report.days.map(day => dayMarkup(day, state.expanded.has(day.key))).join('') || '<div class="panel muted">لا توجد حركات مسجلة ضمن التاريخ والنوع المحددين.</div>';
       days.querySelectorAll('[data-day]').forEach(button => button.onclick = () => {
         const expanded = button.getAttribute('aria-expanded') !== 'true';

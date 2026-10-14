@@ -1,5 +1,6 @@
 import {escape,money} from './ui.js';
 import {loadFinancialAccounts,movementsForAccount,statementText} from './statement.js';
+import {renderHomeStatistics} from './home-statistics-ui.js';
 
 const metric=(title,value)=>`<span>${escape(title)}<br><b class="${Number(value)<0?'negative':''}">${money(value,2)}</b></span>`;
 const movement=row=>`<article class="panel row"><span>${escape(row.accountName)} • ${escape(row.typeName)}${row.date?` • <bdi dir="ltr">${escape(row.date)}</bdi>`:''}</span><b dir="ltr" class="${row.incoming?'positive':'negative'}">${row.incoming?'+':'−'}${money(row.amount,2)}</b></article>`;
@@ -73,4 +74,15 @@ export async function renderFinancialAccounts({api,project,container,isCurrent,p
   openReadDialog(container,account.name||'تفاصيل الحساب',markup+(model.possiblyLimited?limitNotice:''));
  });
  container.querySelector('[data-full-statement]')?.addEventListener('click',()=>{if(current())openStatement({container,project,data,isCurrent:current});});
+ if(container.closest('.native-app')){
+  // Keep complete statements/period controls available below the native home
+  // summary. Moving existing nodes preserves all handlers and financial data.
+  const details=document.createElement('details');details.className='account-details';details.innerHTML='<summary>تفاصيل الحسابات وكشف الحركات</summary>';
+  while(container.firstChild)details.append(container.firstChild);
+  const daily=document.createElement('section');daily.dataset.homeStatistics='';
+  const liquidity=document.createElement('section');liquidity.className='panel account-liquidity';liquidity.innerHTML=`<h2>رصيد السيولة في الحسابات</h2><strong>${money(model.liquidity,2)}</strong>`;
+  for(const button of details.querySelectorAll('[data-account]'))liquidity.append(button);
+  container.append(daily,liquidity,details);
+  await renderHomeStatistics({api,projectId:project.id,summary:s,container:daily,isCurrent:current});
+ }
 }

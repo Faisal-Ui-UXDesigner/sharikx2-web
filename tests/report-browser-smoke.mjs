@@ -41,7 +41,7 @@ await page.route('**/*',async route=>{
     const offset=Number(url.searchParams.get('offset'));
     data=[...Array.from({length:45},(_,i)=>({id:String(i),status:'debt',created_at:'2026-10-01T12:00:00Z',debt_amount:1,total:i===0?32:2})),
       {id:'46',status:'paid',created_at:'2026-10-02T12:00:00Z',debt_amount:0,total:30}].slice(offset,offset+20);
-  }else if(url.pathname==='/rest/v1/sharikx2_purchases')data=[];
+  }else if(['/rest/v1/sharikx2_purchases','/rest/v1/sharikx2_debt_writeoffs','/rest/v1/sharikx2_purchase_returns'].includes(url.pathname))data=[];
   else if(url.pathname==='/rest/v1/sharikx2_expenses')data=[
     {id:'expense',category:'operating_expense',amount:7,occurred_at:'2026-10-01T10:00:00Z',created_at:'2026-10-01T10:00:00Z',description:'<img src=x onerror=alert(1)>'},
     {id:'wage',category:'daily_wage',amount:10,occurred_at:'2026-10-01T10:00:00Z',created_at:'2026-10-01T10:00:00Z'},
@@ -84,9 +84,12 @@ try{
   await page.waitForFunction(()=>document.querySelector('.report-net')?.textContent.includes('40'));
   slow=false;
   await page.locator('[data-page=accounts]').click();
+  await page.locator('[data-home-statistics]').waitFor();
+  await page.locator('.account-details>summary').click();
   await page.getByRole('heading',{name:'الحسابات المالية',exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'حفظ العملة',exact:true}).count(),1);
   await page.locator('[data-page=partners]').click();
+  await page.locator('.partner-secondary>summary').click();
   await page.locator('[data-edit-partner="partner-1"]').waitFor();
   assert.equal(await page.locator('[data-edit-partner]').count(),1);
   await page.locator('[data-page=cashier]').click();
@@ -138,6 +141,8 @@ try{
   assert.equal(await page.locator('[data-return]').isDisabled(),true);
   await page.getByRole('button',{name:'إغلاق',exact:true}).click();
   await page.locator('[data-page=accounts]').click();
+  await page.locator('[data-home-statistics]').waitFor();
+  await page.locator('.account-details>summary').click();
   await page.getByRole('heading',{name:'الحسابات المالية',exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'حفظ العملة',exact:true}).count(),0);
   assert.equal(await page.getByRole('button',{name:'التحويل بين الحسابات',exact:true}).count(),0);
