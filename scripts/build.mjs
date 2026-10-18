@@ -6,6 +6,8 @@ await mkdir('dist',{recursive:true});
 await copyFile('app-shell-layout.js','dist/app-shell-layout.js');
 await copyFile('shared-report.js','dist/shared-report.js');
 await copyFile('purchase-form-ui.js','dist/purchase-form-ui.js');
+await copyFile('purchase-line-form-ui.js','dist/purchase-line-form-ui.js');
+for(const file of ['purchase-payment-options.js','purchase-payment-options-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['purchase-calculator.js','purchase-calculator-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['expense-entry.js','expense-entry-ui.js'])await copyFile(file,`dist/${file}`);
 await copyFile('sale-payment-ui.js','dist/sale-payment-ui.js');

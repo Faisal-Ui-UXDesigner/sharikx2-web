@@ -307,6 +307,15 @@
 .native-app .home-overview-values small{font-size:12px;display:block;color:var(--muted)}
 .native-app .home-overview-values b{font-size:17px;display:block;margin-top:3px;overflow-wrap:anywhere}
 .native-app .native-project-overview>p{font-size:12px;line-height:1.9;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;margin:12px 0 0}
+.purchase-line-entry{width:min(100% - 16px,520px);max-height:90dvh;padding:20px}
+.purchase-line-entry h2{font-size:20px;margin:0 0 16px}
+.purchase-line-entry .purchase-line-selection{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:52px;margin-top:7px;text-align:right;font-size:15px;font-weight:600}
+.purchase-line-selection span{min-width:0;overflow-wrap:anywhere}
+.purchase-line-selection svg{flex-shrink:0}
+.purchase-line-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;direction:rtl}
+.purchase-line-values>label{min-width:0;font-size:13px}
+.purchase-line-values input{min-width:0;min-height:52px;font-size:15px}
+.purchase-line-entry [role=alert]{overflow-wrap:anywhere}
 .purchase-calculator-field{display:block;position:relative}
 .purchase-calculator-field input{padding-left:58px;direction:ltr;text-align:right}
 .purchase-calculator-field button{position:absolute;left:4px;top:4px;width:44px;min-height:44px;padding:10px;border:0;background:transparent;color:var(--primary)}
@@ -339,6 +348,15 @@
 .purchase-payment-details{padding:12px;margin-top:16px}
 .purchase-payment-details>summary{cursor:pointer;font-size:14px;font-weight:600;min-height:44px;align-content:center}
 .purchase-payment-details:not([open]) .purchase-payment-expanded,.purchase-payment-details[open] .purchase-payment-collapsed{display:none}
+.purchase-payment-account{padding:12px;margin-top:8px}
+.purchase-payment-account [data-purchase-balance-after]{font-size:13px;margin:8px 0;overflow-wrap:anywhere}
+.purchase-payment-exceeds{color:var(--red)}
+.purchase-full-payments{margin-top:16px;padding-top:8px;border-top:1px solid var(--border)}
+.purchase-full-account{padding:12px 0;border-bottom:1px solid var(--border)}
+.purchase-full-account>div{display:flex;align-items:center;justify-content:space-between;gap:8px;overflow-wrap:anywhere}
+.purchase-full-account small{color:var(--muted);font-size:12px}
+.purchase-full-account button{width:100%;min-height:44px;margin-top:9px;font-size:13px;overflow-wrap:anywhere}
+.purchase-paid-preview{font-size:14px;margin:12px 0 0}
 .purchase-dialog .purchase-attachment{margin-top:12px;padding:14px}
 .purchase-dialog .purchase-attachment button{width:100%;min-height:46px}
 .purchase-dialog .purchase-note{margin-top:12px}

@@ -17,6 +17,8 @@ export function purchaseFormMarkup(suppliers){
     <summary><span class="purchase-payment-collapsed">الدفع الآن — اختياري • إظهار التفاصيل</span><span class="purchase-payment-expanded">الدفع الآن — اختياري • إخفاء التفاصيل</span></summary>
     <p class="muted small">أدخل ما ستدفعه من كل حساب. المتبقي من الفاتورة يصبح دينًا للمورد بعد موافقتك.</p>
     <div data-payments></div><button type="button" data-pay class="outline">إضافة دفعة</button>
+    <section class="purchase-full-payments" data-purchase-full-payments></section>
+    <p class="purchase-paid-preview">المدفوع الآن: <b data-purchase-paid></b></p>
    </details>
    <label class="purchase-note">ملاحظات (اختياري)<textarea name="note" maxlength="500"></textarea></label>
    <section class="panel purchase-attachment">

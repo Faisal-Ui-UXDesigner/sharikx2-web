@@ -7,6 +7,8 @@ import {categorySettingsState} from './inventory-category.js';
 import {openPurchaseCartReview} from './purchase-cart-review-ui.js';
 import {purchaseCartReview} from './purchase-cart-review.js';
 import {purchaseFormMarkup,purchaseSummaryMarkup,revealPurchaseInvalid,mountPurchaseFooter} from './purchase-form-ui.js';
+import {createPurchasePaymentAccounts,purchaseFullInvoicePayment} from './purchase-payment-options.js';
+import {mountPurchaseFullPayments,renderPurchasePaymentBalances,purchasePaymentsMarkup} from './purchase-payment-options-ui.js';
 import {openPurchaseLineEntry} from './purchase-line-entry-ui.js';
 import {createPurchaseCartLine,purchaseUndoIndex} from './purchase-cart-actions.js';
 import {readPurchaseDraft,savePurchaseDraft,removePurchaseDraft,restorePurchaseDraft} from './purchase-drafts.js';
@@ -33,6 +35,16 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
   dialog.querySelector('.body').innerHTML=purchaseFormMarkup(suppliers);
   const form=dialog.querySelector('form'),fields=form.querySelector('fieldset'),error=form.querySelector('[role=alert]'),submit=form.querySelector('[type=submit]');form.noValidate=true;
   const editable=()=>current()&&!busy&&!creatingSupplier&&!choosingProduct&&!reviewingCart&&!enteringLine&&!operation&&!blocked&&!reviewDialog?.isConnected;
+  const paymentCatalog=createPurchasePaymentAccounts(accounts,projectId),fullPayments=form.querySelector('[data-purchase-full-payments]');
+  fullPayments.hidden=!!operation||blocked;
+  const updateFullPayments=mountPurchaseFullPayments(fullPayments,paymentCatalog,account=>{
+   if(!editable())return;
+   try{
+    const payment=purchaseFullInvoicePayment(items,paymentCatalog.get(account.id));
+    payments=[{...payment}];drawPayments();totals();error.textContent='';
+    form.querySelector('[data-payamount]').focus();
+   }catch(errorValue){if(current())error.textContent=errorValue.message;}
+  });
   let lastAdded=null,lastSelectedProduct=products[0]?.id,draftId=crypto.randomUUID(),savedDraft=null,submittedDraft=null;
   const draftTools=document.createElement('section');draftTools.className='panel purchase-draft-tools';draftTools.hidden=!!operation||blocked;draftTools.innerHTML='<div class="actions"><button type="button" data-save-purchase-draft>حفظ الفاتورة غير المكتملة</button><button type="button" data-resume-purchase-draft>استعادة المسودة</button><button type="button" data-delete-purchase-draft>حذف المسودة المحفوظة</button></div><p class="muted small">الحفظ لا يسجل فاتورة ولا يغيّر المخزون أو الحسابات. مسودة واحدة للمشروع في جلسة هذه التبويبة فقط. الإغلاق العادي لا يحفظ التعديلات تلقائيًا.</p><p role="status" data-purchase-draft-status></p>';fields.before(draftTools);
   const draftStatus=draftTools.querySelector('[data-purchase-draft-status]');
@@ -79,12 +91,15 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
     cartSummary.innerHTML=purchaseSummaryMarkup(view);
     cartSummary.setAttribute('aria-label',`مراجعة ${view.lineCount} بند في فاتورة الشراء؛ القيمة الدقيقة ${money(total,2)}`);
     form.querySelector('[data-debt]').textContent=money(purchaseRemaining(total,paid),2);
+    form.querySelector('[data-purchase-paid]').textContent=money(paid,2);
    }catch{
     cartSummary.innerHTML='<span data-total>أكمل الكمية والتكلفة والدفعات</span>';
     cartSummary.setAttribute('aria-label','صحح الكمية والتكلفة قبل مراجعة الأصناف');
     form.querySelector('[data-debt]').textContent='أكمل الكمية والتكلفة والدفعات';
+    form.querySelector('[data-purchase-paid]').textContent='أكمل مبالغ الدفعات';
    }
    form.querySelectorAll('[data-line-purchase-total]').forEach(label=>{const item=items[+label.dataset.linePurchaseTotal];try{label.textContent=money(purchaseLineTotal(item.quantity,item.cost),2);}catch{label.textContent='أكمل الكمية والتكلفة';}});
+   updateFullPayments(items);renderPurchasePaymentBalances(form,payments,paymentCatalog);
   };
   const drawItems=()=>{
    form.querySelector('[data-items]').innerHTML=items.map((item,index)=>`<div class="panel"><label>الصنف<select data-product="${index}">${products.map(product=>`<option value="${escape(product.id)}" ${product.id===item.product_id?'selected':''}>${escape(product.name)}</option>`).join('')}</select></label><div class="input-pair"><label>الكمية بالقطعة<input data-qty="${index}" type="number" min="0.001" step="0.001" value="${escape(item.quantity)}" required></label><label>تكلفة القطعة<input data-cost="${index}" type="number" min="0" step="0.01" value="${escape(item.cost)}" required></label></div><button type="button" data-remove="${index}" class="danger">حذف الصنف</button></div>`).join('')||'<p class="muted">لم تضف أصنافًا بعد</p>';
@@ -107,8 +122,8 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
   };
   const drawPayments=()=>{
    if(payments.length)form.querySelector('[data-purchase-payments]').open=true;
-   form.querySelector('[data-payments]').innerHTML=payments.map((payment,index)=>`<div class="panel"><label>الحساب<select data-account="${index}">${accounts.map(account=>`<option value="${escape(account.id)}" ${account.id===payment.account_id?'selected':''}>${escape(account.name)} — المتاح ${money(account.balance,2)}</option>`).join('')}</select></label><label>المبلغ<input data-payamount="${index}" type="number" min="0.01" step="0.01" value="${escape(payment.amount)}" required></label><button type="button" data-removepay="${index}" class="danger">حذف الدفعة</button></div>`).join('')||'<p class="muted">لم تضف دفعات؛ الباقي يصبح دينًا للمورد.</p>';
-   form.querySelectorAll('[data-account]').forEach(input=>input.onchange=()=>{if(editable())payments[+input.dataset.account].account_id=input.value;});
+   form.querySelector('[data-payments]').innerHTML=purchasePaymentsMarkup(payments,accounts);
+   form.querySelectorAll('[data-account]').forEach(input=>input.onchange=()=>{if(editable()){payments[+input.dataset.account].account_id=input.value;totals();}});
    form.querySelectorAll('[data-account]').forEach(select=>{const id=payments[+select.dataset.account].account_id;if(![...select.options].some(option=>option.value===id)){select.append(new Option('الحساب المحفوظ غير متاح',id));select.value=id;}});
    form.querySelectorAll('[data-payamount]').forEach(input=>input.oninput=()=>{if(!editable())return;payments[+input.dataset.payamount].amount=Number(input.value);totals();});
    form.querySelectorAll('[data-removepay]').forEach(button=>button.onclick=()=>{if(!editable())return;payments.splice(+button.dataset.removepay,1);drawPayments();totals();});
@@ -135,7 +150,7 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
      const candidate=createOperation('confirm_sharikx2_purchase_v3',payload);
      const view={supplier:suppliers.find(supplier=>supplier.id===payload.p_supplier_id),products:products.filter(product=>payload.p_items.some(item=>item.product_id===product.id)).map(product=>({id:product.id,name:product.name})),accounts:accounts.filter(account=>payload.p_payments.some(payment=>payment.account_id===account.id)).map(account=>({id:account.id,name:account.name,balance:account.balance}))};
      submittedDraft=savedDraft?.id===draftId?savedDraft:null;
-     storage.setItem(key,JSON.stringify({payload,requestId:candidate.requestId,view,unsentDraft:submittedDraft}));pendingPayload=payload;operation=candidate;addSupplier.hidden=true;entryButton.hidden=true;draftTools.hidden=true;refreshNotice();
+     storage.setItem(key,JSON.stringify({payload,requestId:candidate.requestId,view,unsentDraft:submittedDraft}));pendingPayload=payload;operation=candidate;addSupplier.hidden=true;entryButton.hidden=true;draftTools.hidden=true;fullPayments.hidden=true;refreshNotice();
     }
     busy=true;fields.disabled=true;submit.disabled=true;dialog.querySelector('[data-close]').disabled=true;error.textContent='';submit.textContent='جارٍ اعتماد الفاتورة…';
     const result=await operation.run(api);try{verifyPurchaseResult(result,pendingPayload);}catch(errorValue){operation=createOperation('confirm_sharikx2_purchase_v3',pendingPayload,operation.requestId);throw errorValue;}
