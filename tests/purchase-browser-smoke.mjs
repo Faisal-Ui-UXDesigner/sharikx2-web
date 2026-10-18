@@ -1,3 +1,4 @@
+import {openPurchasePayments} from './purchase-form-actions.mjs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
@@ -33,7 +34,7 @@ try{
  await page.evaluate(()=>creditResolvers[0].resolve([{id:'credit1',amount:1,remaining_amount:1}]));assert.match(await page.locator('[data-credit]').innerText(),/7/);
  await page.evaluate(()=>{window.holdCredits=false;window.creditFailure=true;});await page.locator('[name=supplier]').selectOption('s22');await page.waitForFunction(()=>document.querySelector('[data-credit]').textContent.includes('تعذر'));
  await page.evaluate(()=>window.creditFailure=false);await page.locator('[name=supplier]').selectOption('s21');
- await page.locator('[data-pay]').click();await page.locator('[data-payamount]').fill('1.2');await submit();assert.match(await page.getByRole('alert').innerText(),/الرصيد المتاح/);assert.equal(await page.evaluate(()=>calls.length),0);
+ await openPurchasePayments(page);await page.locator('[data-pay]').click();await page.locator('[data-payamount]').fill('1.2');await submit();assert.match(await page.getByRole('alert').innerText(),/الرصيد المتاح/);assert.equal(await page.evaluate(()=>calls.length),0);
  await page.locator('[data-account]').selectOption('bank');await page.locator('[name=note]').fill('  <script>ملاحظة</script>  ');await submit();
  assert.equal(await page.locator('.purchase-debt-confirmation').count(),1);assert.equal(await page.evaluate(()=>calls.length),0);assert.equal(await page.evaluate(()=>sessionStorage.getItem(key)),null);
  await page.locator('[data-back-purchase]').click();assert.equal(await page.locator('[data-qty]').inputValue(),'2.5');await submit();await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').count(),1);
@@ -45,7 +46,7 @@ try{
  await page.evaluate(()=>{window.badResponse=false;window.replay=true;});await submit();await page.waitForFunction(()=>saved===1);
  const attempts=await page.evaluate(()=>calls);assert.equal(attempts.length,3);attempts.forEach(attempt=>assert.deepEqual(attempt,first));assert.equal(await page.evaluate(()=>sessionStorage.getItem(key)),null);
  // Fully paid purchases have no debt-confirmation step.
- await page.evaluate(()=>{window.failRead=false;show();});await page.locator('[name=supplier]').selectOption('s0');await page.locator('[data-add]').click();await page.locator('[data-pay]').click();await page.locator('[data-account]').selectOption('bank');await page.locator('[data-payamount]').fill('1.2');await submit();await page.waitForFunction(()=>saved===2);
+ await page.evaluate(()=>{window.failRead=false;show();});await page.locator('[name=supplier]').selectOption('s0');await page.locator('[data-add]').click();await openPurchasePayments(page);await page.locator('[data-pay]').click();await page.locator('[data-account]').selectOption('bank');await page.locator('[data-payamount]').fill('1.2');await submit();await page.waitForFunction(()=>saved===2);
  assert.equal(await page.locator('.purchase-debt-confirmation').count(),0);
  const count=await page.evaluate(()=>calls.length);
  await page.evaluate(()=>{sessionStorage.setItem(key,'{bad');show();});await submit();assert.equal(await page.locator('[type=submit]').isDisabled(),true);assert.equal(await page.evaluate(()=>calls.length),count);await page.keyboard.press('Escape');

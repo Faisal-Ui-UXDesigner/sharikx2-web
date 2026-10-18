@@ -6,6 +6,7 @@ import {openPurchaseProductChoice} from './purchase-product-choice-ui.js';
 import {categorySettingsState} from './inventory-category.js';
 import {openPurchaseCartReview} from './purchase-cart-review-ui.js';
 import {purchaseCartReview} from './purchase-cart-review.js';
+import {purchaseFormMarkup,purchaseSummaryMarkup,revealPurchaseInvalid,mountPurchaseFooter} from './purchase-form-ui.js';
 import {openPurchaseLineEntry} from './purchase-line-entry-ui.js';
 import {createPurchaseCartLine,purchaseUndoIndex} from './purchase-cart-actions.js';
 import {readPurchaseDraft,savePurchaseDraft,removePurchaseDraft,restorePurchaseDraft} from './purchase-drafts.js';
@@ -18,9 +19,10 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
  if(!projectId)throw new Error('بيانات المشروع غير مكتملة');
  if(!isCurrent()||document.querySelector('.purchase-dialog'))return;
  const dialog=document.createElement('dialog');dialog.className='purchase-dialog';
- dialog.innerHTML='<h2>فاتورة شراء جديدة</h2><div class="body"><div class="skeleton"></div></div><button data-close class="outline">إلغاء</button>';
+ dialog.setAttribute('aria-label','فاتورة شراء');
+ dialog.innerHTML='<h2>فاتورة شراء</h2><div class="body"><div class="skeleton"></div></div><button data-close class="outline">إلغاء</button>';
  document.body.append(dialog);dialog.showModal();
- const key=`sharikx2-pending-purchase:${projectId}`,current=()=>dialog.isConnected&&isCurrent();
+ const key=`sharikx2-pending-purchase:${projectId}`,current=()=>dialog.isConnected&&dialog.open&&isCurrent();
  let busy=false,creatingSupplier=false,choosingProduct=false,reviewingCart=false,enteringLine=false,operation=null,pendingPayload=null,pendingView=null,blocked=false,reviewDialog=null;
  const close=()=>{if(!busy&&!creatingSupplier&&!choosingProduct&&!reviewingCart&&!enteringLine){reviewDialog?.remove();dialog.remove();}};dialog.querySelector('[data-close]').onclick=close;
  dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
@@ -28,12 +30,13 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
  const render=({products,suppliers,accounts})=>{
   if(!current())return;
   let items=pendingPayload?.p_items.map(item=>({product_id:item.product_id,quantity:item.quantity_pieces,cost:item.unit_cost}))||[],payments=pendingPayload?.p_payments.map(payment=>({...payment}))||[],creditRevision=0;
-  dialog.querySelector('.body').innerHTML=`<form><fieldset><label>المورد<select name="supplier" required><option value="">اختر المورد</option>${suppliers.map(supplier=>`<option value="${escape(supplier.id)}">${escape(supplier.name)} — ${escape(supplier.phone||'بدون رقم')}</option>`).join('')}</select></label><div class="panel supplier-credit" data-credit hidden></div><h3>الأصناف</h3><div data-items></div><button type="button" data-add class="outline">إضافة صنف</button><h3>الدفعات الحالية للمورد</h3><div data-payments></div><button type="button" data-pay class="outline">إضافة دفعة</button><label>ملاحظات اختيارية<textarea name="note" maxlength="500"></textarea></label></fieldset><p>إجمالي الفاتورة: <b data-total></b></p><p>المتبقي قبل تطبيق أي رصيد دائن: <b data-debt></b></p><p role="alert"></p><button type="submit" class="primary">تأكيد الفاتورة</button></form>`;
-  const form=dialog.querySelector('form'),fields=form.querySelector('fieldset'),error=form.querySelector('[role=alert]'),submit=form.querySelector('[type=submit]');
+  dialog.querySelector('.body').innerHTML=purchaseFormMarkup(suppliers);
+  const form=dialog.querySelector('form'),fields=form.querySelector('fieldset'),error=form.querySelector('[role=alert]'),submit=form.querySelector('[type=submit]');form.noValidate=true;
   const editable=()=>current()&&!busy&&!creatingSupplier&&!choosingProduct&&!reviewingCart&&!enteringLine&&!operation&&!blocked&&!reviewDialog?.isConnected;
   let lastAdded=null,lastSelectedProduct=products[0]?.id,draftId=crypto.randomUUID(),savedDraft=null,submittedDraft=null;
   const draftTools=document.createElement('section');draftTools.className='panel purchase-draft-tools';draftTools.hidden=!!operation||blocked;draftTools.innerHTML='<div class="actions"><button type="button" data-save-purchase-draft>حفظ الفاتورة غير المكتملة</button><button type="button" data-resume-purchase-draft>استعادة المسودة</button><button type="button" data-delete-purchase-draft>حذف المسودة المحفوظة</button></div><p class="muted small">الحفظ لا يسجل فاتورة ولا يغيّر المخزون أو الحسابات. مسودة واحدة للمشروع في جلسة هذه التبويبة فقط. الإغلاق العادي لا يحفظ التعديلات تلقائيًا.</p><p role="status" data-purchase-draft-status></p>';fields.before(draftTools);
   const draftStatus=draftTools.querySelector('[data-purchase-draft-status]');
+  fields.append(draftTools);
   const readDraft=()=>{savedDraft=readPurchaseDraft(storage,projectId);draftStatus.textContent=savedDraft?'توجد مسودة محفوظة؛ الاستعادة تعيد البنود والدفعات وفق البيانات الحالية.':'لا توجد مسودة محفوظة';};
   if(!operation&&!blocked){try{readDraft();}catch(errorValue){draftStatus.textContent=errorValue.message;}}
   const hasLocalWork=()=>items.length||payments.length||form.elements.supplier.value||form.elements.note.value;
@@ -42,6 +45,7 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
   draftTools.querySelector('[data-resume-purchase-draft]').onclick=()=>{if(!editable())return;try{const draft=readPurchaseDraft(storage,projectId);if(!draft)throw new Error('لا توجد مسودة محفوظة');if(hasLocalWork()&&!resumeConfirmed){resumeConfirmed=true;draftStatus.textContent='الاستعادة تستبدل التعديلات الحالية غير المحفوظة؛ اضغط الاستعادة ثانية للتأكيد';return;}const restored=restorePurchaseDraft(draft,projectId,{products,suppliers,accounts});savedDraft=draft;draftId=restored.id;items=restored.items;payments=restored.payments;lastAdded=null;lastSelectedProduct=restored.selectedProductId;form.elements.note.value=restored.note;if(restored.supplierId&&![...form.elements.supplier.options].some(option=>option.value===restored.supplierId))form.elements.supplier.append(new Option('المورد المحفوظ غير متاح',restored.supplierId));form.elements.supplier.value=restored.supplierId||'';creditRevision++;form.querySelector('[data-credit]').hidden=true;drawItems();drawPayments();totals();refreshNotice();resumeConfirmed=false;deleteConfirmed=false;draftStatus.textContent=restored.unavailable.products.length||restored.unavailable.accounts.length||restored.unavailable.supplier?'تمت الاستعادة؛ اختر بدائل للهويات غير المتاحة وراجع أرصدة الحسابات قبل التأكيد.':'تمت الاستعادة؛ راجع الدفعات والأرصدة الحالية قبل التأكيد';}catch(errorValue){draftStatus.textContent=errorValue.message;}};
   draftTools.querySelector('[data-delete-purchase-draft]').onclick=()=>{if(!editable())return;try{const draft=readPurchaseDraft(storage,projectId);if(!draft)throw new Error('لا توجد مسودة محفوظة');if(!deleteConfirmed){deleteConfirmed=true;savedDraft=draft;draftStatus.textContent='اضغط حذف المسودة ثانية للتأكيد؛ لن تُحذف بنود الفاتورة الحالية';return;}if(!removePurchaseDraft(storage,projectId,savedDraft))throw new Error('تغيّرت المسودة المحفوظة؛ راجعها قبل الحذف');savedDraft=null;deleteConfirmed=false;draftStatus.textContent='حُذفت المسودة المحلية فقط؛ بيانات الفاتورة الحالية باقية';}catch(errorValue){deleteConfirmed=false;draftStatus.textContent=errorValue.message;}};
   const entryButton=document.createElement('button');entryButton.type='button';entryButton.className='primary';entryButton.dataset.enterPurchaseLine='';entryButton.textContent='إدخال صنف بالكمية والتكلفة';entryButton.hidden=!!operation||blocked;fields.querySelector('[data-add]').after(entryButton);
+  fields.querySelector('[data-items]').before(entryButton);
   const notice=document.createElement('section');notice.className='panel row purchase-added-notice';notice.hidden=true;notice.innerHTML='<span data-added-purchase-message role="status"></span><button type="button" data-undo-purchase-line class="outline">تراجع</button>';entryButton.after(notice);
   const refreshNotice=()=>{const index=purchaseUndoIndex(items,lastAdded);notice.hidden=index<0||!!operation||blocked;if(index>=0)notice.querySelector('[data-added-purchase-message]').textContent='تمت إضافة: '+String(products.find(product=>product.id===lastAdded.product_id)?.name||'صنف');};
   notice.querySelector('[data-undo-purchase-line]').onclick=()=>{if(!editable())return;const index=purchaseUndoIndex(items,lastAdded);if(index<0){refreshNotice();return;}items.splice(index,1);lastAdded=null;drawItems();totals();refreshNotice();};
@@ -52,7 +56,7 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
    try{const child=openPurchaseLineEntry({mode,projectId,products,selectedId:lastSelectedProduct,loadSettings:async()=>categorySettingsState(await api.financeState(projectId)),isCurrent:()=>current()&&!busy&&!operation&&!blocked,onClose:finish,onAdded:line=>{if(editable())appendLine(line);}});if(!child)finish();}
    catch(errorValue){finish();if(current())error.textContent=errorValue.message;}
   };
-  const cartSummary=document.createElement('button');cartSummary.type='button';cartSummary.className='panel purchase-cart-summary';cartSummary.dataset.reviewPurchaseCart='';cartSummary.hidden=!!operation||blocked;fields.querySelector('[data-add]').after(cartSummary);
+  const cartSummary=document.createElement('button');cartSummary.type='button';cartSummary.className='panel purchase-cart-summary';cartSummary.dataset.reviewPurchaseCart='';cartSummary.hidden=!!operation||blocked;mountPurchaseFooter(dialog,cartSummary);
   cartSummary.onclick=()=>{
    if(!editable()||document.querySelector('dialog.purchase-cart-review'))return;
    if([...fields.querySelectorAll('[data-qty],[data-cost]')].some(input=>!input.checkValidity())){error.textContent='صحح الكمية والتكلفة قبل مراجعة الأصناف';return;}
@@ -69,7 +73,19 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
    try{const child=openSupplierCreate({api,projectId,mode,storage,isCurrent:()=>current()&&!busy&&!operation&&!blocked&&!reviewDialog?.isConnected,onClose:finish,onSaved:supplier=>{if(!editable())return;suppliers=[...suppliers.filter(row=>row.id!==supplier.id),supplier];let option=[...form.elements.supplier.options].find(row=>row.value===supplier.id);if(!option){option=new Option('',supplier.id);form.elements.supplier.append(option);}option.textContent=`${supplier.name} — ${supplier.phone||'بدون رقم'}`;form.elements.supplier.value=supplier.id;form.elements.supplier.dispatchEvent(new Event('change'));error.textContent='تم اختيار المورد المضاف؛ لم تُسجل الفاتورة بعد.';}});if(!child)finish();}
    catch(e){finish();if(current())error.textContent=e.message;}
   };
-  const totals=()=>{try{const total=purchaseRoundedTotal(items),paid=purchasePaymentTotal(payments);form.querySelector('[data-total]').textContent=money(total,2);form.querySelector('[data-debt]').textContent=money(purchaseRemaining(total,paid),2);form.querySelectorAll('[data-line-purchase-total]').forEach(label=>{const item=items[+label.dataset.linePurchaseTotal];try{label.textContent=money(purchaseLineTotal(item.quantity,item.cost),2);}catch{label.textContent='أكمل الكمية والتكلفة';}});const view=purchaseCartReview(items,products);cartSummary.textContent=`الأصناف: ${view.productCount}${view.lineCount!==view.productCount?` · البنود: ${view.lineCount}`:''} · الإجمالي: ${money(view.displayTotal,2)} — اضغط للمراجعة والتعديل`;cartSummary.setAttribute('aria-label',`مراجعة ${view.lineCount} بند في فاتورة الشراء؛ القيمة الدقيقة ${money(total,2)}`);}catch{cartSummary.textContent='صحح الكمية والتكلفة قبل مراجعة الأصناف';form.querySelector('[data-total]').textContent=form.querySelector('[data-debt]').textContent='أكمل الكمية والتكلفة والدفعات';}};
+  const totals=()=>{
+   try{
+    const total=purchaseRoundedTotal(items),paid=purchasePaymentTotal(payments),view=purchaseCartReview(items,products);
+    cartSummary.innerHTML=purchaseSummaryMarkup(view);
+    cartSummary.setAttribute('aria-label',`مراجعة ${view.lineCount} بند في فاتورة الشراء؛ القيمة الدقيقة ${money(total,2)}`);
+    form.querySelector('[data-debt]').textContent=money(purchaseRemaining(total,paid),2);
+   }catch{
+    cartSummary.innerHTML='<span data-total>أكمل الكمية والتكلفة والدفعات</span>';
+    cartSummary.setAttribute('aria-label','صحح الكمية والتكلفة قبل مراجعة الأصناف');
+    form.querySelector('[data-debt]').textContent='أكمل الكمية والتكلفة والدفعات';
+   }
+   form.querySelectorAll('[data-line-purchase-total]').forEach(label=>{const item=items[+label.dataset.linePurchaseTotal];try{label.textContent=money(purchaseLineTotal(item.quantity,item.cost),2);}catch{label.textContent='أكمل الكمية والتكلفة';}});
+  };
   const drawItems=()=>{
    form.querySelector('[data-items]').innerHTML=items.map((item,index)=>`<div class="panel"><label>الصنف<select data-product="${index}">${products.map(product=>`<option value="${escape(product.id)}" ${product.id===item.product_id?'selected':''}>${escape(product.name)}</option>`).join('')}</select></label><div class="input-pair"><label>الكمية بالقطعة<input data-qty="${index}" type="number" min="0.001" step="0.001" value="${escape(item.quantity)}" required></label><label>تكلفة القطعة<input data-cost="${index}" type="number" min="0" step="0.01" value="${escape(item.cost)}" required></label></div><button type="button" data-remove="${index}" class="danger">حذف الصنف</button></div>`).join('')||'<p class="muted">لم تضف أصنافًا بعد</p>';
    form.querySelectorAll('[data-product]').forEach(input=>{const lineTotal=document.createElement('p');lineTotal.className='muted small';lineTotal.textContent='إجمالي البند بعد التقريب: ';const amount=document.createElement('b');amount.dataset.linePurchaseTotal=input.dataset.product;lineTotal.append(amount);input.closest('.panel').append(lineTotal);input.onchange=()=>{if(editable()){items[+input.dataset.product].product_id=input.value;totals();}};});
@@ -90,6 +106,7 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
    form.querySelectorAll('[data-remove]').forEach(button=>button.onclick=()=>{if(!editable())return;items.splice(+button.dataset.remove,1);drawItems();totals();refreshNotice();});
   };
   const drawPayments=()=>{
+   if(payments.length)form.querySelector('[data-purchase-payments]').open=true;
    form.querySelector('[data-payments]').innerHTML=payments.map((payment,index)=>`<div class="panel"><label>الحساب<select data-account="${index}">${accounts.map(account=>`<option value="${escape(account.id)}" ${account.id===payment.account_id?'selected':''}>${escape(account.name)} — المتاح ${money(account.balance,2)}</option>`).join('')}</select></label><label>المبلغ<input data-payamount="${index}" type="number" min="0.01" step="0.01" value="${escape(payment.amount)}" required></label><button type="button" data-removepay="${index}" class="danger">حذف الدفعة</button></div>`).join('')||'<p class="muted">لم تضف دفعات؛ الباقي يصبح دينًا للمورد.</p>';
    form.querySelectorAll('[data-account]').forEach(input=>input.onchange=()=>{if(editable())payments[+input.dataset.account].account_id=input.value;});
    form.querySelectorAll('[data-account]').forEach(select=>{const id=payments[+select.dataset.account].account_id;if(![...select.options].some(option=>option.value===id)){select.append(new Option('الحساب المحفوظ غير متاح',id));select.value=id;}});
@@ -132,7 +149,7 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
    event.preventDefault();if(busy||creatingSupplier||choosingProduct||reviewingCart||enteringLine||blocked||!current()||reviewDialog?.isConnected)return;
    try{
     if(operation){save();return;}
-    if(!form.checkValidity()){form.reportValidity();return;}
+    if(revealPurchaseInvalid(form))return;
     const payload=purchasePayload(projectId,form.elements.supplier.value,items,payments,form.elements.note.value.trim());validatePurchaseSnapshot(payload,{products,suppliers,accounts});
     const amounts=purchaseAmounts(payload);if(amounts.debt<=0.009){save(payload);return;}
     const captured=JSON.parse(JSON.stringify(payload));fields.disabled=true;reviewDialog=document.createElement('dialog');reviewDialog.className='purchase-debt-confirmation';

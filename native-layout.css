@@ -307,6 +307,54 @@
 .native-app .home-overview-values small{font-size:12px;display:block;color:var(--muted)}
 .native-app .home-overview-values b{font-size:17px;display:block;margin-top:3px;overflow-wrap:anywhere}
 .native-app .native-project-overview>p{font-size:12px;line-height:1.9;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;margin:12px 0 0}
+.purchase-calculator-field{display:block;position:relative}
+.purchase-calculator-field input{padding-left:58px;direction:ltr;text-align:right}
+.purchase-calculator-field button{position:absolute;left:4px;top:4px;width:44px;min-height:44px;padding:10px;border:0;background:transparent;color:var(--primary)}
+.purchase-calculator{width:min(100% - 16px,480px);max-height:90dvh;padding:18px}
+.purchase-calculator h2{margin:0 0 8px;font-size:20px}
+.purchase-calculator label{font-size:13px}
+.purchase-calculator input{direction:ltr;text-align:left;min-height:52px;font-size:20px}
+.purchase-calculator output{display:block;text-align:center;direction:ltr;min-height:32px;color:var(--primary);font-size:20px;overflow-wrap:anywhere}
+.purchase-calculator-keys>div{display:flex;gap:6px;margin:8px 0}
+.purchase-calculator-keys button{flex:1;min-width:0;height:48px;padding:4px;font-size:20px}
+.purchase-calculator [role=alert]{font-size:12px;margin:6px 0;overflow-wrap:anywhere}
+.purchase-calculator [role=alert]:empty{display:none}
+.purchase-calculator .actions{gap:8px}
+.purchase-calculator .actions button{padding-inline:10px;font-size:13px}
+.purchase-dialog[open]{display:flex;flex-direction:column;inset:0;width:min(100%,560px);height:100dvh;max-height:100dvh;max-width:100vw;padding:16px 16px 0;border-radius:0;overflow:hidden}
+.purchase-dialog>h2{flex-shrink:0;min-height:44px;margin:0;padding:4px 0 12px;font-size:22px;font-weight:600}
+.purchase-dialog>.body{flex:1;min-height:0;overflow:auto}
+.purchase-dialog .body>form{height:100%;display:flex;flex-direction:column;min-height:0}
+.purchase-dialog form>fieldset{flex:1;min-height:0;overflow-y:auto;padding:14px 0;scrollbar-gutter:stable}
+.purchase-dialog :is(input,select,textarea){min-width:0}
+.purchase-dialog input[type=number]{direction:ltr;text-align:right}
+.purchase-dialog .purchase-supplier-section>button{width:100%;min-height:44px;margin-bottom:16px}
+.purchase-dialog h3{font-size:14px;margin:8px 0}
+.purchase-dialog .purchase-items-section>[data-enter-purchase-line]{width:100%;min-height:50px;margin:8px 0 12px}
+.purchase-dialog .purchase-items-section>[data-add]{width:100%;font-size:12px;min-height:40px}
+.purchase-dialog .purchase-draft-tools{padding:10px;margin-bottom:16px}
+.purchase-dialog .purchase-draft-tools button{font-size:11px;min-height:36px;padding:6px}
+.purchase-dialog .purchase-draft-tools .actions{gap:6px}
+.purchase-dialog .purchase-draft-tools p{font-size:10px;margin:6px 0 0}
+.purchase-payment-details{padding:12px;margin-top:16px}
+.purchase-payment-details>summary{cursor:pointer;font-size:14px;font-weight:600;min-height:44px;align-content:center}
+.purchase-payment-details:not([open]) .purchase-payment-expanded,.purchase-payment-details[open] .purchase-payment-collapsed{display:none}
+.purchase-dialog .purchase-attachment{margin-top:12px;padding:14px}
+.purchase-dialog .purchase-attachment button{width:100%;min-height:46px}
+.purchase-dialog .purchase-note{margin-top:12px}
+.purchase-dialog .purchase-footer{flex-shrink:0;display:block;border-top:1px solid var(--border);background:var(--panel);padding:8px 0 max(14px,env(safe-area-inset-bottom))}
+.purchase-dialog .purchase-cart-summary{display:flex;align-items:center;gap:10px;text-align:right;min-height:56px;padding:8px 12px;margin:0 0 6px;border-radius:16px}
+.purchase-count-badge{display:grid;place-items:center;flex:0 0 32px;height:32px;border-radius:50%;background:var(--primary);color:var(--onPrimary);font-size:13px}
+.purchase-summary-text{min-width:0;flex:1}
+.purchase-summary-text>b{display:block;color:var(--primary);font-size:14px;font-weight:600}
+.purchase-summary-text>small{display:block;font-size:11px;color:var(--muted)}
+.purchase-footer .purchase-debt-preview{font-size:11px;margin:4px 0 8px;color:var(--muted)}
+.purchase-footer [role=alert]{font-size:12px;margin:4px 0 8px;max-height:15dvh;overflow:auto}
+.purchase-footer [role=alert]:empty{display:none}
+.purchase-footer-actions{display:flex;gap:12px}
+.purchase-footer-actions>[type=submit]{flex:2;min-width:0}
+.purchase-footer-actions>[data-close]{flex:1;min-width:0}
+@media(max-height:550px){.purchase-dialog .purchase-cart-summary{min-height:44px}.purchase-dialog .purchase-summary-text>small,.purchase-dialog .purchase-debt-preview{display:none}.purchase-dialog>h2{font-size:18px;min-height:32px;padding-bottom:4px}.purchase-footer-actions button{min-height:42px;padding-block:6px}}
 .expense-dialog{font-family:Cairo,Tahoma,sans-serif;width:min(100% - 16px,520px);max-height:90dvh;padding:20px;padding-bottom:max(20px,env(safe-area-inset-bottom));border-radius:22px 22px 0 0}
 .expense-dialog>h2{font-size:20px;margin:0 0 16px;font-weight:600}
 .expense-type-options{display:grid;gap:8px;padding-top:2px}

@@ -1,3 +1,4 @@
+import {openPurchasePayments} from './purchase-form-actions.mjs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
@@ -17,7 +18,7 @@ try{
  const entry=page.locator('.purchase-line-entry'),choice=page.locator('.purchase-product-choice');
  const submitEntry=()=>entry.locator('form').evaluate(form=>form.dispatchEvent(new Event('submit',{cancelable:true})));
  const openChoice=()=>entry.locator('[data-search-entry-product]').evaluate(button=>{button.click();button.click();});
- await page.locator('[name=supplier]').selectOption('s');await page.locator('[data-pay]').click();await page.locator('[data-payamount]').fill('0.1');await page.locator('[name=note]').fill('ملاحظة محفوظة');
+ await page.locator('[name=supplier]').selectOption('s');await openPurchasePayments(page);await page.locator('[data-pay]').click();await page.locator('[data-payamount]').fill('0.1');await page.locator('[name=note]').fill('ملاحظة محفوظة');
  await page.locator('[data-enter-purchase-line]').click();await entry.locator('[name=quantity]').fill('2.5');await entry.locator('[name=cost]').fill('1.005');await openChoice();
  await choice.locator('[data-purchase-product-search]').waitFor();assert.equal(await choice.count(),1);assert.equal(await page.evaluate(()=>reads),1);assert.equal(await entry.locator('[name=cost]').isDisabled(),true);assert.equal(await page.locator('.purchase-dialog fieldset').evaluate(field=>field.disabled),true);
  await submitEntry();await entry.evaluate(dialog=>dialog.dispatchEvent(new Event('cancel',{cancelable:true})));assert.equal(await entry.count(),1);assert.equal(await page.locator('[data-qty]').count(),0);
