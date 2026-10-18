@@ -15,7 +15,15 @@ for(const folder of ['scripts','tests']){
 console.log('Running unit tests');
 run(['--test',...unitTests]);
 console.log('Running isolated browser regressions');
+run(['tests/sale-price-edit-browser-smoke.mjs']);
+run(['tests/sale-payment-browser-smoke.mjs']);
+run(['tests/sale-payment-step-browser-smoke.mjs']);
 run(['tests/native-pages-browser-smoke.mjs']);
+run(['tests/shared-report-browser-smoke.mjs']);
+run(['tests/debt-directory-browser-smoke.mjs']);
+run(['tests/sale-layout-browser-smoke.mjs']);
+run(['tests/sale-quantity-edit-browser-smoke.mjs']);
+run(['tests/sale-picker-session-browser-smoke.mjs']);
 run(['tests/app-shell-layout-browser-smoke.mjs']);
 run(['tests/cashier-history-browser-smoke.mjs']);
 run(['tests/home-financial-browser-smoke.mjs']);

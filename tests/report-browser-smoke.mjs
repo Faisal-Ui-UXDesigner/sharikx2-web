@@ -28,7 +28,7 @@ await page.route('**/*',async route=>{
   let data;
   if(url.pathname==='/auth/v1/signup')data={access_token:'fixture-token',refresh_token:'fixture-refresh',expires_in:3600};
   else if(url.pathname.endsWith('/restore_sharikx2_owner_project_v2')||url.pathname.endsWith('/join_sharikx2_project_v1'))data={id:'11111111-1111-4111-8111-111111111111',name:'مشروع اختبار محلي',currency:'JOD',subscription_status:active?'active':'trial'};
-  else if(url.pathname.endsWith('/get_sharikx2_financial_summary_v2'))data={net_project_value:120,liquidity:50,accounts:[{id:'cash',name:'النقد',balance:50}]};
+  else if(url.pathname.endsWith('/get_sharikx2_financial_summary_v2'))data={net_project_value:120,liquidity:50,inventory_cost:63,customer_debt:12,supplier_debt:5,accounts:[{id:'cash',name:'النقد',balance:50}]};
   else if(url.pathname.endsWith('/get_sharikx2_debt_balances_v2'))data=malformedDebt?{customers:[],customer_debt:null}:{customer_debt:12.345,supplier_debt:5,customers:[{id:'debtor',name:'Test <img src=x>',phone:'0590000000',calculated_debt:'12.345'},{id:'settled',name:'مسدد',calculated_debt:'0.009'}],suppliers:[{id:'supplier-fixture',name:'مورد اختبار',calculated_debt:5}]};
   else if(url.pathname==='/rest/v1/sharikx2_supplier_old_debts')data=[{id:'old-fixture',amount:5,description:'رصيد سابق',created_at:'2026-10-01T10:00:00Z'}];
   else if(['/rest/v1/sharikx2_supplier_payments','/rest/v1/sharikx2_supplier_credits'].includes(url.pathname))data=[];
@@ -38,10 +38,13 @@ await page.route('**/*',async route=>{
     if(slow)await new Promise(resolve=>setTimeout(resolve,250));data=finance;
   }
   else if(url.pathname==='/rest/v1/sharikx2_sales'){
+    if(holdFinance){onFinanceStarted();await new Promise(resolve=>{releaseFinance=resolve;});}
+    if(slow)await new Promise(resolve=>setTimeout(resolve,250));
     const offset=Number(url.searchParams.get('offset'));
-    data=[...Array.from({length:45},(_,i)=>({id:String(i),status:'debt',created_at:'2026-10-01T12:00:00Z',debt_amount:1,total:i===0?32:2})),
-      {id:'46',sale_number:46,status:'paid',created_at:'2026-10-02T12:00:00Z',debt_amount:0,total:30}].filter(row=>!url.searchParams.has('id')||'eq.'+row.id===url.searchParams.get('id')).slice(offset,offset+20);
-  }else if(['/rest/v1/sharikx2_purchases','/rest/v1/sharikx2_debt_writeoffs','/rest/v1/sharikx2_purchase_returns'].includes(url.pathname))data=[];
+    data=[...Array.from({length:45},(_,i)=>({id:String(i),sale_number:i,status:'debt',created_at:'2026-10-01T12:00:00Z',debt_amount:1,total:i===0?32:2,cost_total:1,customer_id:'debtor',payment_account_id:null,returns:[]})),
+      {id:'46',sale_number:46,status:'paid',created_at:'2026-10-02T12:00:00Z',debt_amount:0,total:30,cost_total:10,returns:[]}].filter(row=>!url.searchParams.has('id')||'eq.'+row.id===url.searchParams.get('id')).slice(offset,offset+20);
+  }else if(url.pathname==='/rest/v1/sharikx2_purchases')data=[{id:'purchase',invoice_number:1,status:'received',total:40,purchased_at:'2026-10-01T12:00:00Z',created_at:'2026-10-01T12:00:00Z',returns:[],payments:[{amount:10}],credits:[{amount:5}]}];
+  else if(['/rest/v1/sharikx2_debt_writeoffs','/rest/v1/sharikx2_purchase_returns'].includes(url.pathname))data=[];
   else if(url.pathname==='/rest/v1/sharikx2_expenses')data=[
     {id:'expense',category:'operating_expense',amount:7,occurred_at:'2026-10-01T10:00:00Z',created_at:'2026-10-01T10:00:00Z',description:'<img src=x onerror=alert(1)>'},
     {id:'wage',category:'daily_wage',amount:10,occurred_at:'2026-10-01T10:00:00Z',created_at:'2026-10-01T10:00:00Z'},
@@ -58,19 +61,18 @@ try{
   await page.getByRole('button',{name:'دخول',exact:true}).click();
   await page.locator('[data-page=reports]').click();
   await page.locator('[data-start]').fill('2026-10-01');
-  await page.waitForFunction(()=>document.querySelector('[data-customer-debt]')?.textContent.includes('45'));
-  assert.match(await page.locator('.report-net').innerText(),/60.*د\.أ/s);
-  await page.getByRole('button',{name:'⌄ عرض الحركات',exact:true}).click();
-  assert.equal(await page.locator('[data-movements]').isVisible(),true);
-  assert.equal(await page.locator('.report-movement img').count(),0);
-  assert.match(await page.locator('[data-movements]').innerText(),/<img src=x/);
+  await page.waitForFunction(()=>document.querySelector('[data-customer-debt]')?.textContent.includes('120'));
+  assert.match(await page.locator('.report-net').innerText(),/58.*د\.أ/s);
+  assert.equal(await page.locator('[data-report-operation]').count(),48);
+  assert.equal(await page.locator('[data-report-operation] img').count(),0);
+  assert.match(await page.locator('[data-report-rows]').innerText(),/<img src=x/);
   await page.getByRole('button',{name:'فترة',exact:true}).click();
   await page.locator('[data-end]').fill('2026-10-02');
-  await page.waitForFunction(()=>document.querySelectorAll('.report-day').length===2);
-  assert.match(await page.locator('.report-net').innerText(),/40.*د\.أ/s);
+  await page.waitForFunction(()=>document.querySelectorAll('[data-report-operation]').length===50);
+  assert.match(await page.locator('.report-net').innerText(),/28.*د\.أ/s);
   await page.locator('[data-type]').selectOption({label:'المشتريات'});
-  await page.waitForFunction(()=>document.querySelectorAll('.report-day').length===1);
-  assert.match(await page.locator('.report-net').innerText(),/40.*د\.أ/s);
+  await page.waitForFunction(()=>document.querySelectorAll('[data-report-operation]').length===1);
+  assert.match(await page.locator('.report-net').innerText(),/28.*د\.أ/s);
   await mkdir('tests/screenshots',{recursive:true});
   await page.evaluate(()=>document.fonts.ready);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
@@ -81,7 +83,7 @@ try{
   slow=true;
   await page.locator('[data-start]').fill('2026-10-03');
   await page.locator('[data-start]').fill('2026-10-01');
-  await page.waitForFunction(()=>document.querySelector('.report-net')?.textContent.includes('40'));
+  await page.waitForFunction(()=>document.querySelector('.report-net')?.textContent.includes('28'));
   slow=false;
   await page.locator('[data-page=accounts]').click();
   await page.locator('[data-home-statistics]').waitFor();
@@ -99,14 +101,15 @@ try{
   assert.equal(await page.locator('[data-collect]').count(),1);
   assert.equal(await page.locator('[data-add-customer]').count(),1);
   assert.equal(await page.locator('[data-edit-customer="debtor"]').count(),1);
-  await page.locator('[data-page=cashier]').click();await page.locator('[data-suppliers]').click();
+  await page.locator('[data-debt-back]').click();await page.locator('[data-suppliers]').click();
+  await page.locator('.debt-directory-manage>summary').click();
   await page.locator('[data-new-purchase]').waitFor();
   assert.equal(await page.locator('[data-new-purchase]').count(),1);
   await page.locator('[data-open-person="supplier-fixture"]').click();
   await page.locator('[data-old-debt]').waitFor();
   assert.match(await page.locator('dialog .details').innerText(),/رصيد سابق/);
   await page.locator('dialog [data-close]').click();
-  await page.locator('[data-page=cashier]').click();await page.locator('[data-customers]').click();
+  await page.locator('[data-debt-back]').click();await page.locator('[data-customers]').click();
   await page.locator('[data-person="debtor"]').waitFor();
   assert.equal(await page.locator('#rows img').count(),0);
   await page.locator('#search').fill('  TEST  ');
@@ -117,7 +120,7 @@ try{
  assert.equal(await page.locator('[data-debt-summary]').getAttribute('hidden'),'');
   assert.equal(await page.locator('[data-collect]').count(),0);
   malformedDebt=true;
-  await page.locator('[data-page=cashier]').click();await page.locator('[data-customers]').click();
+  await page.locator('[data-debt-back]').click();await page.locator('[data-customers]').click();
   await page.getByRole('alert').waitFor();assert.match(await page.getByRole('alert').innerText(),/تعذر قراءة بيانات الديون/);
   malformedDebt=false;await page.getByRole('button',{name:'إعادة المحاولة',exact:true}).click();
   await page.locator('[data-person="debtor"]').waitFor();
@@ -133,7 +136,7 @@ try{
   assert.equal(await page.locator('[data-end]').count(),0);
   await page.getByRole('button',{name:'إغلاق',exact:true}).click();
   await page.locator('[data-start]').fill('2026-10-01');
-  await page.waitForFunction(()=>document.querySelector('[data-customer-debt]')?.textContent.includes('45'));
+  await page.waitForFunction(()=>document.querySelector('[data-customer-debt]')?.textContent.includes('120'));
   await page.locator('[data-page=cashier]').click();
   await page.locator('[data-search]').fill('46');
   await page.locator('.activity-record').first().click();
@@ -151,14 +154,15 @@ try{
   assert.equal(await page.locator('[data-edit-partner]').count(),0);
   await page.locator('[data-page=cashier]').click();await page.locator('[data-customers]').click();
   await page.locator('[data-person="debtor"]').waitFor();assert.equal(await page.locator('[data-collect]').count(),0);assert.equal(await page.locator('[data-add-customer]').count(),0);assert.equal(await page.locator('[data-edit-customer]').count(),0);
+  await page.locator('[data-debt-back]').click();
   await page.locator('[data-page=reports]').click();
   await page.locator('[data-start]').fill('2026-10-01');
-  await page.waitForFunction(()=>document.querySelector('[data-customer-debt]')?.textContent.includes('45'));
+  await page.waitForFunction(()=>document.querySelector('[data-customer-debt]')?.textContent.includes('120'));
   // Hold a real browser request until after logout, then release its stale response.
   const started=new Promise(resolve=>{onFinanceStarted=resolve;});holdFinance=true;
   await page.locator('[data-start]').fill('2026-10-04');await started;
   await page.locator('[data-menu]').click();await page.locator('[data-logout]').click();
-  const completed=page.waitForResponse(response=>response.url().endsWith('/get_sharikx2_finance_state_v1'));
+  const completed=page.waitForResponse(response=>new URL(response.url()).pathname==='/rest/v1/sharikx2_sales');
   holdFinance=false;releaseFinance();await completed;
   await page.getByRole('button',{name:'الدخول إلى مشروع قائم',exact:true}).waitFor();
   assert.equal(await page.locator('.report-net').count(),0);

@@ -1,7 +1,6 @@
 import {Api} from './api.js';
 import {appShellMarkup} from './app-shell-ui.js';
 import {bindAppShellLayout} from './app-shell-layout.js';
-import {appendContactAction} from './contact-ui.js';
 import {escape,money,timestamp,status,setCurrency} from './ui.js';
 import {openExpense,renderExpenses} from './expense.js';
 import {openSale} from './sale.js';
@@ -26,7 +25,7 @@ import {renderDeviceControl} from './device-control-ui.js';
 import {renderDeviceBanner} from './device-banner-ui.js';
 import {renderInventory} from './inventory-ui.js';
 import {createInventoryViewStore} from './inventory-view-state.js';
-import {normalizeDebtSnapshot,debtPartition,debtSearch,DEBT_SETTLED_THRESHOLD} from './debt-model.js';
+import {renderDebtDirectory} from './debt-directory-ui.js';
 import {openDebtDetails} from './debt-details-ui.js';
 import {openSupplierEditor} from './supplier-mutation.js';
 import {openSupplierCreate} from './supplier-create-ui.js';
@@ -72,14 +71,15 @@ async function load(content,revision){try{
   if(revision!==epoch)return;
   renderCurrencySettings({api,container:content,project,mode,isCurrent:()=>revision===epoch,onSaved:shell});
  }else if(['customers','suppliers'].includes(screen)){
-  const data=await api.debts(project.id);if(revision!==epoch)return;
-  const kind=screen,normalized=normalizeDebtSnapshot(data,kind),rows=normalized.rows;let archived=false,count=20;
-  content.innerHTML=`<h2>${kind==='customers'?'ديون الزبائن':'ديون الموردين'}</h2><div class="actions">${mode==='owner'?(kind==='customers'?'<button class="primary" data-add-customer>إضافة زبون</button>':'<button class="primary" data-add-supplier>إضافة مورد</button><button class="outline" data-new-purchase>تسجيل فاتورة شراء</button>'):''}</div><div class="tabs"><button class="primary" data-tab="active">ديون عالقة</button><button data-tab="archive">أرشيف السداد</button></div><label class="search">بحث<input id="search" type="search" placeholder="الاسم أو رقم الجوال"></label><div class="panel metrics" data-debt-summary><span>إجمالي الديون العالقة<br><b>${money(normalized.total)}</b></span><span>عدد المدينين<br><b>${debtPartition(rows).length}</b></span></div><div id="rows"></div><button id="more" class="outline">تحميل المزيد</button>`;
-  content.querySelector('[data-add-customer]')?.addEventListener('click',()=>openCustomer({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell}));
-  content.querySelector('[data-new-purchase]')?.addEventListener('click',()=>openPurchase({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell}));
-  content.querySelector('[data-add-supplier]')?.addEventListener('click',()=>openSupplierCreate({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell}));
-  const draw=()=>{const filtered=debtSearch(debtPartition(rows,archived),content.querySelector('#search').value);content.querySelector('[data-debt-summary]').hidden=archived;content.querySelector('#rows').innerHTML=filtered.slice(0,count).map(x=>`<article class="panel row" data-person="${escape(x.id)}"><div><button type="button" class="record-person" data-open-person="${escape(x.id)}">${escape(x.name)}</button><p class="muted">${escape(x.phone||'بدون رقم جوال')}</p>${mode==='owner'&&!archived?`<div class="actions">${kind==='customers'?`<button type="button" data-edit-customer="${escape(x.id)}">تعديل</button>`:`<button type="button" data-edit-supplier="${escape(x.id)}">تعديل</button><button type="button" data-archive-supplier="${escape(x.id)}">أرشفة</button>`}</div>`:''}${mode==='owner'&&Number(x.calculated_debt)>DEBT_SETTLED_THRESHOLD?`<button type="button" data-collect="${escape(x.id)}">${kind==='customers'?'تحصيل دفعة':'تسديد دفعة'}</button>`:`<small class="muted">اضغط على الاسم لعرض السجل</small>`}</div><strong>${money(archived?0:x.calculated_debt)}</strong></article>`).join('')||'<div class="panel">لا توجد نتائج</div>';content.querySelector('#more').hidden=filtered.length<=count;content.querySelectorAll('[data-edit-customer]').forEach(b=>b.onclick=e=>{e.stopPropagation();openCustomerEditor({api,projectId:project.id,customer:rows.find(x=>x.id===b.dataset.editCustomer),mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});});content.querySelectorAll('[data-edit-supplier]').forEach(b=>b.onclick=e=>{e.stopPropagation();openSupplierEditor({api,projectId:project.id,supplier:rows.find(x=>x.id===b.dataset.editSupplier),mode,isCurrent:()=>revision===epoch,onSaved:shell});});content.querySelectorAll('[data-archive-supplier]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(!window.confirm('هل تريد أرشفة المورد؟'))return;try{await api.archiveSupplier(project.id,b.dataset.archiveSupplier);shell();}catch(error){const alert=document.createElement('p');alert.setAttribute('role','alert');alert.textContent=error.message;content.prepend(alert);}});content.querySelectorAll('[data-collect]').forEach(b=>b.onclick=e=>{e.stopPropagation();const person=rows.find(x=>x.id===b.dataset.collect);personPayment(kind,person,revision);});content.querySelectorAll('[data-open-person]').forEach(b=>b.onclick=e=>{e.stopPropagation();personDetails(kind,rows.find(x=>x.id===b.dataset.openPerson));});content.querySelectorAll('[data-person]').forEach(b=>{b.onclick=e=>{if(e.target.closest('button,a'))return;personDetails(kind,rows.find(x=>x.id===b.dataset.person));};appendContactAction(b.querySelector('div'),{phone:rows.find(x=>x.id===b.dataset.person)?.phone,isCurrent:()=>revision===epoch});});};
-  content.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{archived=b.dataset.tab==='archive';count=20;content.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));draw();});content.querySelector('#search').oninput=()=>{count=20;draw();};content.querySelector('#more').onclick=()=>{count+=20;draw();};draw();
+  const kind=screen,projectId=project.id,current=()=>revision===epoch;
+  const options={api,projectId,mode,storage:sessionStore,isCurrent:current,onSaved:shell};
+  await renderDebtDirectory({container:content,kind,mode,isCurrent:current,loadSnapshot:()=>api.debts(projectId),
+   onBack:()=>{screen='cashier';shell();},onOpen:person=>personDetails(kind,person),
+   onAdd:()=>kind==='customers'?openCustomer(options):openSupplierCreate(options),onPurchase:()=>openPurchase(options),
+   onEdit:person=>kind==='customers'?openCustomerEditor({...options,customer:person}):openSupplierEditor({...options,supplier:person}),
+   onPayment:person=>personPayment(kind,person,revision,projectId),
+   onArchive:async person=>{if(window.confirm('هل تريد أرشفة المورد؟')){await api.archiveSupplier(projectId,person.id);if(current())shell();}}
+  });
  }else if(screen==='cashier'){
   content.innerHTML=`<section class="cashier-intro"><h2>الكاشير</h2><p class="muted">سجّل المبيعات والديون والمصروفات من مكان واحد</p></section><div class="cashier-grid"><button data-sale><span class="action-icon"><img src="./assets/icon_cashier_colorful.png" alt=""></span><b>مبيعة جديدة</b></button><button data-customers><span class="action-icon"><img src="./assets/icon_customer_debt_colorful.png" alt=""></span><b>ديون الزبائن</b></button><button data-suppliers><span class="action-icon"><img src="./assets/icon_supplier_debt_colorful.png" alt=""></span><b>حسابات الموردين</b></button><button data-expense><span class="action-icon"><img src="./assets/icon_expense_colorful.png" alt=""></span><b>مصروف جديد</b></button></div><button class="purchase-action" data-purchase><img src="./assets/icon_purchase_colorful.png" alt=""><span>تسجيل فاتورة شراء</span></button><section data-activity></section>`;
   content.querySelector('[data-customers]').onclick=()=>{screen='customers';shell();};content.querySelector('[data-suppliers]').onclick=()=>{screen='suppliers';shell();};

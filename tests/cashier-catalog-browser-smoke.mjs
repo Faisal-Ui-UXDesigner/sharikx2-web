@@ -15,8 +15,9 @@ try{
   window.show=()=>openSale({api,projectId:'project',mode:'owner',storage:sessionStorage,isCurrent:()=>current});await show();
  });
  assert.match(await page.locator('.sale-dialog [role=alert]').innerText(),/فشل صفحة/);assert.equal(await page.locator('[data-product]').count(),0);assert.equal(await page.evaluate(()=>writes),0);
- await page.evaluate(()=>window.fail=false);await page.locator('[data-load-retry]').click();await page.locator('[data-product=p44]').waitFor();assert.equal(await page.locator('[data-product]').count(),45);
+ await page.evaluate(()=>window.fail=false);await page.locator('[data-load-retry]').click();await page.locator('[data-open-sale-picker]').click();await page.locator('[data-product=p44]').waitFor();assert.equal(await page.locator('[data-product]').count(),45);
  assert.equal(await page.locator('[data-sale-category="آخر تصنيف"]').count(),1);await page.locator('[data-search]').fill('0044');assert.equal(await page.locator('[data-product]').count(),1);
+ await page.locator('[data-apply-sale-picker]').click();
  const barcode=page.locator('[data-barcode-scan]');await barcode.fill(' 0044 ');await barcode.press('Enter');assert.equal(await page.locator('[data-qty=p44]').inputValue(),'1');await barcode.fill('0044');await barcode.press('Enter');assert.equal(await page.locator('[data-qty=p44]').inputValue(),'2');
  await barcode.fill('0044');await barcode.press('Enter');assert.match(await page.locator('form [role=alert]').innerText(),/لا تكفي/);assert.equal(await barcode.inputValue(),'0044');
  await barcode.fill('0043');await barcode.press('Enter');assert.match(await page.locator('form [role=alert]').innerText(),/غير متوفر/);await barcode.fill('missing');await barcode.press('Enter');assert.match(await page.locator('form [role=alert]').innerText(),/لم يُعثر/);

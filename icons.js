@@ -1,4 +1,5 @@
 const paths={
+  back:'M5 12h14m-6-6 6 6-6 6',
   transfer:'M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4',
   debt:'M5 3h10l4 4v14H5V3Zm10 0v5h4M8 12h8M8 16h5',
   edit:'m16 3 5 5-12 12-6 1 1-6L16 3Zm-2 2 5 5M4 15l5 5',

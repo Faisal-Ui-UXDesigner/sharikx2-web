@@ -1,3 +1,4 @@
+import {chooseSaleProduct,openSalePayment,backToSaleCart,submitSalePayment} from './sale-picker-actions.mjs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
@@ -31,16 +32,17 @@ try{
  // A settled customer can still receive a new debt sale; viewer cannot.
  await page.locator('[data-details-debt-sale]').click();
  await page.locator('.sale-dialog form').waitFor();
- assert.equal(await page.locator('dialog').count(),1);
+ assert.equal(await page.locator('dialog[open]').count(),1);
  assert.equal(await page.locator('[name=customer]').inputValue(),'customer');
  assert.equal(await page.locator('[name=asDebt]').isChecked(),true);
- assert.equal(await page.locator('.account-choices').isVisible(),false);
+ await chooseSaleProduct(page,'[data-product]');await openSalePayment(page);
+ assert.equal(await page.locator('.account-choices').isVisible(),true);
+ assert.equal(await page.locator('[name=account]').isDisabled(),true);
  assert.equal(await page.locator('[name=account]').evaluate(input=>input.required),false);
  await page.locator('[data-customers-more]').click();
  assert.equal(await page.locator('[name=customer] option[value=customer]').count(),1);
  assert.equal(await page.locator('[name=customer]').inputValue(),'customer');
- await page.locator('[data-product]').click();
- await page.locator('form').evaluate(form=>{form.dispatchEvent(new Event('submit',{cancelable:true}));form.dispatchEvent(new Event('submit',{cancelable:true}));});
+ await submitSalePayment(page,{twice:true});
  await page.waitForFunction(()=>calls.length===1&&document.querySelector('form [role=alert]').textContent.includes('انقطاع'));
  const first=await page.evaluate(()=>calls[0]);
  assert.equal(first.name,'confirm_sharikx2_sale_web_v1');
@@ -51,7 +53,7 @@ try{
  assert.equal(await page.locator('[name=customer]').inputValue(),'customer','Pending sale must take priority over a different initial customer');
  assert.equal(await page.locator('fieldset').evaluate(fieldset=>fieldset.disabled),true);
  await page.evaluate(()=>window.loseResponse=false);
- await page.locator('form [type=submit]').click();
+ await submitSalePayment(page);
  await page.waitForFunction(()=>saved===1);
  assert.deepEqual(await page.evaluate(()=>calls[1]),first,'Retry must preserve the entire payload and request UUID');
  assert.equal(await page.evaluate(()=>sessionStorage.getItem('sharikx2-pending-sale:project')),null);
@@ -65,17 +67,17 @@ try{
  // A corrupt saved request blocks both normal and synthetic submissions.
  await page.evaluate(()=>{sessionStorage.setItem('sharikx2-pending-sale:project','{bad');return showSale(customer);});
  assert.equal(await page.locator('form [type=submit]').isDisabled(),true);
- await page.locator('form').evaluate(form=>form.dispatchEvent(new Event('submit',{cancelable:true})));
+ await submitSalePayment(page);
  assert.equal(await page.evaluate(()=>calls.length),2);await page.locator('[data-close]').click();
  await page.evaluate(()=>{sessionStorage.clear();return showSale(customer);});
- await page.locator('[data-product]').click();
- await page.locator('form [type=submit]').click();
+ await chooseSaleProduct(page,'[data-product]');
+ await submitSalePayment(page);
  await page.waitForFunction(()=>saved===2);
  assert.equal(await page.evaluate(()=>calls[2].payload.p_account_id),null,'Debt sale does not require any financial accounts');
  await page.evaluate(()=>showSale(customer));
- await page.locator('[data-product]').click();
+ await chooseSaleProduct(page,'[data-product]');
  await page.evaluate(()=>window.current=false);
- await page.locator('form').evaluate(form=>form.dispatchEvent(new Event('submit',{cancelable:true})));
+ await submitSalePayment(page);
  assert.equal(await page.evaluate(()=>calls.length),3);
  await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').count(),0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
