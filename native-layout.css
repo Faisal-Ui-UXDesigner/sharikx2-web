@@ -307,6 +307,24 @@
 .native-app .home-overview-values small{font-size:12px;display:block;color:var(--muted)}
 .native-app .home-overview-values b{font-size:17px;display:block;margin-top:3px;overflow-wrap:anywhere}
 .native-app .native-project-overview>p{font-size:12px;line-height:1.9;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;margin:12px 0 0}
+.expense-dialog{font-family:Cairo,Tahoma,sans-serif;width:min(100% - 16px,520px);max-height:90dvh;padding:20px;padding-bottom:max(20px,env(safe-area-inset-bottom));border-radius:22px 22px 0 0}
+.expense-dialog>h2{font-size:20px;margin:0 0 16px;font-weight:600}
+.expense-type-options{display:grid;gap:8px;padding-top:2px}
+.expense-type-options button{text-align:right;min-height:48px;padding-inline:16px;background:var(--surface);font-weight:600}
+.expense-dialog .expense-kind{font-size:15px;font-weight:600;margin:4px 0 8px}
+.expense-dialog label{font-size:14px;margin-bottom:12px}
+.expense-dialog input:not([type=radio]):not([type=hidden]){min-height:56px;font-size:16px}
+.expense-dialog .money-input input{text-align:right;padding-inline-start:16px;padding-inline-end:42px}
+.expense-dialog .money-input>span{top:15px}
+.expense-dialog h3{font-size:14px;margin:14px 0 7px}
+.expense-dialog .account-choices{gap:6px}
+.expense-dialog .account-choice{min-height:48px;padding:7px 12px;gap:10px;margin:0;border-radius:12px}
+.expense-dialog .account-choice>span:last-child{margin:0;text-align:right;font-size:14px;min-width:0;overflow-wrap:anywhere}
+.expense-dialog .account-choice input{flex:0 0 20px}
+.expense-dialog .account-choice small{font-size:12px;line-height:1.5}
+.expense-dialog .account-choice small:empty{display:none}
+.expense-dialog .expense-attachment{min-height:44px;width:100%;margin-top:12px;font-size:14px}
+.expense-dialog [role=alert]:empty{display:none}
 .home-value-details .row{padding-block:10px;font-size:14px}
 .home-value-details .row>span{min-width:0;overflow-wrap:anywhere}
 .home-value-details .row>b{flex-shrink:0}

@@ -5,6 +5,7 @@ if(key.split('.').length===3){const claims=JSON.parse(Buffer.from(key.split('.')
 await mkdir('dist',{recursive:true});
 await copyFile('app-shell-layout.js','dist/app-shell-layout.js');
 await copyFile('shared-report.js','dist/shared-report.js');
+for(const file of ['expense-entry.js','expense-entry-ui.js'])await copyFile(file,`dist/${file}`);
 await copyFile('sale-payment-ui.js','dist/sale-payment-ui.js');
 for(const file of ['sale-price-edit.js','sale-price-edit-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['sale-payment-step.js','sale-payment-step-ui.js'])await copyFile(file,`dist/${file}`);
