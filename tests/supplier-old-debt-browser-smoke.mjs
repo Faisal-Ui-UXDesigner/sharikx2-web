@@ -43,7 +43,7 @@ try{
  await page.getByRole('button',{name:'إلغاء',exact:true}).click();
  await page.evaluate(async()=>{
   sessionStorage.clear();const {openDebtDetails}=await import('/debt-details-ui.js');
-  window.details=options=>openDebtDetails({container:document.querySelector('#fixture'),projectId:'p',kind:'suppliers',person:{id:'s',name:'مورد',calculated_debt:5},storage:sessionStorage,isCurrent:()=>true,api:{allRows:async table=>table==='supplier_old_debts'?[{amount:5,description:'<img src=x>',created_at:'2026-10-07'}]:[],supplierCredits:async()=>[]},...options});
+  window.details=options=>openDebtDetails({container:document.querySelector('#fixture'),projectId:'p',kind:'suppliers',person:{id:'s',name:'مورد',calculated_debt:5},storage:sessionStorage,isCurrent:()=>true,api:{supplierHistory:async()=>({supplier:{id:'s',project_id:'p',name:'مورد',opening_debt:5},purchases:[],payments:[],old_debts:[{id:'o',amount:5,description:'<img src=x>',created_at:'2026-10-07'}],credits:[],purchase_returns:[],allocation_snapshot:{version:1,allocations:[]}})},...options});
   await details({mode:'owner'});
  });
  assert.equal(await page.locator('[data-old-debt]').count(),1);

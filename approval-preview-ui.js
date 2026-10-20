@@ -9,6 +9,7 @@ import {approvalReadinessMarkup} from './approval-readiness-ui.js';
 import {approvalOutcomeMarkup} from './approval-outcome-ui.js';
 import {openApprovalDocument} from './approval-document-ui.js';
 import {approvalStateMarkup} from './approval-state-ui.js';
+import {approvalDiscountsMarkup} from './approval-discounts-ui.js';
 const whole=value=>money(roundedWholeDisplay(value));
 export function openApprovalPreview({api,projectId,project,mode,storage,month,today,isCurrent=()=>true}){
  if(!isCurrent()||document.querySelector('.approval-preview-dialog'))return;
@@ -23,6 +24,7 @@ export function openApprovalPreview({api,projectId,project,mode,storage,month,to
   const finance=result.financials;
   content.innerHTML=`<p>من ${escape(result.period.start)} إلى ${escape(result.period.end)} — حسابات اليوم خارج الفترة.</p><p class="muted">هذه معاينة فقط؛ لم تُثبّت الأرباح أو تُسوَّ الذمم. وفق مسار الأندرويد، النقد محسوب حتى نهاية الفترة وقيمة البضاعة بسعر الشراء هي القيمة الحالية. القراءات ليست لقطة ذرّية واحدة من قاعدة البيانات.</p>${[['projectAssets','الموجود في المشروع'],['protectedBefore','المبلغ اللازم لتشغيل المشروع'],['absorbedPriorProfit','المعوض من الأرباح السابقة'],['deficit','المبلغ المطلوب تعويضه'],['reinvestmentAmount','المبلغ المتروك للمشروع'],['distributableProfit','المبلغ الآمن للسحب بعد التثبيت']].map(([key,label])=>`<p>${label}: <b data-preview-financial="${key}">${whole(finance[key])}</b></p>`).join('')}<h3>حصص ربح الفترة</h3>${Object.entries(result.allocation.shares).map(([id,value])=>`<p>${escape(result.settlements.partners.find(row=>row.id===id)?.name||id)}: <b>${whole(value)}</b></p>`).join('')||'<p class="muted">لا توجد حصص ربح جديدة.</p>'}<p>الربح غير المخصص لشريك: ${whole(result.allocation.unallocated)}</p><h3>أثر الذمم المتوقع</h3>${result.settlements.partners.map(row=>`<article class="panel"><h4>${escape(row.name)}</h4><p>تسوية متوقعة: ${whole(row.settled)}</p><p>المتاح قبل تعويض الأرباح السابقة: ${whole(row.availableAfter)}</p><p>قيمة الجزء غير المسوّى دون تقريب: ${escape(String(row.unapplied))}</p></article>`).join('')}<p class="muted">التسوية تخصم الذمة من ربح الشريك؛ لا تسحب المال من الحساب مرة ثانية.</p>`;
   content.insertAdjacentHTML('beforeend',approvalReportMarkup(result.report));
+  content.insertAdjacentHTML('beforeend',approvalDiscountsMarkup(result.report));
   content.insertAdjacentHTML('beforeend',approvalOutcomeMarkup(result.outcome));
   content.insertAdjacentHTML('beforeend',approvalStateMarkup(result));
   content.insertAdjacentHTML('beforeend',approvalPartnersMarkup(result.report.partnerReport));

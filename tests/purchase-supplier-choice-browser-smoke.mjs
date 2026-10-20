@@ -1,0 +1,42 @@
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import {mkdir} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import {startPreviewServer} from '../scripts/preview-server.mjs';
+import {openPurchasePayments,selectPurchaseSupplier} from './purchase-form-actions.mjs';
+const require=createRequire(import.meta.url),{chromium}=require('C:/Users/HP/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const browser=await chromium.launch({headless:true,channel:'msedge'}),preview=await startPreviewServer({root:fileURLToPath(new URL('..',import.meta.url))});
+try{
+ const page=await browser.newPage({viewport:{width:393,height:874},serviceWorkers:'block'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/*',route=>new URL(route.request().url()).origin===preview.origin?route.continue():route.abort());
+ await page.goto(preview.origin+'/styles.css');await page.setContent('<html dir="rtl" lang="ar"><head><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/native-layout.css"></head><body></body></html>');
+ await page.evaluate(async()=>{
+  const {openPurchase}=await import('/purchase.js');window.current=true;window.calls=[];window.reads=0;window.credits=0;window.failWrite=true;
+  window.suppliers=Array.from({length:40},(_,i)=>({id:i===39?'s"<>':'s'+i,name:i===39?'<img src=x> مورد طويل':'مورد '+i,phone:'0591111111',project_id:'pr'}));window.original=JSON.stringify(suppliers);
+  window.api={allRows:async table=>{reads++;return table==='products'?[{id:'p',name:'صنف',weighted_unit_cost:1.005}]:structuredClone(suppliers);},summary:async()=>({accounts:[{id:'a',name:'نقد',balance:10}]}),supplierCredits:async()=>{credits++;return [];},financeState:async()=>({state:{}}),rpc:async(name,payload)=>{calls.push(structuredClone(payload));if(failWrite)throw Error('انقطاع');return {id:'invoice',total:1.01,paid_amount:.1,debt_amount:.91};}};
+  window.show=()=>openPurchase({api,projectId:'pr',mode:'owner',storage:sessionStorage,isCurrent:()=>current});show();
+ });
+ const trigger=page.locator('[data-choose-purchase-supplier]'),choice=page.locator('.purchase-supplier-choice'),entry=page.locator('.purchase-inline-entry');
+ const submit=()=>page.locator('.purchase-dialog > .body > form').evaluate(form=>form.dispatchEvent(new Event('submit',{cancelable:true})));
+ await trigger.waitFor();assert.equal(await page.locator('[name=supplier]').isVisible(),false);assert.equal(await page.locator('[name=supplier]').inputValue(),'');assert.match(await trigger.innerText(),/اختر المورد/);
+ await page.locator('[data-add]').click();await submit();assert.equal(await trigger.evaluate(node=>node===document.activeElement),true);assert.equal(await trigger.getAttribute('aria-invalid'),'true');assert.match(await page.locator('.purchase-footer [role=alert]').innerText(),/اختر مورد/);
+ await entry.locator('[name=quantity]').fill('2.5');await entry.locator('[name=cost]').fill('1.005');await page.locator('[name=note]').fill('ملاحظة');await openPurchasePayments(page);await page.locator('[data-pay]').click();await page.locator('[data-payamount]').fill('.1');
+ await trigger.focus();await page.keyboard.press('Enter');await trigger.evaluate(button=>button.onclick());assert.equal(await choice.count(),1);assert.equal(await page.locator('.purchase-dialog fieldset').evaluate(node=>node.disabled),true);
+ await submit();await page.locator('[data-add-purchase-supplier]').evaluate(button=>button.onclick());await entry.locator('[data-enter-purchase-line]').evaluate(button=>button.onclick());assert.equal(await page.locator('[data-qty]').count(),1);assert.equal(await page.locator('.supplier-create').count(),0);
+ assert.equal(await choice.locator('[data-purchase-supplier-index]').count(),40);assert.equal(await page.evaluate(()=>reads),2);assert.equal(await page.evaluate(()=>credits),0);
+ for(const width of [320,393,720]){await page.setViewportSize({width,height:874});assert.equal(await choice.evaluate(node=>node.scrollWidth>node.clientWidth),false);assert.ok(await choice.locator('.purchase-supplier-options').evaluate(node=>node.clientHeight<=280));}
+ await page.setViewportSize({width:393,height:874});await choice.locator('[data-purchase-supplier-index="39"]').scrollIntoViewIfNeeded();await page.evaluate(async()=>{await document.fonts.ready;document.activeElement?.blur();});await mkdir('tests/screenshots/native-v139',{recursive:true});await page.screenshot({path:'tests/screenshots/native-v139/supplier-choice.png'});
+ await page.keyboard.press('Escape');assert.equal(await page.locator('[name=supplier]').inputValue(),'');assert.equal(await trigger.evaluate(node=>node===document.activeElement),true);assert.equal(await page.evaluate(()=>credits),0);
+ await selectPurchaseSupplier(page,'s"<>');assert.equal(await page.locator('[name=supplier]').inputValue(),'s"<>');assert.match(await trigger.innerText(),/<img src=x>/);assert.equal(await trigger.getAttribute('aria-invalid'),null);assert.equal(await page.locator('img').count(),0);
+ assert.equal(await entry.locator('[name=quantity]').inputValue(),'2.5');assert.equal(await entry.locator('[name=cost]').inputValue(),'1.005');assert.equal(await page.locator('[data-payamount]').inputValue(),'.1');assert.equal(await page.locator('[name=note]').inputValue(),'ملاحظة');
+ await trigger.click();assert.equal(await choice.locator('[aria-current=true]').getAttribute('data-purchase-supplier-index'),'39');assert.equal(await choice.locator('[aria-current=true]').evaluate(node=>node===document.activeElement),true);await choice.locator('[data-cancel-supplier-choice]').click();
+ // Save/restore keeps unavailable or selected IDs, not an arbitrary first supplier.
+ await entry.locator('[name=quantity]').fill('');await entry.locator('[name=cost]').fill('');await page.locator('[data-save-purchase-draft]').click();await selectPurchaseSupplier(page,'s0');await page.locator('[data-resume-purchase-draft]').click();await page.locator('[data-resume-purchase-draft]').click();assert.equal(await page.locator('[name=supplier]').inputValue(),'s"<>');assert.match(await trigger.innerText(),/<img src=x>/);
+ assert.equal(await page.evaluate(()=>JSON.stringify(suppliers)===original),true);assert.equal(await page.evaluate(()=>calls.length),0);await submit();await page.locator('[data-confirm-purchase]').click();await page.waitForFunction(()=>calls.length===1&&document.querySelector('.purchase-footer [role=alert]').textContent.includes('انقطاع'));
+ const original=await page.evaluate(()=>calls[0]);await trigger.evaluate(button=>button.onclick());assert.equal(await choice.count(),0);await page.keyboard.press('Escape');const reads=await page.evaluate(()=>window.reads);
+ await page.evaluate(()=>{suppliers=[];failWrite=false;show();});assert.match(await trigger.innerText(),/<img src=x>/);await submit();await page.waitForFunction(()=>calls.length===2&&!document.querySelector('.purchase-dialog'));assert.deepEqual(await page.evaluate(()=>calls[1]),original);assert.equal(await page.evaluate(()=>window.reads),reads);
+ await page.evaluate(()=>show());await trigger.click();assert.match(await choice.innerText(),/لا يوجد مورد/);await page.keyboard.press('Escape');await page.keyboard.press('Escape');
+ await page.evaluate(()=>{suppliers=[{id:'s0',name:'مورد'}];show();});await trigger.click();await page.evaluate(()=>document.querySelector('.purchase-dialog').close());await page.waitForFunction(()=>!document.querySelector('.purchase-supplier-choice'));await page.evaluate(()=>{document.querySelector('.purchase-dialog').remove();show();});await trigger.click();await page.evaluate(()=>document.querySelector('.purchase-dialog').remove());await page.waitForFunction(()=>!document.querySelector('.purchase-supplier-choice'));
+ await page.evaluate(()=>show());await trigger.click();await page.evaluate(()=>{current=false;document.body.append(document.createElement('span'));});await page.waitForFunction(()=>!document.querySelector('.purchase-supplier-choice'));assert.equal(await page.evaluate(()=>calls.length),2);assert.deepEqual(errors,[]);
+ console.log('PASS: native supplier-name selection field/list, full source-order catalog, current/focus and cancel, safe quoted IDs, preserved line/payment/note, parent locks, accessible missing validation, draft identity and original financial recovery, empty/closed/removed/stale cleanup and RTL/mobile');
+}finally{await browser.close();await preview.close();}

@@ -1,4 +1,4 @@
-import {openPurchasePayments} from './purchase-form-actions.mjs';
+import {openPurchasePayments,selectPurchaseSupplier} from './purchase-form-actions.mjs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
@@ -29,11 +29,11 @@ try{
  await page.locator('[data-qty]').evaluate(input=>window.quantityElement=input);await page.locator('[data-qty]').fill('2.5');
  assert.equal(await page.locator('[data-qty]').evaluate(input=>input===window.quantityElement),true,'Typing totals must not recreate or defocus inputs');
  await page.locator('[data-cost]').fill('1.2');assert.match(await page.locator('[data-total]').innerText(),/3/);
- await page.evaluate(()=>window.holdCredits=true);await page.locator('[name=supplier]').selectOption('s20');await page.locator('[name=supplier]').selectOption('s21');
+ await page.evaluate(()=>window.holdCredits=true);await selectPurchaseSupplier(page,'s20');await selectPurchaseSupplier(page,'s21');
  await page.evaluate(()=>creditResolvers[1].resolve([{id:'credit2',amount:7,remaining_amount:7}]));await page.waitForFunction(()=>document.querySelector('[data-credit]').textContent.includes('7'));
  await page.evaluate(()=>creditResolvers[0].resolve([{id:'credit1',amount:1,remaining_amount:1}]));assert.match(await page.locator('[data-credit]').innerText(),/7/);
- await page.evaluate(()=>{window.holdCredits=false;window.creditFailure=true;});await page.locator('[name=supplier]').selectOption('s22');await page.waitForFunction(()=>document.querySelector('[data-credit]').textContent.includes('تعذر'));
- await page.evaluate(()=>window.creditFailure=false);await page.locator('[name=supplier]').selectOption('s21');
+ await page.evaluate(()=>{window.holdCredits=false;window.creditFailure=true;});await selectPurchaseSupplier(page,'s22');await page.waitForFunction(()=>document.querySelector('[data-credit]').textContent.includes('تعذر'));
+ await page.evaluate(()=>window.creditFailure=false);await selectPurchaseSupplier(page,'s21');
  await openPurchasePayments(page);await page.locator('[data-pay]').click();await page.locator('[data-payamount]').fill('1.2');await submit();assert.match(await page.getByRole('alert').innerText(),/الرصيد المتاح/);assert.equal(await page.evaluate(()=>calls.length),0);
  await page.locator('[data-account]').selectOption('bank');await page.locator('[name=note]').fill('  <script>ملاحظة</script>  ');await submit();
  assert.equal(await page.locator('.purchase-debt-confirmation').count(),1);assert.equal(await page.evaluate(()=>calls.length),0);assert.equal(await page.evaluate(()=>sessionStorage.getItem(key)),null);
@@ -46,14 +46,14 @@ try{
  await page.evaluate(()=>{window.badResponse=false;window.replay=true;});await submit();await page.waitForFunction(()=>saved===1);
  const attempts=await page.evaluate(()=>calls);assert.equal(attempts.length,3);attempts.forEach(attempt=>assert.deepEqual(attempt,first));assert.equal(await page.evaluate(()=>sessionStorage.getItem(key)),null);
  // Fully paid purchases have no debt-confirmation step.
- await page.evaluate(()=>{window.failRead=false;show();});await page.locator('[name=supplier]').selectOption('s0');await page.locator('[data-add]').click();await openPurchasePayments(page);await page.locator('[data-pay]').click();await page.locator('[data-account]').selectOption('bank');await page.locator('[data-payamount]').fill('1.2');await submit();await page.waitForFunction(()=>saved===2);
+ await page.evaluate(()=>{window.failRead=false;show();});await selectPurchaseSupplier(page,'s0');await page.locator('[data-add]').click();await openPurchasePayments(page);await page.locator('[data-pay]').click();await page.locator('[data-account]').selectOption('bank');await page.locator('[data-payamount]').fill('1.2');await submit();await page.waitForFunction(()=>saved===2);
  assert.equal(await page.locator('.purchase-debt-confirmation').count(),0);
  const count=await page.evaluate(()=>calls.length);
  await page.evaluate(()=>{sessionStorage.setItem(key,'{bad');show();});await submit();assert.equal(await page.locator('[type=submit]').isDisabled(),true);assert.equal(await page.evaluate(()=>calls.length),count);await page.keyboard.press('Escape');
- await page.evaluate(()=>{sessionStorage.clear();window.testStorage={getItem:()=>null,setItem:()=>{throw new Error('تخزين غير متاح');}};show();});await page.locator('[name=supplier]').selectOption('s0');await page.locator('[data-add]').click();await submit();await confirm();assert.match(await page.getByRole('alert').innerText(),/تخزين غير متاح/);assert.equal(await page.evaluate(()=>calls.length),count);await page.keyboard.press('Escape');
- await page.evaluate(()=>{window.testStorage=null;window.failRead=true;show();});await page.locator('[data-retry-purchase]').waitFor();await page.evaluate(()=>window.failRead=false);await page.locator('[data-retry-purchase]').click();await page.locator('[name=supplier]').selectOption('s0');await page.locator('[data-add]').click();await submit();
+ await page.evaluate(()=>{sessionStorage.clear();window.testStorage={getItem:()=>null,setItem:()=>{throw new Error('تخزين غير متاح');}};show();});await selectPurchaseSupplier(page,'s0');await page.locator('[data-add]').click();await submit();await confirm();assert.match(await page.getByRole('alert').innerText(),/تخزين غير متاح/);assert.equal(await page.evaluate(()=>calls.length),count);await page.keyboard.press('Escape');
+ await page.evaluate(()=>{window.testStorage=null;window.failRead=true;show();});await page.locator('[data-retry-purchase]').waitFor();await page.evaluate(()=>window.failRead=false);await page.locator('[data-retry-purchase]').click();await selectPurchaseSupplier(page,'s0');await page.locator('[data-add]').click();await submit();
  await page.evaluate(()=>window.current=false);await confirm();assert.equal(await page.evaluate(()=>calls.length),count);await page.keyboard.press('Escape');
- await page.evaluate(()=>{window.current=true;window.holdWrite=true;show();});await page.locator('[name=supplier]').selectOption('s0');await page.locator('[data-add]').click();await submit();await confirm();await page.waitForFunction(count=>calls.length===count+1,count);
+ await page.evaluate(()=>{window.current=true;window.holdWrite=true;show();});await selectPurchaseSupplier(page,'s0');await page.locator('[data-add]').click();await submit();await confirm();await page.waitForFunction(count=>calls.length===count+1,count);
  await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').count(),1);await page.evaluate(()=>{window.current=false;window.releaseWrite();});await page.waitForFunction(()=>document.querySelectorAll('dialog').length===0);assert.equal(await page.evaluate(()=>saved),2);
  await page.evaluate(()=>{window.current=true;window.holdRead=true;show();});await page.waitForFunction(()=>window.releaseReads?.length===2);await page.keyboard.press('Escape');await page.evaluate(()=>releaseReads.forEach(resolve=>resolve()));assert.equal(await page.locator('dialog').count(),0);
  assert.equal(await page.evaluate(()=>{try{show({mode:'viewer'});return false;}catch{return true;}}),true);assert.equal(await page.locator('img,script').count(),0);

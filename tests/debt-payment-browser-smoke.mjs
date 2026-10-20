@@ -19,6 +19,7 @@ try{
   window.api={allRows:async()=>[],supplierCredits:async()=>[],summary:async()=>{reads++;if(window.readFailure)throw new Error('فشل تحميل تجريبي');if(window.holdRead)await new Promise(resolve=>window.releaseRead=resolve);return {accounts:[{id:'cash',name:'نقد',balance:0},{id:'bank',name:'بنك',balance:20},{id:'card',name:'بطاقة',balance:5}]};},rpc:async(name,payload)=>{calls.push({name,payload});if(window.holdWrite)await new Promise(resolve=>window.releaseWrite=resolve);if(loseResponse)throw new Error('انقطاع تجريبي');return window.badResult?{}:{id:'payment',amount:payload.p_amount??payload.p_sources.reduce((sum,x)=>sum+x.amount,0)};}};
   window.show=(kind,options={})=>(kind==='customer'?openCollection:openPayment)({api,projectId:'project',customer:person,supplier:person,mode:'owner',storage:window.testStorage??sessionStorage,isCurrent:()=>window.current,onSaved:()=>window.saved++,...options});
   window.key=kind=>`sharikx2-pending-${kind==='customer'?'customer-collection':'supplier-payment'}:project:person`;
+  api.supplierHistory=async()=>({supplier:{...person,project_id:'project',opening_debt:person.calculated_debt},purchases:[],payments:[],old_debts:[],credits:[],purchase_returns:[],allocation_snapshot:{version:1,allocations:[]}});
   window.details=()=>openDebtDetails({api,container:document.body,projectId:'project',kind:'suppliers',person,mode:'owner',isCurrent:()=>window.current,onCollect:()=>show('supplier')});
  });
  const submit=async()=>{

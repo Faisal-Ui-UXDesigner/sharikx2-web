@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {purchaseFormMarkup,purchaseSummaryMarkup,mountPurchaseFooter} from '../purchase-form-ui.js';
+import {purchaseFormMarkup,purchaseSummaryMarkup,mountPurchaseFooter,purchaseHeaderMarkup,purchaseConfirmationDisabled} from '../purchase-form-ui.js';
 import {purchaseCartReview} from '../purchase-cart-review.js';
 test('purchase composition keeps supplier, optional payments, note and separate confirmation footer',()=>{
  const html=purchaseFormMarkup([{id:'s',name:'مورد',phone:'0590000000'}]);
@@ -21,4 +21,15 @@ test('footer mounting keeps cancel explicitly non-submitting when moved inside t
  const footer={prepend:value=>mounted.push(value),querySelector:()=>({append:value=>mounted.push(value)})};
  mountPurchaseFooter({querySelector:selector=>selector==='[data-close]'?cancel:footer},summary);
  assert.equal(cancel.type,'button');assert.deepEqual(mounted,[summary,cancel]);
+});
+test('paid and debt previews are outside optional details so collapse cannot hide the overview',()=>{
+ const html=purchaseFormMarkup([]),end=html.indexOf('</details>');
+ assert.ok(html.indexOf('data-purchase-paid')>end);assert.ok(html.indexOf('data-purchase-unpaid')>end);assert.match(html,/purchase-payment-card/);assert.equal((html.match(/data-purchase-paid/g)||[]).length,1);
+});
+test('header back action has an accessible name and cannot submit a purchase',()=>{
+ const html=purchaseHeaderMarkup();assert.match(html,/فاتورة شراء/);assert.match(html,/type="button"/);assert.match(html,/data-purchase-back aria-label="رجوع/);assert.ok(!html.includes('type="submit"'));
+});
+test('confirmation requires cart items but original pending verification bypasses fresh-cart requirement',()=>{
+ assert.equal(purchaseConfirmationDisabled({hasItems:false}),true);assert.equal(purchaseConfirmationDisabled({hasItems:true}),false);assert.equal(purchaseConfirmationDisabled({hasItems:false,pending:true}),false);
+ for(const flag of ['blocked','busy','childOpen'])for(const pending of [false,true])assert.equal(purchaseConfirmationDisabled({hasItems:true,pending,[flag]:true}),true);
 });

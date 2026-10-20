@@ -153,6 +153,22 @@ export class Api {
     return projectCurrencyResult(rows,id,payload.currency);
   }
   debts(id) {return this.rpc('get_sharikx2_debt_balances_v2',{p_project_id:id});}
+  async supplierHistory(projectId,supplierId){
+    if(typeof projectId!=='string'||!projectId||typeof supplierId!=='string'||!supplierId)throw new Error('بيانات المورد غير صالحة');
+    const generation=this.generation;
+    const history=await this.rpc('get_sharikx2_supplier_history_v1',{p_project_id:projectId,p_supplier_id:supplierId});
+    this.assertGeneration(generation);
+    if(!history||history.supplier?.id!==supplierId||history.supplier.project_id!==projectId||!Array.isArray(history.purchases))throw new Error('تعذر قراءة سجل المورد');
+    // Native supplements the atomic ledger with initial payment/credit sources.
+    // Reject changed identities; never combine a partial or new invoice set with old links.
+    const sources=await this.allRows('purchases',projectId,'id,credit_applications:sharikx2_supplier_credit_applications(amount,created_at),payments:sharikx2_purchase_payments(amount,account:sharikx2_accounts(name))',{supplier_id:`eq.${supplierId}`});
+    this.assertGeneration(generation);
+    const byId=new Map();
+    for(const row of sources){if(typeof row?.id!=='string'||byId.has(row.id)||!Array.isArray(row.payments)||!Array.isArray(row.credit_applications))throw new Error('تغير سجل فواتير المورد؛ أعد التحميل');byId.set(row.id,row);}
+    if(byId.size!==history.purchases.length||new Set(history.purchases.map(row=>row?.id)).size!==history.purchases.length)throw new Error('تغير سجل فواتير المورد؛ أعد التحميل');
+    const purchases=history.purchases.map(row=>{const source=byId.get(row?.id);if(!source)throw new Error('تغير سجل فواتير المورد؛ أعد التحميل');return {...row,payments:source.payments,credit_applications:source.credit_applications};});
+    return {...history,purchases};
+  }
   updateSupplier(projectId,id,changes) {const captured=supplierChanges(changes);return this.request(`/rest/v1/sharikx2_suppliers?id=eq.${encodeURIComponent(id)}&project_id=eq.${encodeURIComponent(projectId)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(captured)}).then(rows=>supplierUpdateResult(rows,projectId,id,captured));}
   archiveSupplier(projectId,id) {return this.updateSupplier(projectId,id,{active:false});}
   async createSupplier(projectId,supplier){

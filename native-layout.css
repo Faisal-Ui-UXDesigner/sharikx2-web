@@ -309,12 +309,16 @@
 .native-app .native-project-overview>p{font-size:12px;line-height:1.9;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;margin:12px 0 0}
 .purchase-line-entry{width:min(100% - 16px,520px);max-height:90dvh;padding:20px}
 .purchase-line-entry h2{font-size:20px;margin:0 0 16px}
-.purchase-line-entry .purchase-line-selection{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:52px;margin-top:7px;text-align:right;font-size:15px;font-weight:600}
+:is(.purchase-line-entry,.purchase-inline-entry) .purchase-line-selection{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:52px;margin-top:7px;text-align:right;font-size:15px;font-weight:600}
 .purchase-line-selection span{min-width:0;overflow-wrap:anywhere}
 .purchase-line-selection svg{flex-shrink:0}
 .purchase-line-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;direction:rtl}
 .purchase-line-values>label{min-width:0;font-size:13px}
 .purchase-line-values input{min-width:0;min-height:52px;font-size:15px}
+.purchase-inline-entry>[data-enter-purchase-line]{width:100%;min-height:50px;margin-top:10px}
+.purchase-inline-entry{margin-bottom:16px}
+.purchase-inline-entry .purchase-line-product{font-size:13px}
+.purchase-dialog .purchase-items-section>h3{display:none}
 .purchase-line-entry [role=alert]{overflow-wrap:anywhere}
 .purchase-calculator-field{display:block;position:relative}
 .purchase-calculator-field input{padding-left:58px;direction:ltr;text-align:right}
@@ -332,12 +336,86 @@
 .purchase-calculator .actions button{padding-inline:10px;font-size:13px}
 .purchase-dialog[open]{display:flex;flex-direction:column;inset:0;width:min(100%,560px);height:100dvh;max-height:100dvh;max-width:100vw;padding:16px 16px 0;border-radius:0;overflow:hidden}
 .purchase-dialog>h2{flex-shrink:0;min-height:44px;margin:0;padding:4px 0 12px;font-size:22px;font-weight:600}
+.purchase-page-header{display:flex;flex-shrink:0;align-items:center;gap:20px;min-height:44px;direction:ltr;margin-bottom:8px}
+.purchase-page-header h2{flex:1;min-width:0;text-align:right;font-size:22px;font-weight:600;margin:0}
+.purchase-page-header button{display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;min-height:44px;padding:10px;border-radius:12px}
 .purchase-dialog>.body{flex:1;min-height:0;overflow:auto}
 .purchase-dialog .body>form{height:100%;display:flex;flex-direction:column;min-height:0}
 .purchase-dialog form>fieldset{flex:1;min-height:0;overflow-y:auto;padding:14px 0;scrollbar-gutter:stable}
 .purchase-dialog :is(input,select,textarea){min-width:0}
 .purchase-dialog input[type=number]{direction:ltr;text-align:right}
 .purchase-dialog .purchase-supplier-section>button{width:100%;min-height:44px;margin-bottom:16px}
+.supplier-account-page[open]{--supplier-warning:#dc9b23;display:flex;flex-direction:column;inset:0;width:min(100%,560px);height:100dvh;max-height:100dvh;max-width:100vw;padding:16px;border-radius:0;overflow:hidden;background:var(--bg)}
+:root[data-theme=light] .supplier-account-page{--supplier-warning:#9b580a}
+.supplier-account-header{display:flex;align-items:center;gap:12px;direction:ltr;flex-shrink:0;min-height:44px}
+.supplier-account-header h2{flex:1;min-width:0;margin:0;text-align:right;font-size:22px;font-weight:600}
+.supplier-account-header button,.supplier-account-header a{display:grid;place-items:center;width:44px;min-height:44px;padding:8px;border-radius:12px;font-size:11px}
+.supplier-account-header a{color:var(--profit)}
+.supplier-account-page>.details{flex:1;min-height:0;overflow-y:auto;padding:18px 0 24px}
+.supplier-account-page>.actions{flex-shrink:0;margin-top:8px}
+.supplier-account-summary{padding:12px;overflow-wrap:anywhere}
+.supplier-identity-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.supplier-identity-row>div{min-width:0}
+.supplier-identity-row>.supplier-identity{flex:1}
+.supplier-identity-heading{display:flex;align-items:center;gap:6px}
+.supplier-identity-heading>b{min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:17px}
+.supplier-identity-heading>span{flex-shrink:0}
+.supplier-identity-heading>span:empty{display:none}
+.supplier-account-summary>div{min-width:0}
+.supplier-account-summary p{margin:0;font-size:12px}
+.supplier-account-summary strong,.supplier-account-summary small{display:block;text-align:left}
+.supplier-account-summary small{font-size:11px;color:var(--muted)}
+.supplier-account-summary .danger-text{color:var(--red)}
+.supplier-account-summary .success-text{color:var(--profit)}
+.supplier-account-summary .supplier-account-credit{color:var(--profit);font-size:13px;margin-top:8px}
+.supplier-account-summary [data-details-edit-supplier]{display:grid;place-items:center;width:32px;min-height:32px;padding:4px;border-radius:9px}
+.supplier-account-actions{display:grid;gap:8px;margin:10px 0 20px}
+.supplier-account-actions button{width:100%;min-height:48px}
+.supplier-account-page h3{font-size:17px;text-align:right}
+.supplier-account-movement{padding:14px;overflow-wrap:anywhere}
+.supplier-account-movement .row{align-items:flex-start;flex-wrap:wrap;gap:8px}
+.supplier-account-movement p{margin:8px 0;font-size:13px}
+.supplier-account-movement>small{display:block;text-align:left;font-size:11px}
+.supplier-invoice-summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.supplier-invoice-summary>div{min-width:0;border:1px solid var(--border);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:104px}
+.supplier-invoice-summary small{font-size:11px;color:var(--muted)}
+.supplier-invoice-summary .supplier-source-caption{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--text)}
+.supplier-invoice-summary>div:nth-child(2):has(.warning-text)>small:last-child{color:var(--supplier-warning)}
+.supplier-invoice-summary>div:nth-child(2):has(.success-text)>small:last-child{color:var(--profit)}
+.supplier-allocation-row>b{color:var(--profit)}
+.supplier-invoice-summary strong{font-size:20px}
+.supplier-account-movement [data-invoice-details]{width:100%;min-height:44px;margin-top:12px}
+.supplier-account-movement h4{font-size:13px;margin:12px 0 6px}
+.supplier-invoice-item{padding:7px 8px;font-size:12px}
+.supplier-invoice-item>span,.supplier-invoice-details .row>span{min-width:0;overflow-wrap:anywhere;flex:1}
+.supplier-invoice-item>b,.supplier-invoice-details .row>b{flex-shrink:0}
+.supplier-account-page .success-text,.supplier-invoice-details .success-text{color:var(--profit)}
+.supplier-account-page .danger-text,.supplier-invoice-details .danger-text{color:var(--red)}
+.supplier-account-page .warning-text{color:var(--supplier-warning)}
+.supplier-return-credit{display:flex;flex-direction:column;gap:8px;border:1px solid var(--border);border-radius:16px;padding:12px;margin-top:12px;color:var(--profit)}
+.supplier-return-credit small{font-size:11px;color:var(--muted)}
+.supplier-invoice-details[open]{display:flex;flex-direction:column;max-height:90dvh;width:min(94vw,520px);overflow:hidden}
+.supplier-invoice-details h2{font-size:20px;flex-shrink:0;margin-top:0}
+.supplier-invoice-details h3{font-size:15px;margin:16px 0 8px}
+.supplier-invoice-details>.details{overflow-y:auto;min-height:0;flex:1}
+.supplier-invoice-details>.actions{flex-shrink:0}
+.supplier-invoice-details .row{padding:8px 0;align-items:flex-start;gap:12px;font-size:13px}
+.supplier-invoice-details .panel{padding:12px}
+.supplier-invoice-remaining{font-size:16px;font-weight:600}
+.supplier-invoice-recorded{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;font-size:12px;padding:12px 0;color:var(--muted)}
+.supplier-invoice-recorded b{color:var(--text)}
+.purchase-supplier-selection{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;width:100%;margin-top:7px;text-align:right;font-size:15px;font-weight:600}
+.purchase-supplier-selection>span:first-child{min-width:0;overflow-wrap:anywhere}
+.purchase-supplier-selection>span:last-child{color:var(--primary)}
+.purchase-supplier-selection[aria-invalid=true]{border-color:var(--red)}
+.purchase-supplier-choice{width:min(94vw,480px);max-height:90dvh;padding:18px}
+.purchase-supplier-choice h2{margin:0 0 12px;font-size:20px}
+.purchase-supplier-options{max-height:min(280px,40dvh);overflow-y:auto;padding:4px 12px 10px}
+.purchase-supplier-options>button{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;width:100%;margin:6px 0;padding:8px 14px;text-align:right;border-radius:12px;background:var(--field);font-size:15px;font-weight:600}
+.purchase-supplier-options>button>span:first-child{min-width:0;overflow-wrap:anywhere}
+.purchase-supplier-options>button>span:last-child{flex-shrink:0;width:30px;text-align:center}
+.purchase-supplier-options>button[aria-current=true]{background:#18274b;border-color:#18274b;color:#fff}
+.purchase-supplier-choice>[data-cancel-supplier-choice]{width:100%;margin-top:12px;min-height:50px}
 .purchase-dialog h3{font-size:14px;margin:8px 0}
 .purchase-dialog .purchase-items-section>[data-enter-purchase-line]{width:100%;min-height:50px;margin:8px 0 12px}
 .purchase-dialog .purchase-items-section>[data-add]{width:100%;font-size:12px;min-height:40px}
@@ -345,7 +423,12 @@
 .purchase-dialog .purchase-draft-tools button{font-size:11px;min-height:36px;padding:6px}
 .purchase-dialog .purchase-draft-tools .actions{gap:6px}
 .purchase-dialog .purchase-draft-tools p{font-size:10px;margin:6px 0 0}
-.purchase-payment-details{padding:12px;margin-top:16px}
+.purchase-payment-card{padding:12px;margin-top:16px}
+.purchase-payment-details{padding:0;margin:0}
+.purchase-payment-details>summary{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px 10px;text-align:center}
+.purchase-payment-overview{font-size:13px;overflow-wrap:anywhere}
+.purchase-payment-overview p{margin:5px 0 0}
+.purchase-payment-overview .purchase-paid-preview{margin-top:12px}
 .purchase-payment-details>summary{cursor:pointer;font-size:14px;font-weight:600;min-height:44px;align-content:center}
 .purchase-payment-details:not([open]) .purchase-payment-expanded,.purchase-payment-details[open] .purchase-payment-collapsed{display:none}
 .purchase-payment-account{padding:12px;margin-top:8px}

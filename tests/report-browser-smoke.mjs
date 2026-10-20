@@ -30,6 +30,7 @@ await page.route('**/*',async route=>{
   else if(url.pathname.endsWith('/restore_sharikx2_owner_project_v2')||url.pathname.endsWith('/join_sharikx2_project_v1'))data={id:'11111111-1111-4111-8111-111111111111',name:'مشروع اختبار محلي',currency:'JOD',subscription_status:active?'active':'trial'};
   else if(url.pathname.endsWith('/get_sharikx2_financial_summary_v2'))data={net_project_value:120,liquidity:50,inventory_cost:63,customer_debt:12,supplier_debt:5,accounts:[{id:'cash',name:'النقد',balance:50}]};
   else if(url.pathname.endsWith('/get_sharikx2_debt_balances_v2'))data=malformedDebt?{customers:[],customer_debt:null}:{customer_debt:12.345,supplier_debt:5,customers:[{id:'debtor',name:'Test <img src=x>',phone:'0590000000',calculated_debt:'12.345'},{id:'settled',name:'مسدد',calculated_debt:'0.009'}],suppliers:[{id:'supplier-fixture',name:'مورد اختبار',calculated_debt:5}]};
+  else if(url.pathname.endsWith('/get_sharikx2_supplier_history_v1'))data={supplier:{id:'supplier-fixture',project_id:'11111111-1111-4111-8111-111111111111',name:'مورد اختبار',opening_debt:5},purchases:[],payments:[],old_debts:[{id:'old-fixture',amount:5,description:'رصيد سابق',created_at:'2026-10-01T10:00:00Z'}],credits:[],purchase_returns:[],allocation_snapshot:{version:1,allocations:[]}};
   else if(url.pathname==='/rest/v1/sharikx2_supplier_old_debts')data=[{id:'old-fixture',amount:5,description:'رصيد سابق',created_at:'2026-10-01T10:00:00Z'}];
   else if(['/rest/v1/sharikx2_supplier_payments','/rest/v1/sharikx2_supplier_credits'].includes(url.pathname))data=[];
   else if(url.pathname.endsWith('/get_sharikx2_financial_activity_v2'))data={sales:50,purchases:40,expenses:3,cash_in:50,cash_out:43,movements:[{account_id:'cash',account_name:'النقد',direction:'in',amount:50,movement_type:'sale',occurred_at:'2026-10-01T10:00:00Z'}]};
@@ -43,7 +44,7 @@ await page.route('**/*',async route=>{
     const offset=Number(url.searchParams.get('offset'));
     data=[...Array.from({length:45},(_,i)=>({id:String(i),sale_number:i,status:'debt',created_at:'2026-10-01T12:00:00Z',debt_amount:1,total:i===0?32:2,cost_total:1,customer_id:'debtor',payment_account_id:null,returns:[]})),
       {id:'46',sale_number:46,status:'paid',created_at:'2026-10-02T12:00:00Z',debt_amount:0,total:30,cost_total:10,returns:[]}].filter(row=>!url.searchParams.has('id')||'eq.'+row.id===url.searchParams.get('id')).slice(offset,offset+20);
-  }else if(url.pathname==='/rest/v1/sharikx2_purchases')data=[{id:'purchase',invoice_number:1,status:'received',total:40,purchased_at:'2026-10-01T12:00:00Z',created_at:'2026-10-01T12:00:00Z',returns:[],payments:[{amount:10}],credits:[{amount:5}]}];
+  }else if(url.pathname==='/rest/v1/sharikx2_purchases')data=url.searchParams.has('supplier_id')?[]:[{id:'purchase',invoice_number:1,status:'received',total:40,purchased_at:'2026-10-01T12:00:00Z',created_at:'2026-10-01T12:00:00Z',returns:[],payments:[{amount:10}],credits:[{amount:5}]}];
   else if(['/rest/v1/sharikx2_debt_writeoffs','/rest/v1/sharikx2_purchase_returns'].includes(url.pathname))data=[];
   else if(url.pathname==='/rest/v1/sharikx2_expenses')data=[
     {id:'expense',category:'operating_expense',amount:7,occurred_at:'2026-10-01T10:00:00Z',created_at:'2026-10-01T10:00:00Z',description:'<img src=x onerror=alert(1)>'},

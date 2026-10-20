@@ -19,10 +19,13 @@ export function buildApprovalReport(preview,state){
   const categories=Object.fromEntries(Object.entries(classified.get(row.date)).map(([key,values])=>[key,sum(values)]));
   const categoryTotal=sum(Object.values(categories));
   if(categoryTotal!==row.expenses)throw new Error('تصنيف المصاريف لا يطابق إجمالي اليوم');
-  return Object.freeze({...row,...categories,net:sum([row.revenue,-row.expenses])});
+  return Object.freeze({...row,...categories,net:sum([row.revenue,-row.expenses,amount(row.supplierDiscounts)])});
  });
  const revenue=sum(days.map(row=>row.revenue)),expenses=sum(days.map(row=>row.expenses));
- const totals=Object.freeze({revenue,expenses,net:sum([revenue,-expenses]),lossDays:days.filter(row=>row.net<0).length,
+ const supplierDiscounts=sum(days.map(row=>amount(row.supplierDiscounts)));
+ const discounts=Object.freeze((preview.supplierDiscounts?.rows||[]).filter(row=>row.date>=preview.period.start&&row.date<=preview.period.end));
+ if(sum(discounts.map(row=>row.amount))!==supplierDiscounts)throw new Error('سجل الخصومات لا يطابق صافي الفترة');
+ const totals=Object.freeze({revenue,expenses,supplierDiscounts,net:sum([revenue,-expenses,supplierDiscounts]),lossDays:days.filter(row=>row.net<0).length,
   ...Object.fromEntries(['purchases','wages','operating','legacy','other'].map(key=>[key,sum(days.map(row=>row[key]))]))});
  const v=preview.valuation;
  const sources=Object.freeze([
@@ -37,5 +40,5 @@ export function buildApprovalReport(preview,state){
  })));
  const ledgers=approvalLedgers(state,preview.period,preview.month);
  if(sum([ledgers.totals.expenses,ledgers.totals.legacy])!==totals.expenses)throw new Error('سجل المصاريف لا يطابق إجمالي الفترة');
- return Object.freeze({totals,days:Object.freeze(days),sources,settlements,partnerReport:approvalPartnersReport({state},preview),ledgers});
+ return Object.freeze({totals,days:Object.freeze(days),discounts,sources,settlements,partnerReport:approvalPartnersReport({state},preview),ledgers});
 }

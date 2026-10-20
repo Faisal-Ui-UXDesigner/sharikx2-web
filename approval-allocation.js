@@ -20,7 +20,7 @@ export function allocateApprovalProfit(snapshot,{start,end,days,distributablePro
  const partners=historicalPartners(snapshot),profit=partnerCashNumber(distributableProfit),seen=new Set();
  const ordered=days.map(row=>{
   if(!row||!partnerCashDate(row.date)||row.date<start||row.date>end||seen.has(row.date))throw new Error('أيام توزيع الأرباح غير صالحة');seen.add(row.date);
-  return {date:row.date,profit:Math.max(0,sum([partnerCashNumber(row.revenue),-partnerCashNumber(row.expenses)]))};
+  return {date:row.date,profit:Math.max(0,sum([partnerCashNumber(row.revenue),-partnerCashNumber(row.expenses),row.supplierDiscounts===undefined?0:partnerCashNumber(row.supplierDiscounts)]))};
  }).sort((a,b)=>a.date.localeCompare(b.date));
  const positiveProfit=sum(ordered.map(row=>row.profit)),terms=new Map();
  const add=(id,value)=>{partnerCashNumber(value);if(!terms.has(id))terms.set(id,[]);terms.get(id).push(value);};

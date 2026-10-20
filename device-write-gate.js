@@ -1,4 +1,4 @@
-const reads=new Set(['get_sharikx2_finance_state_v1','get_sharikx2_financial_summary_v2','get_sharikx2_financial_activity_v2','get_sharikx2_debt_balances_v2']);
+const reads=new Set(['get_sharikx2_finance_state_v1','get_sharikx2_financial_summary_v2','get_sharikx2_financial_activity_v2','get_sharikx2_debt_balances_v2','get_sharikx2_supplier_history_v1']);
 const devices=new Set(['claim_sharikx2_device_control_v1','request_sharikx2_device_transfer_v1']);
 function body(value){try{const parsed=JSON.parse(value);if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))return parsed;}catch{}throw new Error('تعذر تحديد نطاق طلب الكتابة');}
 function equality(query,key){const values=query.getAll(key);if(values.length!==1||!values[0].startsWith('eq.')||!values[0].slice(3))throw new Error('طلب الكتابة لا يحدد مشروعًا واحدًا');return values[0].slice(3);}

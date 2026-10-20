@@ -26,7 +26,7 @@ export function openPurchaseCalculator({owner,target,value,isCurrent=()=>true,on
   const next=key==='مسح'?'':key==='⌫'?input.value.slice(0,-1):input.value+(key==='−'?'-':key);
   if(next.length<=96){input.value=next;reset();}input.focus();input.setSelectionRange(input.value.length,input.value.length);
  };
- form.onsubmit=event=>{event.preventDefault();event.stopPropagation();if(!current())return;try{const result=calculatePurchaseExpression(input.value);onApply(result);finish();}catch(failure){if(current())error.textContent=failure.message;}};
+ form.onsubmit=event=>{event.preventDefault();event.stopPropagation();if(!current()){finish();return;}try{const result=calculatePurchaseExpression(input.value);onApply(result);finish();}catch(failure){if(current())error.textContent=failure.message;}};
  form.querySelector('[data-cancel-calculator]').onclick=finish;dialog.oncancel=event=>{event.preventDefault();event.stopPropagation();finish();};dialog.onclose=finish;
  const observer=new MutationObserver(()=>{if(!current())finish();});observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['open']});
  return dialog;

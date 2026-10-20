@@ -3,7 +3,7 @@ import {fileURLToPath} from 'node:url';
 import {mkdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {startPreviewServer} from '../scripts/preview-server.mjs';
-import {openPurchasePayments} from './purchase-form-actions.mjs';
+import {openPurchasePayments,selectPurchaseSupplier} from './purchase-form-actions.mjs';
 
 const require=createRequire(import.meta.url);
 const {chromium}=require('C:/Users/HP/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
@@ -26,7 +26,7 @@ try{
  const full=index=>page.locator(`[data-full-purchase-payment="${index}"]`);
  const amounts=()=>page.locator('[data-payamount]');
  const submit=()=>page.locator('.purchase-dialog form').evaluate(form=>form.dispatchEvent(new Event('submit',{cancelable:true})));
- await page.locator('[name=supplier]').selectOption('s');await openPurchasePayments(page);
+ await selectPurchaseSupplier(page,'s');await openPurchasePayments(page);
  assert.equal(await full(0).isDisabled(),true);assert.match(await full(0).innerText(),/أضف أصناف/);
  assert.equal(await page.locator('img').count(),0);
  await page.locator('[data-add]').click();assert.equal(await full(0).isDisabled(),false);assert.equal(await full(1).isDisabled(),true);assert.equal(await full(3).isDisabled(),true);
@@ -47,7 +47,7 @@ try{
  await full(2).focus();await page.keyboard.press('Enter');assert.equal(await amounts().inputValue(),'1.01');assert.match(await page.locator('[data-purchase-balance-after]').innerText(),/3\.99/);
  await page.locator('[name=note]').fill('ملاحظة لا تتغير');
  // A child form owns the parent lock, including synthetic full-payment activation.
- await page.locator('[data-enter-purchase-line]').click();await full(2).evaluate(button=>button.onclick());
+ await page.locator('.purchase-inline-entry [data-purchase-calculator=quantity]').click();await full(2).evaluate(button=>button.onclick());
  assert.equal(await amounts().inputValue(),'1.01');await page.keyboard.press('Escape');
  await page.locator('[data-review-purchase-cart]').click();await full(2).evaluate(button=>button.onclick());await page.keyboard.press('Escape');
  assert.equal(await page.locator('[name=note]').inputValue(),'ملاحظة لا تتغير');
