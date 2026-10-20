@@ -1,9 +1,14 @@
-const CACHE='sharikx2-shell-v143';
+const CACHE='sharikx2-shell-v152';
 // Explicit audit-zone parsing is shared across the complete financial UI.
 const SHELL=['./','./index.html','./styles.css','./app.js','./api.js','./pagination.js','./product-contract.js','./ui.js','./reports.js','./report-ui.js','./subscription.js','./operations.js','./expense.js','./expense-mutation.js','./sale.js','./customer.js','./activity.js','./transfer.js','./purchase.js','./payment.js','./collection.js','./return.js','./return-ui.js','./financial.js','./statement.js','./accounts-ui.js','./inventory.js','./inventory-ui.js','./inventory-mutation.js','./onboarding.js','./icons.js','./icon.svg','./manifest.webmanifest','./assets/cairo_regular.ttf','./assets/cairo_semibold.ttf','./assets/cairo_bold.ttf','./assets/icon_cashier_colorful.png','./assets/icon_customer_debt_colorful.png','./assets/icon_supplier_debt_colorful.png','./assets/icon_expense_colorful.png','./assets/icon_purchase_colorful.png'];
 SHELL.push('./supplier-history.js','./supplier-invoice-details-ui.js');
 SHELL.push('./supplier-payment-sources.js');
 SHELL.push('./supplier-discount-ledger.js','./approval-discounts-ui.js');
+SHELL.push('./supplier-discount.js','./supplier-discount-ui.js');
+SHELL.push('./supplier-refund.js','./supplier-refund-ui.js');
+SHELL.push('./supplier-refund-history.js','./supplier-refund-history-ui.js');
+SHELL.push('./purchase-return.js','./purchase-return-ui.js');
+SHELL.push('./purchase-return-receipt.js','./purchase-return-receipt-ui.js');
 SHELL.push('./inventory-history.js','./inventory-history-ui.js','./inventory-category.js','./inventory-category-ui.js','./inventory-popularity.js','./inventory-pinned.js','./barcode-scanner.js','./debt-model.js','./debt-details.js','./supplier-mutation.js','./partner-mutation.js','./customer-mutation.js','./supplier-credit.js','./supplier-old-debt.js','./debt-details-ui.js','./debt-payment.js','./debt-payment-ui.js','./supplier-payment-review.js','./purchase-model.js','./currency.js','./currency-ui.js');
 SHELL.push('./theme.js','./theme-ui.js','./theme-bootstrap.js');
 SHELL.push('./approval-state.js','./approval-state-ui.js');
@@ -16,6 +21,8 @@ SHELL.push('./shared-report.js');
 SHELL.push('./purchase-form-ui.js');
 SHELL.push('./purchase-line-form-ui.js');
 SHELL.push('./purchase-inline-entry-ui.js');
+SHELL.push('./purchase-account-cards-ui.js');
+SHELL.push('./purchase-debt-review.js','./purchase-debt-review-ui.js');
 SHELL.push('./supplier-account-view.js','./supplier-account-page-ui.js','./supplier-account-ui.js');
 SHELL.push('./purchase-supplier-choice.js','./purchase-supplier-choice-ui.js');
 SHELL.push('./purchase-payment-options.js','./purchase-payment-options-ui.js');

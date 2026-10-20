@@ -26,7 +26,7 @@ try{
  await page.locator('[data-review-purchase-cart]').click();await page.keyboard.press('Escape');assert.equal(await confirm.isDisabled(),true);
  await page.locator('.purchase-inline-entry [data-search-entry-product]').click();await page.locator('[data-choice-product]').click();assert.equal(await confirm.isDisabled(),true);
  await selectPurchaseSupplier(page,'s');await page.locator('[data-add]').click();await page.locator('[data-add]').click();assert.equal(await confirm.isDisabled(),false);assert.match(await debt.innerText(),/0\.02/);
- await openPurchasePayments(page);await page.locator('[data-pay]').click();await page.locator('[data-payamount]').fill('.01');await details.locator('summary').click();
+ await openPurchasePayments(page);await page.locator('[data-pay]').click();await page.locator('[data-payamount]').fill('.01');await details.locator(':scope > summary').click();
  assert.equal(await paid.isVisible(),true);assert.equal(await debt.isVisible(),true);assert.match(await paid.innerText(),/0\.01/);assert.match(await debt.innerText(),/0\.01/);assert.match(await page.locator('[data-debt]').innerText(),/0\.01/);
  await page.locator('[data-cost]').first().fill('.015');assert.match(await debt.innerText(),/0\.02/);await page.locator('[data-cost]').first().fill('.005');
  await page.locator('[data-review-purchase-cart]').click();await page.locator('[data-delete-cart-line]').first().click();await page.locator('[data-delete-cart-line]').click();await page.locator('[data-close-cart-review]').click();assert.equal(await confirm.isDisabled(),true);

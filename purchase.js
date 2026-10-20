@@ -9,8 +9,10 @@ import {categorySettingsState} from './inventory-category.js';
 import {openPurchaseCartReview} from './purchase-cart-review-ui.js';
 import {purchaseCartReview} from './purchase-cart-review.js';
 import {purchaseFormMarkup,purchaseSummaryMarkup,revealPurchaseInvalid,mountPurchaseFooter,purchaseHeaderMarkup,purchaseConfirmationDisabled} from './purchase-form-ui.js';
-import {createPurchasePaymentAccounts,purchaseFullInvoicePayment} from './purchase-payment-options.js';
-import {mountPurchaseFullPayments,renderPurchasePaymentBalances,purchasePaymentsMarkup} from './purchase-payment-options-ui.js';
+import {createPurchasePaymentAccounts,purchaseFullInvoicePlan,purchasePaymentTone,PURCHASE_PAYMENT_TOLERANCE} from './purchase-payment-options.js';
+import {openPurchaseDebtConfirmation} from './purchase-debt-review-ui.js';
+import {renderPurchasePaymentBalances,purchasePaymentsMarkup} from './purchase-payment-options-ui.js';
+import {mountPurchaseAccountCards} from './purchase-account-cards-ui.js';
 import {mountPurchaseInlineEntry} from './purchase-inline-entry-ui.js';
 import {createPurchaseCartLine,purchaseUndoIndex} from './purchase-cart-actions.js';
 import {readPurchaseDraft,savePurchaseDraft,removePurchaseDraft,restorePurchaseDraft} from './purchase-drafts.js';
@@ -46,14 +48,24 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
   const syncConfirmation=()=>{submit.disabled=purchaseConfirmationDisabled({hasItems:items.length>0,pending:!!operation,blocked,busy,childOpen:creatingSupplier||choosingProduct||reviewingCart||enteringLine||!!reviewDialog?.isConnected});};
   const paymentCatalog=createPurchasePaymentAccounts(accounts,projectId),fullPayments=form.querySelector('[data-purchase-full-payments]');
   fullPayments.hidden=!!operation||blocked;
-  const updateFullPayments=mountPurchaseFullPayments(fullPayments,paymentCatalog,account=>{
+  let editingNativePayment=false;
+  const precisePaymentInputs=new Set(payments.map(row=>row.account_id));
+  const paymentCards=mountPurchaseAccountCards(fullPayments,paymentCatalog,{canEdit:editable,onPayment:(id,amount)=>{
+   precisePaymentInputs.add(id);
+   payments=payments.filter(row=>row.account_id!==id);if(amount>0)payments.push({account_id:id,amount});
+   editingNativePayment=true;
+   try{drawPayments(false);totals();error.textContent='';}finally{editingNativePayment=false;}
+   return payments;
+  },onFull:account=>{
    if(!editable())return;
    try{
-    const payment=purchaseFullInvoicePayment(items,paymentCatalog.get(account.id));
-    payments=[{...payment}];drawPayments();totals();error.textContent='';
-    form.querySelector('[data-payamount]').focus();
+    const plan=purchaseFullInvoicePlan(items,paymentCatalog.get(account.id));
+    precisePaymentInputs.add(account.id);
+    payments=[{...plan.payment}];drawPayments();totals();error.textContent='';
+    paymentCards.focus(account.id);
+    return plan;
    }catch(errorValue){if(current())error.textContent=errorValue.message;}
-  });
+  }});
   let lastAdded=null,lastSelectedProduct=products[0]?.id,draftId=crypto.randomUUID(),savedDraft=null,submittedDraft=null;
   const draftTools=document.createElement('section');draftTools.className='panel purchase-draft-tools';draftTools.hidden=!!operation||blocked;draftTools.innerHTML='<div class="actions"><button type="button" data-save-purchase-draft>حفظ الفاتورة غير المكتملة</button><button type="button" data-resume-purchase-draft>استعادة المسودة</button><button type="button" data-delete-purchase-draft>حذف المسودة المحفوظة</button></div><p class="muted small">الحفظ لا يسجل فاتورة ولا يغيّر المخزون أو الحسابات. مسودة واحدة للمشروع في جلسة هذه التبويبة فقط. الإغلاق العادي لا يحفظ التعديلات تلقائيًا.</p><p role="status" data-purchase-draft-status></p>';fields.before(draftTools);
   const draftStatus=draftTools.querySelector('[data-purchase-draft-status]');
@@ -76,7 +88,14 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
   draftTools.prepend(fields.querySelector('[data-items]'),fields.querySelector('[data-add]'));
   for(const selector of ['[data-save-purchase-draft]','[data-resume-purchase-draft]']){
    const button=draftTools.querySelector(selector),action=button.onclick;
-   button.onclick=event=>{if(!editable())return;try{inlineEntry.assertComplete();action(event);inlineEntry.select(lastSelectedProduct);renderPurchaseSupplierSelection(form,suppliers);}catch(errorValue){draftStatus.textContent=errorValue.message;}};
+   button.onclick=event=>{
+    if(!editable())return;
+    try{
+     inlineEntry.assertComplete();const previousPayments=payments;action(event);
+     if(payments!==previousPayments){precisePaymentInputs.clear();payments.forEach(row=>precisePaymentInputs.add(row.account_id));drawPayments();totals();}
+     inlineEntry.select(lastSelectedProduct);renderPurchaseSupplierSelection(form,suppliers);
+    }catch(errorValue){draftStatus.textContent=errorValue.message;}
+   };
   }
   const notice=document.createElement('section');notice.className='panel row purchase-added-notice';notice.hidden=true;notice.innerHTML='<span data-added-purchase-message role="status"></span><button type="button" data-undo-purchase-line class="outline">تراجع</button>';entryButton.after(notice);
   const refreshNotice=()=>{const index=purchaseUndoIndex(items,lastAdded);notice.hidden=index<0||!!operation||blocked;if(index>=0)notice.querySelector('[data-added-purchase-message]').textContent='تمت إضافة: '+String(products.find(product=>product.id===lastAdded.product_id)?.name||'صنف');};
@@ -118,15 +137,17 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
     form.querySelector('[data-debt]').textContent=money(purchaseRemaining(total,paid),2);
     form.querySelector('[data-purchase-unpaid]').textContent=money(purchaseRemaining(total,paid),2);
     form.querySelector('[data-purchase-paid]').textContent=money(paid,2);
+    for(const selector of ['[data-purchase-unpaid]','[data-debt]'])form.querySelector(selector).closest('p').dataset.purchaseDebtTone=purchasePaymentTone(total,paid);
    }catch{
     cartSummary.innerHTML='<span data-total>أكمل الكمية والتكلفة والدفعات</span>';
     cartSummary.setAttribute('aria-label','صحح الكمية والتكلفة قبل مراجعة الأصناف');
     form.querySelector('[data-debt]').textContent='أكمل الكمية والتكلفة والدفعات';
     form.querySelector('[data-purchase-unpaid]').textContent='أكمل الكمية والتكلفة والدفعات';
     form.querySelector('[data-purchase-paid]').textContent='أكمل مبالغ الدفعات';
+    for(const selector of ['[data-purchase-unpaid]','[data-debt]'])form.querySelector(selector).closest('p').dataset.purchaseDebtTone='muted';
    }
    form.querySelectorAll('[data-line-purchase-total]').forEach(label=>{const item=items[+label.dataset.linePurchaseTotal];try{label.textContent=money(purchaseLineTotal(item.quantity,item.cost),2);}catch{label.textContent='أكمل الكمية والتكلفة';}});
-   updateFullPayments(items);renderPurchasePaymentBalances(form,payments,paymentCatalog);
+   paymentCards.sync(payments,items,{preserveRequests:editingNativePayment});renderPurchasePaymentBalances(form,payments,paymentCatalog);
    syncConfirmation();
   };
   const drawItems=()=>{
@@ -148,12 +169,15 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
    form.querySelectorAll('[data-product]').forEach(select=>{const id=items[+select.dataset.product].product_id;if(![...select.options].some(option=>option.value===id)){select.append(new Option('الصنف المحفوظ غير متاح',id));select.value=id;}});
    form.querySelectorAll('[data-remove]').forEach(button=>button.onclick=()=>{if(!editable())return;items.splice(+button.dataset.remove,1);drawItems();totals();refreshNotice();});
   };
-  const drawPayments=()=>{
-   if(payments.length)form.querySelector('[data-purchase-payments]').open=true;
+  const drawPayments=(reveal=true)=>{
+   if(payments.length&&reveal)form.querySelector('[data-purchase-payments]').open=true;
    form.querySelector('[data-payments]').innerHTML=purchasePaymentsMarkup(payments,accounts);
    form.querySelectorAll('[data-account]').forEach(input=>input.onchange=()=>{if(editable()){payments[+input.dataset.account].account_id=input.value;totals();}});
    form.querySelectorAll('[data-account]').forEach(select=>{const id=payments[+select.dataset.account].account_id;if(![...select.options].some(option=>option.value===id)){select.append(new Option('الحساب المحفوظ غير متاح',id));select.value=id;}});
-   form.querySelectorAll('[data-payamount]').forEach(input=>input.oninput=()=>{if(!editable())return;payments[+input.dataset.payamount].amount=Number(input.value);totals();});
+   form.querySelectorAll('[data-payamount]').forEach(input=>{
+    if(precisePaymentInputs.has(payments[+input.dataset.payamount].account_id)){input.step='any';input.min='0';}
+    input.oninput=()=>{if(!editable())return;const payment=payments[+input.dataset.payamount];precisePaymentInputs.delete(payment.account_id);input.step='0.01';input.min='0.01';payment.amount=Number(input.value);totals();};
+   });
    form.querySelectorAll('[data-removepay]').forEach(button=>button.onclick=()=>{if(!editable())return;payments.splice(+button.dataset.removepay,1);drawPayments();totals();});
   };
   form.querySelector('[data-add]').textContent='إضافة سريعة ثم تعديل البند';
@@ -197,13 +221,13 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
     inlineEntry.assertComplete();
     if(revealPurchaseInvalid(form))return;
     const payload=purchasePayload(projectId,form.elements.supplier.value,items,payments,form.elements.note.value.trim());validatePurchaseSnapshot(payload,{products,suppliers,accounts});
-    const amounts=purchaseAmounts(payload);if(amounts.debt<=0.009){save(payload);return;}
-    const captured=JSON.parse(JSON.stringify(payload));fields.disabled=true;reviewDialog=document.createElement('dialog');reviewDialog.className='purchase-debt-confirmation';
-    reviewDialog.innerHTML=`<h2>تأكيد الفاتورة بالدين</h2><p>المتبقي كدين للمورد: <b>${money(amounts.debt,2)}</b></p><div class="actions"><button type="button" data-confirm-purchase class="primary">تأكيد بالدين</button><button type="button" data-back-purchase>رجوع للتعديل</button></div>`;
-    document.body.append(reviewDialog);reviewDialog.showModal();syncConfirmation();
-    let finished=false;const finish=()=>{if(finished)return false;finished=true;reviewDialog.remove();reviewDialog=null;if(current()&&!operation)fields.disabled=false;syncConfirmation();return true;};
-    reviewDialog.querySelector('[data-back-purchase]').onclick=finish;reviewDialog.addEventListener('cancel',event=>{event.preventDefault();finish();});
-    reviewDialog.querySelector('[data-confirm-purchase]').onclick=()=>{const allowed=current();if(finish()&&allowed)save(captured);};
+    const amounts=purchaseAmounts(payload);if(amounts.debt<=PURCHASE_PAYMENT_TOLERANCE){save(payload);return;}
+    let child;
+    child=openPurchaseDebtConfirmation({owner:dialog,mode,projectId,payload,returnFocus:submit,
+     isCurrent:()=>current()&&!busy&&!operation&&!blocked,
+     onClose:()=>{if(reviewDialog!==child)return;reviewDialog=null;if(current()&&!operation)fields.disabled=false;syncConfirmation();},
+     onConfirm:captured=>{save(captured);}});
+    if(child){reviewDialog=child;fields.disabled=true;syncConfirmation();}
    }catch(errorValue){error.textContent=errorValue.message;}
   };
  };

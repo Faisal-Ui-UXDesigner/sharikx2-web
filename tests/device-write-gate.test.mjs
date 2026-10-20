@@ -15,6 +15,18 @@ test('explicit RPC read allowlist cannot be bypassed with new get-prefixed mutat
  assert.throws(()=>deviceRequestScope('/rest/v1/rpc/get_sharikx2_unknown_v1',{method:'POST',body:'{}'}));
  assert.throws(()=>deviceRequestScope('/rest/v1/rpc/save_sharikx2_finance_state_v1'));
 });
+test('supplier refund uses owner device renewal and cannot bypass other-device or viewer gate',async()=>{
+ const body={p_project_id:id,p_supplier_id:'s',p_account_id:'a',p_amount:1,p_note:'',p_request_id:'11111111-1111-4111-8111-111111111111'},rpc='refund_sharikx2_supplier_credit_v1';
+ const e=env();await e.api.rpc(rpc,body);assert.equal(e.calls.length,3);assert.deepEqual(JSON.parse(e.calls.at(-1).options.body),body);
+ const other=env();other.setRow({...source(),active_device_id:'web-v1-22222222-2222-4222-8222-222222222222'});await assert.rejects(other.api.rpc(rpc,body),error=>error.notDispatched);assert.equal(other.calls.length,1);
+ const viewer=env('viewer');await assert.rejects(viewer.api.rpc(rpc,body));assert.equal(viewer.calls.length,0);
+});
+test('purchase return uses native owner device preflight and blocks viewer before dispatch',async()=>{
+ const body={p_project_id:id,p_purchase_id:'invoice',p_items:[{purchase_item_id:'line',product_id:'product',quantity_pieces:1}],p_request_id:'11111111-1111-4111-8111-111111111111'},rpc='return_sharikx2_purchase_v1';
+ const e=env();await e.api.rpc(rpc,body);assert.equal(e.calls.length,3);assert.deepEqual(JSON.parse(e.calls.at(-1).options.body),body);
+ const other=env();other.setRow({...source(),active_device_id:'web-v1-22222222-2222-4222-8222-222222222222'});await assert.rejects(other.api.rpc(rpc,body),error=>error.notDispatched);assert.equal(other.calls.length,1);
+ const viewer=env('viewer');await assert.rejects(viewer.api.rpc(rpc,body));assert.equal(viewer.calls.length,0);
+});
 test('all cash capital sale purchase return expense collection transfer sharing writes share scope gate',()=>{
  for(const rpc of ['save_sharikx2_finance_state_v1','save_sharikx2_partner_cash_movement_v1','confirm_sharikx2_sale_web_v1','confirm_sharikx2_purchase_v3','return_sharikx2_sale_web_v1','confirm_sharikx2_expense_web_v1','collect_sharikx2_customer_debt_web_v1','transfer_sharikx2_account_web_v1','set_sharikx2_share_pin_v1'])assert.deepEqual(deviceRequestScope(`/rest/v1/rpc/${rpc}`,{method:'POST',body:'{"p_project_id":"project"}'}),{kind:'write',projectId:id});
 });
@@ -23,6 +35,13 @@ test('direct table writes and currency require one project and prohibit project 
  assert.equal(deviceRequestScope('/rest/v1/sharikx2_projects?id=eq.project',{method:'PATCH',body:'{"currency":"ILS"}'}).projectId,id);
  for(const path of ['/rest/v1/sharikx2_products?id=eq.item','/rest/v1/sharikx2_products?project_id=in.(a,b)','/rest/v1/sharikx2_products?project_id=eq.project&project_id=eq.other'])assert.throws(()=>deviceRequestScope(path,{method:'PATCH',body:'{}'}));
  assert.throws(()=>deviceRequestScope('/rest/v1/sharikx2_products?project_id=eq.project',{method:'PATCH',body:'{"project_id":"other"}'}));
+});
+
+test('supplier non-cash discount uses ordinary controller renewal and cannot bypass viewer or other-device protection',async()=>{
+ const name='discount_sharikx2_supplier_debt_v1',body={p_project_id:id,p_supplier_id:'supplier',p_amount:.1,p_reason:'تسوية دين',p_request_id:'11111111-1111-4111-8111-111111111111'};
+ const owner=env();await owner.api.rpc(name,body);assert.equal(owner.calls.length,3);assert.match(owner.calls[0].path,/device_control/);assert.match(owner.calls[1].path,/claim_sharikx2/);assert.ok(owner.calls[2].path.endsWith('/'+name));assert.deepEqual(JSON.parse(owner.calls[2].options.body),body);
+ const other=env();other.setRow({...source(),active_device_id:'web-v1-22222222-2222-4222-8222-222222222222'});await assert.rejects(other.api.rpc(name,body),error=>error.notDispatched===true);assert.equal(other.calls.length,1);
+ const viewer=env('viewer');await assert.rejects(viewer.api.rpc(name,body));assert.equal(viewer.calls.length,0);
 });
 test('matching controller reads renews native heartbeat then sends one unchanged finance write',async()=>{
  const e=env();await e.api.saveFinanceState(id,{partners:[]},4);assert.equal(e.calls.length,3);assert.match(e.calls[0].path,/device_control/);assert.match(e.calls[1].path,/claim_sharikx2/);assert.match(e.calls[2].path,/save_sharikx2/);assert.deepEqual(JSON.parse(e.calls[2].options.body),{p_project_id:id,p_state:{partners:[]},p_expected_revision:4});

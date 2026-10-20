@@ -19,7 +19,7 @@ try{
  assert.match(await parent().locator('.supplier-account-summary').innerText(),/15 ₪/);assert.ok(!(await parent().innerText()).includes('اسم قديم'));
  assert.equal(await parent().locator('[data-contact-call]').getAttribute('href'),'tel:0591234567');
  assert.match(await invoice().locator('.supplier-invoice-summary').innerText(),/100 ₪/);assert.match(await invoice().locator('.supplier-invoice-summary').innerText(),/4 ₪/);assert.match(await invoice().innerText(),/2\.125/);
- assert.equal(await parent().locator('[data-invoice-details]').count(),2);assert.match(await parent().innerText(),/رصيد لك نتج عن مرتجعات/);assert.match(await parent().innerText(),/تخفيض للدين دون حركة نقدية/);
+ assert.equal(await parent().locator('[data-invoice-details]').count(),2);assert.match(await parent().innerText(),/رصيد دائن نتج عن الإرجاع/);assert.match(await parent().innerText(),/تخفيض للدين دون حركة نقدية/);
  await open();await invoice().locator('[data-invoice-details]').evaluate(button=>button.onclick());assert.equal(await child().count(),1);assert.equal(await parent().locator('[data-supplier-back]').isDisabled(),true);assert.equal(await page.evaluate(()=>reads),1);
  assert.match(await child().innerText(),/المدفوع عند تسجيل الفاتورة/);assert.match(await child().innerText(),/100 ₪/);assert.match(await child().innerText(),/0 ₪/);assert.match(await child().innerText(),/المستخدم من رصيدك/);assert.match(await child().innerText(),/المتبقي الحالي:.*4 ₪/s);assert.match(await child().innerText(),/خصومات من الدين، وليست دفعات/);
  assert.equal(await parent().locator('img,script').count(),0);

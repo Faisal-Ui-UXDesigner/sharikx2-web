@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createPurchasePaymentAccounts,purchaseAccountPaymentView,purchaseFullInvoicePayment} from '../purchase-payment-options.js';
+import {createPurchasePaymentAccounts,purchaseAccountPaymentView,purchaseFullInvoicePlan} from '../purchase-payment-options.js';
 import {purchasePaymentsMarkup} from '../purchase-payment-options-ui.js';
 
 test('payment accounts preserve source order and signed fractional balances in frozen detached records',()=>{
@@ -24,17 +24,17 @@ test('account previews reject invalid manual amounts instead of displaying inven
 });
 test('full payment uses existing per-line HALF_UP invoice total and frozen single account allocation',()=>{
  const items=[{quantity:1,cost:.005},{quantity:1,cost:.005}],before=JSON.stringify(items),account={id:'cash',balance:1};
- const payment=purchaseFullInvoicePayment(items,account);assert.deepEqual(payment,{account_id:'cash',amount:.02});assert.ok(Object.isFrozen(payment));assert.equal(JSON.stringify(items),before);assert.equal(account.balance,1);
- assert.equal(purchaseFullInvoicePayment([{quantity:1,cost:1.005}],{id:'a',balance:1.01}).amount,1.01);
+ const plan=purchaseFullInvoicePlan(items,account);assert.deepEqual(plan,{requested:.02,payment:{account_id:'cash',amount:.02}});assert.ok(Object.isFrozen(plan));assert.ok(Object.isFrozen(plan.payment));assert.equal(JSON.stringify(items),before);assert.equal(account.balance,1);
+ assert.equal(purchaseFullInvoicePlan([{quantity:1,cost:1.005}],{id:'a',balance:1.01}).payment.amount,1.01);
 });
-test('full payment rejects empty zero malformed and insufficient invoices using strict web balance policy',()=>{
- for(const items of [[],[{quantity:1,cost:0}],[{quantity:0,cost:1}],[{quantity:1,cost:NaN}]])assert.throws(()=>purchaseFullInvoicePayment(items,{id:'a',balance:10}));
- assert.throws(()=>purchaseFullInvoicePayment([{quantity:1,cost:.3}],{id:'a',balance:.299}),/لا يكفي/);
- assert.throws(()=>purchaseFullInvoicePayment([{quantity:1,cost:.01}],{id:'a',balance:-1}),/لا يكفي/);assert.throws(()=>purchaseFullInvoicePayment([{quantity:1,cost:1}],undefined));
+test('full payment rejects empty zero malformed and insufficient invoices beyond native tolerance',()=>{
+ for(const items of [[],[{quantity:1,cost:0}],[{quantity:0,cost:1}],[{quantity:1,cost:NaN}]])assert.throws(()=>purchaseFullInvoicePlan(items,{id:'a',balance:10}));
+ assert.throws(()=>purchaseFullInvoicePlan([{quantity:1,cost:.3}],{id:'a',balance:.2909}),/لا يكفي/);
+ assert.throws(()=>purchaseFullInvoicePlan([{quantity:1,cost:.01}],{id:'a',balance:-1}),/لا يكفي/);assert.throws(()=>purchaseFullInvoicePlan([{quantity:1,cost:1}],undefined));
 });
 test('full payment is independent from previous split rows and does not add old amounts',()=>{
  const prior=[{account_id:'b',amount:.1},{account_id:'c',amount:.2}],before=JSON.stringify(prior);
- const replacement=purchaseFullInvoicePayment([{quantity:1,cost:.3}],{id:'a',balance:.3});assert.equal(replacement.amount,.3);assert.equal(JSON.stringify(prior),before);
+ const replacement=purchaseFullInvoicePlan([{quantity:1,cost:.3}],{id:'a',balance:.3});assert.equal(replacement.payment.amount,.3);assert.equal(JSON.stringify(prior),before);
 });
 test('payment markup escapes account names identities and values without changing original records',()=>{
  const accounts=[{id:'a"<>',name:'<img src=x>',balance:.3}],payments=[{account_id:'a"<>',amount:.1}],before=JSON.stringify({accounts,payments});

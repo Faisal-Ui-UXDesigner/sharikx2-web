@@ -1,5 +1,6 @@
 import {escape,money,timestamp,status} from './ui.js';
 import {icon} from './icons.js';
+import {purchaseReturnReceiptsMarkup} from './purchase-return-receipt-ui.js';
 
 export function supplierAccountShell(){
  return `<header class="supplier-account-header"><span data-supplier-call></span><h2>حساب المورد</h2><button type="button" class="outline" data-supplier-back aria-label="رجوع من حساب المورد">${icon('back',22)}</button></header><div class="details"><div class="skeleton"></div></div><div class="actions"><button type="button" data-close class="outline">إغلاق</button></div>`;
@@ -12,8 +13,7 @@ function invoiceSummary(invoice,index){
  return `<div class="supplier-invoice-summary"><div><small>المسدّد</small><strong>${money(invoice.paid)}</strong><small class="supplier-source-caption" title="${escape(sourceCaption)}">${escape(sourceCaption)}</small></div><div><small>المتبقي الحالي</small><strong class="${invoice.remaining>.009?'warning-text':'success-text'}">${money(invoice.remaining)}</strong><small>${caption}</small></div></div>
  ${invoice.discount>.009?`<p class="success-text">خصم من الدين: ${money(invoice.discount)}</p>`:''}
  <button type="button" data-invoice-details="${index}">تفاصيل الدفعات</button>
- ${invoice.returnedTotal>.009?`<p class="muted small">قيمة المرتجعات المسجلة: ${money(invoice.returnedTotal)} — الإجمالي أعلاه بعد المرتجعات.</p>`:''}
- ${invoice.returnCreditCreated>.009?`<section class="supplier-return-credit"><b>رصيد لك نتج عن مرتجعات الفاتورة</b><strong>${money(invoice.returnCreditCreated)}</strong><small>قيمة الرصيد عند الإرجاع، قبل أي استخدام أو استرداد لاحق. الرصيد المتاح حاليًا يظهر في حساب المورد.</small></section>`:''}`;
+ ${purchaseReturnReceiptsMarkup(invoice)}`;
 }
 function allocationMarkup(row){
  if(!row.allocations)return '';
@@ -27,7 +27,8 @@ function allocationMarkup(row){
 export function supplierAccountMarkup(view){
  const person=view.identity;
  return `<section class="panel supplier-account-summary"><div class="supplier-identity-row"><div class="supplier-identity"><div class="supplier-identity-heading"><b title="${escape(person.name)}">${escape(person.name)}</b><span data-supplier-edit-slot></span></div><p class="muted"><bdi dir="ltr">${escape(person.phone||'لا يوجد رقم جوال')}</bdi></p></div><div><small>الدين الحالي</small><strong class="${person.debt>.009?'danger-text':'success-text'}">${money(person.debt)}</strong></div></div>
- ${person.credit>.009?`<p class="supplier-account-credit">رصيد دائن غير مستخدم: <b>${money(person.credit)}</b></p>`:''}</section>
+ ${person.credit>.009?`<p class="supplier-account-credit">رصيد دائن غير مستخدم: <b>${money(person.credit)}</b></p>`:''}<div data-supplier-refund-slot></div></section>
+ <section data-supplier-refund-history aria-label="سجل استرداد الرصيد"></section>
  <section class="supplier-account-actions" data-supplier-actions></section><h3>سجل الحركات</h3>
  ${view.stored?'':'<p class="muted small">الدين الحالي من ملخص المورد. مبالغ الحركات أدناه مسجلة كما وردت؛ لا يُعاد جمعها لحساب الدين أو توزيع الدفعات.</p>'}
  ${view.rows.map((row,index)=>`<article class="panel supplier-account-movement" data-supplier-movement="${row.kind}"><div class="row"><b>${row.kind==='purchase'?(row.status==='cancelled'?'فاتورة شراء ملغاة':'فاتورة شراء')+(row.number?' #'+escape(row.number):''):row.kind==='payment'?(row.discount?'خصم من دين المورد':'تسديد دين المورد'):'دين قديم'}</b><strong class="${row.kind==='payment'?'success-text':row.kind==='old_debt'?'danger-text':''}">${row.invoice?(row.status==='cancelled'?'القيمة الأصلية: ':'الإجمالي الحالي: '):''}${row.kind==='payment'?'−':row.kind==='old_debt'?'+':''}${money(row.amount,row.kind==='purchase'?0:2)}</strong></div>

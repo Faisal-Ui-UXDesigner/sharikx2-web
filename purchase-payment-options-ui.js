@@ -1,5 +1,5 @@
 import {escape,money} from './ui.js';
-import {purchaseFullInvoicePayment,purchaseAccountPaymentView} from './purchase-payment-options.js';
+import {purchaseAccountPaymentView} from './purchase-payment-options.js';
 
 export function purchasePaymentsMarkup(payments,accounts){
  return payments.map((payment,index)=>`<div class="panel purchase-payment-account">
@@ -9,16 +9,6 @@ export function purchasePaymentsMarkup(payments,accounts){
   <p data-purchase-balance-after="${index}"></p>
   <button type="button" data-removepay="${index}" class="danger">حذف الدفعة</button>
  </div>`).join('')||'<p class="muted">لم تضف دفعات؛ الباقي يصبح دينًا للمورد.</p>';
-}
-
-export function mountPurchaseFullPayments(container,catalog,onChoose){
- container.innerHTML=`<h3>دفع كامل الفاتورة من حساب واحد</h3><p class="muted small">اختيار الحساب يستبدل الدفعات الحالية بقيمة الفاتورة كاملة، دون إرسالها.</p>${catalog.accounts.map((account,index)=>`<div class="purchase-full-account"><div><b>${escape(account.name)}</b><small>الرصيد الحالي: ${money(account.balance,2)}</small></div><button type="button" class="outline" data-full-purchase-payment="${index}" aria-label="${escape('دفع كامل قيمة الفاتورة من '+account.name)}"></button></div>`).join('')||'<p class="muted small">لا توجد حسابات متاحة؛ يمكن تسجيل المتبقي دينًا بعد موافقتك.</p>'}`;
- const buttons=[...container.querySelectorAll('[data-full-purchase-payment]')];
- buttons.forEach((button,index)=>{button.onclick=()=>onChoose(catalog.accounts[index]);});
- return items=>buttons.forEach((button,index)=>{
-  try{purchaseFullInvoicePayment(items,catalog.accounts[index]);button.disabled=false;button.textContent='دفع كامل الفاتورة من هذا الحساب';}
-  catch(error){button.disabled=true;button.textContent=error.message;}
- });
 }
 
 export function renderPurchasePaymentBalances(form,payments,catalog){

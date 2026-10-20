@@ -5,6 +5,13 @@ import {appendContactAction} from './contact-ui.js';
 import {openSupplierOldDebt} from './supplier-old-debt.js';
 import {openSupplierEditor} from './supplier-mutation.js';
 import {icon} from './icons.js';
+import {supplierDiscountAction} from './supplier-discount.js';
+import {openSupplierDiscount} from './supplier-discount-ui.js';
+import {supplierRefundAction} from './supplier-refund.js';
+import {openSupplierRefund} from './supplier-refund-ui.js';
+import {mountSupplierRefundHistory} from './supplier-refund-history-ui.js';
+import {purchaseReturnAction} from './purchase-return.js';
+import {openPurchaseReturn} from './purchase-return-ui.js';
 
 export async function openSupplierAccount({api,container,projectId,person,mode,storage,isCurrent=()=>true,onSaved,onCollect}){
  if(!isCurrent()||!container?.isConnected)return;
@@ -31,15 +38,37 @@ export async function openSupplierAccount({api,container,projectId,person,mode,s
   const fresh=Object.freeze({...captured,...history.supplier,calculated_debt:view.identity.debt,available_supplier_credit:view.identity.credit});
   const contact=dialog.querySelector('[data-supplier-call]');contact.replaceChildren();appendContactAction(contact,{phone:fresh.phone,isCurrent:current});
   dialog.querySelector('.details').innerHTML=supplierAccountMarkup(view);loaded=true;
+  mountSupplierRefundHistory({api,container:dialog.querySelector('[data-supplier-refund-history]'),projectId,supplierId:captured.id,isCurrent:current});
   dialog.querySelectorAll('[data-invoice-details]').forEach(button=>{button.onclick=()=>launch(()=>openSupplierInvoiceDetails({invoice:view.rows[Number(button.dataset.invoiceDetails)].invoice,container:dialog,isCurrent:current}));});
-  if(mode==='owner'&&view.identity.active){
+  if(mode==='owner'){
+   view.rows.forEach((row,index)=>{
+    if(row.kind!=='purchase')return;const purchase=history.purchases[Number(row.key.split(':')[1])],action=purchaseReturnAction(storage,projectId,purchase);if(!action.visible)return;
+    const button=document.createElement('button');button.type='button';button.dataset.purchaseReturn=String(index);button.className='outline danger-text';button.textContent=action.retry?'التحقق من إرجاع سابق':'إرجاع أصناف من الفاتورة';
+    const card=dialog.querySelectorAll('[data-supplier-movement]')[index];card.insertBefore(button,card.querySelector(':scope > small.muted:last-child'));
+    button.onclick=()=>launch(saved=>openPurchaseReturn({api,projectId,supplier:fresh,purchaseId:purchase.id,mode,storage,owner:dialog,isCurrent:current,onSaved:saved,onRefund:()=>{saved();if(isCurrent())openSupplierRefund({api,projectId,supplier:fresh,mode,storage,isCurrent,onSaved});}}));
+   });
    const host=dialog.querySelector('[data-supplier-actions]');
+   const refundAction=supplierRefundAction(storage,projectId,fresh);
+   if(refundAction.visible){
+    const refund=document.createElement('button');refund.type='button';refund.dataset.supplierRefund='';refund.textContent=refundAction.retry||refundAction.blocked?'التحقق من استرداد سابق':'استرداد رصيد';
+    dialog.querySelector('[data-supplier-refund-slot]').append(refund);
+    refund.onclick=()=>launch(saved=>openSupplierRefund({api,projectId,supplier:fresh,mode,storage,owner:dialog,isCurrent:current,onSaved:saved,onChanged:saved}));
+   }
+   if(view.identity.active){
    const collect=document.createElement('button');collect.type='button';collect.className='primary';collect.dataset.detailsCollect='';collect.textContent=view.identity.debt>.009?'تسديد دفعة':'الدين مسدد';collect.disabled=!(view.identity.debt>.009&&onCollect);host.append(collect);
    collect.onclick=()=>{if(!current()||busy||collect.disabled)return;close();onCollect?.(fresh);};
+   }
+   const discountAction=supplierDiscountAction(storage,projectId,fresh);
+   if(view.identity.active||discountAction.retry||discountAction.blocked){
+    const discount=document.createElement('button');discount.type='button';discount.dataset.supplierDiscount='';discount.textContent=discountAction.retry||discountAction.blocked?'التحقق من خصم سابق':'تسجيل خصم من دين المورد';discount.disabled=!discountAction.enabled;host.append(discount);
+    discount.onclick=()=>{if(discount.disabled)return;launch(saved=>openSupplierDiscount({api,projectId,supplier:fresh,mode,storage,owner:dialog,isCurrent:current,onSaved:saved,onChanged:saved}));};
+   }
+   if(view.identity.active){
    const old=document.createElement('button');old.type='button';old.dataset.oldDebt='';old.textContent='تسجيل دين قديم';host.append(old);
    old.onclick=()=>launch(saved=>openSupplierOldDebt({api,projectId,supplier:fresh,mode,storage,isCurrent:current,onSaved:saved}));
    const edit=document.createElement('button');edit.type='button';edit.className='outline';edit.dataset.detailsEditSupplier='';edit.setAttribute('aria-label','تعديل المورد');edit.title='تعديل المورد';edit.innerHTML=icon('edit',16);dialog.querySelector('[data-supplier-edit-slot]').append(edit);
    edit.onclick=()=>launch(saved=>openSupplierEditor({api,projectId,supplier:fresh,mode,isCurrent:current,onSaved:saved}));
+   }
   }
  }catch(error){
   if(current()&&!loaded){const details=dialog.querySelector('.details');details.innerHTML='<p role="alert"></p><button type="button" data-retry-details>إعادة المحاولة</button>';details.querySelector('[role=alert]').textContent=error.message;details.querySelector('button').onclick=()=>{if(current()){close();openSupplierAccount({api,container,projectId,person:captured,mode,storage,isCurrent,onSaved,onCollect});}};}

@@ -26,8 +26,8 @@ export function purchaseFormMarkup(suppliers){
    <details class="purchase-payment-details" data-purchase-payments>
     <summary><span class="purchase-payment-collapsed">الدفع الآن — اختياري • إظهار التفاصيل</span><span class="purchase-payment-expanded">الدفع الآن — اختياري • إخفاء التفاصيل</span></summary>
     <p class="muted small">أدخل ما ستدفعه من كل حساب. المتبقي من الفاتورة يصبح دينًا للمورد بعد موافقتك.</p>
-    <div data-payments></div><button type="button" data-pay class="outline">إضافة دفعة</button>
     <section class="purchase-full-payments" data-purchase-full-payments></section>
+    <details class="purchase-advanced-payments" data-purchase-advanced-payments><summary>تعديل الدفعات المحفوظة — متقدم</summary><p class="muted small">للمراجعة الدقيقة واستعادة الدفعات القديمة. هذا المحرر لا يحدّ المبالغ تلقائيًا؛ راجع أي مبلغ يتجاوز الرصيد قبل التأكيد.</p><div data-payments></div><button type="button" data-pay class="outline">إضافة دفعة</button></details>
    </details>
     <div class="purchase-payment-overview" aria-live="polite">
      <p class="purchase-paid-preview">المدفوع الآن: <b data-purchase-paid></b></p>

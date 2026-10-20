@@ -8,6 +8,7 @@ import {supplierCreatePayload,supplierCreateResult} from './supplier-create.js';
 import {sharePin,sharingProjectResult,sharingSaveResult} from './project-sharing.js';
 import {controlDeviceId,deviceControlRows,deviceControlPayload,readDeviceIdentity} from './device-control.js';
 import {deviceRequestScope,deviceWriteError} from './device-write-gate.js';
+import {supplierRefundSnapshot} from './supplier-refund.js';
 
 function storedSession(value){
   if(typeof value?.access_token!=='string'||!value.access_token||typeof value.refresh_token!=='string'||!value.refresh_token||!Number.isFinite(value.expires_at)||value.expires_at<=0)return null;
@@ -175,6 +176,22 @@ export class Api {
     const payload=supplierCreatePayload(projectId,supplier);
     try{return supplierCreateResult(await this.request('/rest/v1/sharikx2_suppliers',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)}),payload);}
     catch(error){if(error.status!==409)throw error;return supplierCreateResult(await this.rows('suppliers',projectId,'*',0,{id:`eq.${payload.id}`}),payload);}
+  }
+  async supplierRefundHistory(projectId,supplierId){
+    if(typeof projectId!=='string'||!projectId.trim()||typeof supplierId!=='string'||!supplierId.trim())throw new Error('بيانات المورد غير صالحة');
+    return this.allRows('supplier_credit_refunds',projectId,'id,project_id,supplier_id,account_id,amount,note,created_at,account:sharikx2_accounts(name)',{supplier_id:`eq.${supplierId}`});
+  }
+  async supplierRefundSnapshot(projectId,supplierId){
+    if(typeof projectId!=='string'||!projectId.trim()||typeof supplierId!=='string'||!supplierId.trim())throw new Error('بيانات المورد غير صالحة');
+    const generation=this.generation;
+    const [credits,accounts]=await Promise.all([
+      this.allRows('supplier_credits',projectId,'id,project_id,supplier_id,amount,remaining_amount',{supplier_id:`eq.${supplierId}`,remaining_amount:'gt.0'}),
+      collectPages(offset=>{
+        const query=new URLSearchParams({project_id:`eq.${projectId}`,active:'eq.true',select:'id,project_id,name,active',order:'account_type.asc,name.asc,id.asc',limit:String(PAGE_SIZE),offset:String(offset)});
+        return this.request(`/rest/v1/sharikx2_accounts?${query}`);
+      },{assertCurrent:()=>this.assertGeneration(generation)})
+    ]);
+    this.assertGeneration(generation);return supplierRefundSnapshot(projectId,supplierId,credits,accounts);
   }
   supplierCredits(projectId,supplierId) {
     const q=new URLSearchParams({project_id:`eq.${projectId}`,supplier_id:`eq.${supplierId}`,remaining_amount:'gt.0',select:'id,amount,remaining_amount,source_purchase_id,created_at',order:'created_at.asc,id.asc'});

@@ -3,6 +3,7 @@ import {decimalSum} from './decimal-sum.js';
 import {roundedDecimalDisplay} from './money-display.js';
 import {auditInstant} from './date-display.js';
 import {supplierPaymentSources,supplierSourceName} from './supplier-payment-sources.js';
+import {purchaseReturnReceipts} from './purchase-return-receipt.js';
 
 const invalid=()=>new Error('تعذر التحقق من سجل المورد وروابط الدفعات؛ أعد تحميل الحساب');
 const freeze=Object.freeze;
@@ -42,8 +43,10 @@ export function supplierHistoryView(history,projectId,supplierId){
  for(const returned of returns.values()){
   const invoice=purchases.get(returned.purchase_id);if(!invoice)throw invalid();
   if(!returnsByInvoice.has(invoice))returnsByInvoice.set(invoice,[]);
-  returnsByInvoice.get(invoice).push(freeze({total:amount(returned.total),credit:amount(returned.credit_amount)}));
+  returnsByInvoice.get(invoice).push(returned);
  }
+ const returnItemIds=new Set();
+ for(const [invoice,records] of returnsByInvoice)returnsByInvoice.set(invoice,purchaseReturnReceipts(records,invoice,{projectId,supplierId,seenItemIds:returnItemIds}));
  for(const payment of payments.values()){
   if(payment.payment_kind!==undefined&&!['cash','discount'].includes(payment.payment_kind))throw invalid();
   accountRows(payment.sources);
@@ -97,7 +100,8 @@ export function supplierHistoryView(history,projectId,supplierId){
   const sources=supplierPaymentSources({initialPaid,creditUsed,initialSources,laterSources:shares.filter(share=>share.payment.payment_kind!=='discount').map(share=>({covered:fromCents(share.cents),sources:accountRows(share.payment.sources)}))});
   invoiceViews.set(invoice,freeze({number:text(invoice.invoice_number),date:text(invoice.created_at),status:text(invoice.status),initialPaid,initialSources,creditApplications,laterPayments,discounts,items,
    remaining:fromCents(residual.get(invoice)),paid:sum([initialPaid,creditUsed,...laterPayments.map(row=>row.amount)]),sources,creditUsed,discount:sum(discounts.map(row=>row.amount)),
-   returnedTotal:sum((returnsByInvoice.get(invoice)||[]).map(row=>row.total)),returnCreditCreated:sum((returnsByInvoice.get(invoice)||[]).map(row=>row.credit))}));
+   returnedTotal:sum((returnsByInvoice.get(invoice)||[]).map(row=>row.total)),returnCreditCreated:sum((returnsByInvoice.get(invoice)||[]).map(row=>row.credit)),
+   originalTotal:sum([invoice.total,...(returnsByInvoice.get(invoice)||[]).map(row=>row.total)]),returnReceipts:freeze(returnsByInvoice.get(invoice)||[])}));
  }
  const lists={purchase:history.purchases,payment:history.payments,old_debt:history.old_debts};
  const movementRows=base.rows.map(row=>{

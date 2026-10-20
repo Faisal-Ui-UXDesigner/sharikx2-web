@@ -392,8 +392,17 @@
 .supplier-account-page .success-text,.supplier-invoice-details .success-text{color:var(--profit)}
 .supplier-account-page .danger-text,.supplier-invoice-details .danger-text{color:var(--red)}
 .supplier-account-page .warning-text{color:var(--supplier-warning)}
-.supplier-return-credit{display:flex;flex-direction:column;gap:8px;border:1px solid var(--border);border-radius:16px;padding:12px;margin-top:12px;color:var(--profit)}
-.supplier-return-credit small{font-size:11px;color:var(--muted)}
+.purchase-return-receipts{border-top:1px solid var(--border);margin-top:12px;padding-top:10px}
+.purchase-return-heading{font-size:13px}
+.purchase-return-heading strong{font-size:14px;flex-shrink:0}
+.purchase-return-receipt p{margin-block:5px 3px}
+.purchase-return-date{font-size:11px;font-weight:400}
+.purchase-return-item{padding:5px 8px;font-size:12px;gap:8px}
+.supplier-account-movement .purchase-return-item{flex-wrap:nowrap;align-items:center}
+.purchase-return-item>span{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:400}
+.purchase-return-item>b{flex-shrink:0}
+.purchase-return-created-credit{font-size:12px;font-weight:700;padding:4px 8px 3px;overflow-wrap:anywhere}
+.purchase-return-original{font-size:12px;font-weight:400;padding-top:7px}
 .supplier-invoice-details[open]{display:flex;flex-direction:column;max-height:90dvh;width:min(94vw,520px);overflow:hidden}
 .supplier-invoice-details h2{font-size:20px;flex-shrink:0;margin-top:0}
 .supplier-invoice-details h3{font-size:15px;margin:16px 0 8px}
@@ -434,11 +443,19 @@
 .purchase-payment-account{padding:12px;margin-top:8px}
 .purchase-payment-account [data-purchase-balance-after]{font-size:13px;margin:8px 0;overflow-wrap:anywhere}
 .purchase-payment-exceeds{color:var(--red)}
-.purchase-full-payments{margin-top:16px;padding-top:8px;border-top:1px solid var(--border)}
-.purchase-full-account{padding:12px 0;border-bottom:1px solid var(--border)}
-.purchase-full-account>div{display:flex;align-items:center;justify-content:space-between;gap:8px;overflow-wrap:anywhere}
-.purchase-full-account small{color:var(--muted);font-size:12px}
-.purchase-full-account button{width:100%;min-height:44px;margin-top:9px;font-size:13px;overflow-wrap:anywhere}
+.purchase-full-payments{margin-top:8px}
+.purchase-native-account{padding:10px 12px;margin-top:8px;min-width:0}
+.purchase-native-account>header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:0}
+.purchase-native-account>header>b{font-size:14px;min-width:0;overflow-wrap:anywhere}
+.purchase-native-account small{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.purchase-native-account .purchase-available-positive{color:var(--profit)}
+.purchase-native-account .danger-text{color:var(--red)}
+.purchase-native-account label{margin-top:8px;font-size:13px}
+.purchase-native-account input{min-height:52px;margin-top:8px}
+.purchase-native-account p{margin:8px 0 0;font-size:13px;overflow-wrap:anywhere}
+.purchase-native-account button{width:100%;min-height:44px;margin-top:9px;font-size:13px;overflow-wrap:anywhere}
+.purchase-advanced-payments{margin-top:12px;border-top:1px solid var(--border);padding-top:8px}
+.purchase-advanced-payments>summary{cursor:pointer;min-height:44px;align-content:center;color:var(--muted);font-size:13px}
 .purchase-paid-preview{font-size:14px;margin:12px 0 0}
 .purchase-dialog .purchase-attachment{margin-top:12px;padding:14px}
 .purchase-dialog .purchase-attachment button{width:100%;min-height:46px}
@@ -450,6 +467,21 @@
 .purchase-summary-text>b{display:block;color:var(--primary);font-size:14px;font-weight:600}
 .purchase-summary-text>small{display:block;font-size:11px;color:var(--muted)}
 .purchase-footer .purchase-debt-preview{font-size:11px;margin:4px 0 8px;color:var(--muted)}
+.purchase-dialog [data-purchase-debt-tone=primary]{color:var(--primary)}
+.purchase-dialog [data-purchase-debt-tone=danger]{color:var(--red)}
+.purchase-dialog [data-purchase-debt-tone=muted]{color:var(--muted)}
+.purchase-debt-confirmation{border-radius:22px 22px 0 0;padding:20px;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+.purchase-debt-confirmation p{overflow-wrap:anywhere}
+.purchase-debt-review-summary p{margin:6px 0}
+.purchase-debt-confirmation .actions{flex-wrap:wrap;gap:8px;margin-top:20px}
+.purchase-debt-confirmation .actions button{min-width:92px;min-height:40px;border-radius:8px;font-size:14px;font-weight:700;padding:2px 14px}
+.purchase-debt-confirmation [data-back-purchase]{background:var(--field);color:var(--muted)}
+.supplier-discount-dialog{max-width:420px;border-radius:22px 22px 0 0}
+.supplier-discount-dialog p{overflow-wrap:anywhere}
+.supplier-discount-dialog [data-discount-after]{color:var(--profit);font-size:15px;font-weight:700}
+.supplier-discount-dialog .actions{flex-wrap:wrap;gap:8px}
+.supplier-discount-dialog .actions button{min-width:92px;min-height:40px;font-size:14px;border-radius:8px;padding:2px 14px}
+.supplier-discount-dialog [data-close]{background:var(--field);color:var(--muted)}
 .purchase-footer [role=alert]{font-size:12px;margin:4px 0 8px;max-height:15dvh;overflow:auto}
 .purchase-footer [role=alert]:empty{display:none}
 .purchase-footer-actions{display:flex;gap:12px}
@@ -462,6 +494,22 @@
 .expense-type-options button{text-align:right;min-height:48px;padding-inline:16px;background:var(--surface);font-weight:600}
 .expense-dialog .expense-kind{font-size:15px;font-weight:600;margin:4px 0 8px}
 .expense-dialog label{font-size:14px;margin-bottom:12px}
+.purchase-return-dialog{max-width:420px;border-radius:22px 22px 0 0}
+.purchase-return-dialog label{font-size:14px;overflow-wrap:anywhere}
+.purchase-return-dialog input{min-height:50px}
+.purchase-return-dialog .actions button{font-size:14px;min-height:40px;border-radius:8px}
+.purchase-return-dialog [data-return-total]{font-size:16px;font-weight:700}
+.supplier-account-movement [data-purchase-return]{width:100%;margin-top:12px}
+.supplier-refund-record{overflow-wrap:anywhere}
+.supplier-refund-record>b{font-size:15px}
+.supplier-refund-record p{font-size:13px;font-weight:400;margin-block:6px}
+.supplier-refund-record .supplier-refund-date{font-size:12px}
+.supplier-refund-dialog{max-width:420px;border-radius:22px 22px 0 0}
+.supplier-refund-dialog :is(p,label){overflow-wrap:anywhere}
+.supplier-refund-dialog [data-refund-available]{font-size:18px;font-weight:700}
+.supplier-refund-dialog .actions button{font-size:14px;min-height:40px;border-radius:8px}
+.supplier-refund-dialog [role=alert]:empty{display:none}
+.supplier-account-summary [data-supplier-refund]{width:100%;margin-top:10px}
 .expense-dialog input:not([type=radio]):not([type=hidden]){min-height:56px;font-size:16px}
 .expense-dialog .money-input input{text-align:right;padding-inline-start:16px;padding-inline-end:42px}
 .expense-dialog .money-input>span{top:15px}

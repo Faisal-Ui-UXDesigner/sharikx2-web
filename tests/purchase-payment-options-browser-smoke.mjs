@@ -29,14 +29,14 @@ try{
  await selectPurchaseSupplier(page,'s');await openPurchasePayments(page);
  assert.equal(await full(0).isDisabled(),true);assert.match(await full(0).innerText(),/أضف أصناف/);
  assert.equal(await page.locator('img').count(),0);
- await page.locator('[data-add]').click();assert.equal(await full(0).isDisabled(),false);assert.equal(await full(1).isDisabled(),true);assert.equal(await full(3).isDisabled(),true);
+ await page.locator('[data-add]').click();assert.equal(await full(0).isDisabled(),false);assert.equal(await full(1).isDisabled(),false);assert.equal(await full(3).isDisabled(),true);
  await page.locator('[data-pay]').click();await amounts().fill('0.1');
  assert.match(await page.locator('[data-purchase-balance-after]').innerText(),/0\.2/);
  await page.locator('[data-pay]').click();await amounts().nth(1).fill('0.2');
  assert.match(await page.locator('[data-purchase-paid]').innerText(),/0\.3/);assert.match(await page.locator('[data-debt]').innerText(),/^0 /);
  // One explicit allocation replaces all split rows; duplicate activation cannot add rows.
  await full(0).evaluate(button=>{button.click();button.click();});assert.equal(await amounts().count(),1);assert.equal(await amounts().inputValue(),'0.3');
- assert.equal(await page.locator('[data-account]').inputValue(),'a');assert.equal(await amounts().evaluate(node=>node===document.activeElement),true);
+ assert.equal(await page.locator('[data-account]').inputValue(),'a');assert.equal(await page.locator('[data-purchase-account-amount="0"]').evaluate(node=>node===document.activeElement),true);
  assert.equal(await page.evaluate(()=>calls.length),0);assert.equal(await page.evaluate(()=>sessionStorage.length),0);
  await amounts().fill('0.4');assert.match(await page.locator('[data-purchase-balance-after]').innerText(),/-0\.1/);assert.equal(await page.locator('.purchase-payment-exceeds').count(),1);
  await submit();assert.match(await page.locator('.purchase-footer [role=alert]').innerText(),/أكبر/);assert.equal(await page.evaluate(()=>calls.length),0);
@@ -70,5 +70,5 @@ try{
  await page.evaluate(()=>show());await openPurchasePayments(page);assert.equal(await page.locator('[data-full-purchase-payment]').count(),0);assert.match(await page.locator('[data-purchase-full-payments]').innerText(),/لا توجد حسابات/);
  await page.evaluate(()=>{current=false;});await submit();assert.equal(await page.evaluate(()=>calls.length),2);assert.equal(await page.evaluate(()=>sessionStorage.length),0);
  assert.deepEqual(errors,[]);
- console.log('PASS: exact account remaining and paid previews, strict full-payment eligibility, single-allocation replacement, unchanged manual precision and escaped accounts, keyboard/focus, split/debt totals, parent locks, 320/393/720px RTL, original lost-reply recovery without rereads and no premature financial writes');
+ console.log('PASS: exact account remaining and paid previews, native full-payment eligibility, single-allocation replacement, unchanged manual precision and escaped accounts, keyboard/focus, split/debt totals, parent locks, 320/393/720px RTL, original lost-reply recovery without rereads and no premature financial writes');
 }finally{await browser.close();await preview.close();}
