@@ -4,8 +4,10 @@ import {mkdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {startPreviewServer} from '../scripts/preview-server.mjs';
 const require=createRequire(import.meta.url);
-const {chromium}=require('C:/Users/HP/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const browser=await chromium.launch({headless:true,channel:'msedge'}),preview=await startPreviewServer({root:fileURLToPath(new URL('..',import.meta.url))});
+const {chromium,webkit}=require('C:/Users/HP/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const engine=process.env.SHARIKX2_TEST_BROWSER||'edge';
+if(!['edge','webkit'].includes(engine))throw new Error('Unknown test browser');
+const browser=await (engine==='webkit'?webkit.launch({headless:true}):chromium.launch({headless:true,channel:'msedge'})),preview=await startPreviewServer({root:fileURLToPath(new URL('..',import.meta.url))});
 try{
  // Match the native 14dp side inset (~26 image pixels) and capture at the
  // supplied 720x1600 image size without emulating Android system chrome.
@@ -99,5 +101,5 @@ try{
  await page.locator('[data-device-banner]').waitFor();assert.match(await page.locator('[data-device-banner-message]').innerText(),/يلزم تسجيل/);
  assert.equal(await page.locator('.app-header').evaluate(el=>el.nextElementSibling.hasAttribute('data-device-banner')),true);
  assert.equal(await page.evaluate(()=>JSON.stringify(source)===original),true);assert.equal(await page.evaluate(()=>writes),0);assert.deepEqual(errors,[]);
- console.log('PASS: real app five native-layout screens, shared RTL chrome, source-isolated daily sale-cost/return calculations, visible actions, statement access, retry, native dimensions, 320/360/393/720px and 720px-wide reference captures without external writes');
+ console.log(`PASS ${engine}: real app five native-layout screens, shared RTL chrome, source-isolated daily sale-cost/return calculations, visible actions, statement access, retry, native dimensions, 320/360/393/720px and 720px-wide reference captures without external writes`);
 }finally{await browser.close();await preview.close();}

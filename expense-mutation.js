@@ -1,5 +1,5 @@
 import {escape,money} from './ui.js';
-import {expensePayload} from './expense.js';
+import {expensePayload} from './expense-entry.js';
 import {createOperation} from './operations.js';
 export function expenseSnapshot(item){return {account_id:item.account_id??null,amount:Number(item.amount),description:item.description??null,category:item.category??null};}
 export function editAccounts(accounts,item){return accounts.map(a=>({...a,balance:Number(a.balance)+(a.id===item.account_id?Number(item.amount):0)}));}

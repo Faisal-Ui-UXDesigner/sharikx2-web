@@ -1,5 +1,8 @@
 import {escape,money} from './ui.js';
 import {createOperation} from './operations.js';
+import {mountReceiptPicker} from './receipt-picker-ui.js';
+import {openReceiptUpload} from './receipt-upload-ui.js';
+import {receiptUploadTarget} from './receipt-upload.js';
 import {supplierCreditSummary} from './supplier-credit.js';
 import {openSupplierCreate} from './supplier-create-ui.js';
 import {createPurchaseSupplierChoices} from './purchase-supplier-choice.js';
@@ -44,8 +47,12 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
   let items=pendingPayload?.p_items.map(item=>({product_id:item.product_id,quantity:item.quantity_pieces,cost:item.unit_cost}))||[],payments=pendingPayload?.p_payments.map(payment=>({...payment}))||[],creditRevision=0;
   dialog.querySelector('.body').innerHTML=purchaseFormMarkup(suppliers);
   const form=dialog.querySelector('form'),fields=form.querySelector('fieldset'),error=form.querySelector('[role=alert]'),submit=form.querySelector('[type=submit]');form.noValidate=true;
-  const editable=()=>current()&&!busy&&!creatingSupplier&&!choosingProduct&&!reviewingCart&&!enteringLine&&!operation&&!blocked&&!reviewDialog?.isConnected;
-  const syncConfirmation=()=>{submit.disabled=purchaseConfirmationDisabled({hasItems:items.length>0,pending:!!operation,blocked,busy,childOpen:creatingSupplier||choosingProduct||reviewingCart||enteringLine||!!reviewDialog?.isConnected});};
+  const editable=()=>current()&&!receiptPicker?.processing&&!busy&&!creatingSupplier&&!choosingProduct&&!reviewingCart&&!enteringLine&&!operation&&!blocked&&!reviewDialog?.isConnected;
+  let receiptPicker;
+  const syncConfirmation=()=>{submit.disabled=!!receiptPicker?.processing||purchaseConfirmationDisabled({hasItems:items.length>0,pending:!!operation,blocked,busy,childOpen:creatingSupplier||choosingProduct||reviewingCart||enteringLine||!!reviewDialog?.isConnected});};
+  const receiptContainer=form.querySelector('[data-purchase-receipt]');
+  if(!operation&&!blocked)receiptPicker=mountReceiptPicker({container:receiptContainer,isCurrent:current,canEdit:editable,onChange:syncConfirmation});
+  else receiptContainer.textContent='عند استرجاع فاتورة معلقة، لا تُستعاد الصورة من ذاكرة الجلسة. أرفقها من حساب المورد بعد تأكيد الفاتورة.';
   const paymentCatalog=createPurchasePaymentAccounts(accounts,projectId),fullPayments=form.querySelector('[data-purchase-full-payments]');
   fullPayments.hidden=!!operation||blocked;
   let editingNativePayment=false;
@@ -92,7 +99,7 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
     if(!editable())return;
     try{
      inlineEntry.assertComplete();const previousPayments=payments;action(event);
-     if(payments!==previousPayments){precisePaymentInputs.clear();payments.forEach(row=>precisePaymentInputs.add(row.account_id));drawPayments();totals();}
+     if(payments!==previousPayments){receiptPicker?.clear();precisePaymentInputs.clear();payments.forEach(row=>precisePaymentInputs.add(row.account_id));drawPayments();totals();}
      inlineEntry.select(lastSelectedProduct);renderPurchaseSupplierSelection(form,suppliers);
     }catch(errorValue){draftStatus.textContent=errorValue.message;}
    };
@@ -196,7 +203,7 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
   if(blocked){fields.disabled=true;submit.disabled=true;error.textContent='تعذر قراءة الفاتورة السابقة؛ تحقق من السجل قبل تسجيل بديل.';}
   renderPurchaseSupplierSelection(form,suppliers);
   const save=async payload=>{
-   if(busy||creatingSupplier||choosingProduct||reviewingCart||enteringLine||blocked||!current())return;let notify=false;
+   if(busy||receiptPicker?.processing||creatingSupplier||choosingProduct||reviewingCart||enteringLine||blocked||!current())return;let notify=false,attachment=null;
    try{
     if(!operation){
      validatePurchaseSnapshot(payload,{products,suppliers,accounts});
@@ -207,15 +214,19 @@ export function openPurchase({api,projectId,mode,storage,onSaved,isCurrent=()=>t
      storage.setItem(key,JSON.stringify({payload,requestId:candidate.requestId,view,unsentDraft:submittedDraft}));pendingPayload=payload;operation=candidate;addSupplier.hidden=true;entrySection.hidden=true;draftTools.hidden=true;fullPayments.hidden=true;refreshNotice();
     }
     busy=true;fields.disabled=true;submit.disabled=true;dialog.querySelector('[data-close]').disabled=true;error.textContent='';submit.textContent='جارٍ اعتماد الفاتورة…';
-    const result=await operation.run(api);try{verifyPurchaseResult(result,pendingPayload);}catch(errorValue){operation=createOperation('confirm_sharikx2_purchase_v3',pendingPayload,operation.requestId);throw errorValue;}
+    const result=await operation.run(api);try{verifyPurchaseResult(result,pendingPayload);if(receiptPicker?.file)attachment={file:receiptPicker.file,target:receiptUploadTarget({projectId,kind:'purchase',recordId:result.id})};}catch(errorValue){operation=createOperation('confirm_sharikx2_purchase_v3',pendingPayload,operation.requestId);throw errorValue;}
     if(submittedDraft)removePurchaseDraft(storage,projectId,submittedDraft);else if(operation){const journal=JSON.parse(storage.getItem(key)||'null');if(journal?.unsentDraft)removePurchaseDraft(storage,projectId,journal.unsentDraft);}
     storage.removeItem(key);notify=current();dialog.remove();
    }catch(errorValue){error.textContent=(errorValue.message||'تعذر تسجيل الفاتورة')+(operation?' — أعد التحقق بنفس الطلب بأمان':'');}
    finally{busy=false;syncConfirmation();dialog.querySelector('[data-close]').disabled=false;submit.textContent=operation?'التحقق وإعادة المحاولة':'تأكيد الفاتورة';}
-   if(notify)onSaved?.();
+   // Outside the financial try/catch: attachment errors must never re-enter save().
+   if(notify){
+    if(attachment){const child=openReceiptUpload({api,...attachment,initialFile:attachment.file,autoUpload:true,mode,storage,isCurrent,onClose:()=>{if(isCurrent())onSaved?.();}});if(!child)onSaved?.();}
+    else onSaved?.();
+   }
   };
   form.onsubmit=event=>{
-   event.preventDefault();if(busy||creatingSupplier||choosingProduct||reviewingCart||enteringLine||blocked||!current()||reviewDialog?.isConnected)return;
+   event.preventDefault();if(busy||receiptPicker?.processing||creatingSupplier||choosingProduct||reviewingCart||enteringLine||blocked||!current()||reviewDialog?.isConnected)return;
    try{
     if(operation){save();return;}
     inlineEntry.assertComplete();

@@ -1,7 +1,8 @@
-export const PRODUCT_BARCODE_FORMATS=Object.freeze(['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf']);
+import {createBarcodeReader} from './barcode-reader.js';
+export {PRODUCT_BARCODE_FORMATS} from './barcode-reader.js';
 export function normalizeBarcode(value){return String(value??'').trim();}
 export function shouldAcceptScan(now,lastScanAt=0,locked=false){return !locked&&Number.isFinite(Number(now))&&Number(now)-Number(lastScanAt)>=1000;}
-export function cameraSupported(){return typeof navigator!=='undefined'&&!!navigator.mediaDevices?.getUserMedia&&typeof window!=='undefined'&&'BarcodeDetector' in window;}
+export function cameraSupported(){return typeof navigator!=='undefined'&&!!navigator.mediaDevices?.getUserMedia&&globalThis.isSecureContext===true;}
 export async function openBarcodeScanner({container=document.body,onDetected,isCurrent=()=>true}){
  if(!isCurrent()||document.querySelector('dialog[data-barcode-scanner]'))return;
  const dialog=document.createElement('dialog');dialog.dataset.barcodeScanner='true';dialog.innerHTML='<h2>مسح الباركود</h2><video autoplay playsinline muted></video><p class="muted" data-scanner-status></p><label>أدخل الباركود يدويًا<input data-manual-barcode inputmode="numeric" autocomplete="off"></label><div class="actions"><button data-manual class="outline">استخدام الباركود</button><button data-close class="primary">إلغاء</button></div>';container.append(dialog);dialog.showModal();
@@ -27,13 +28,14 @@ export async function openBarcodeScanner({container=document.body,onDetected,isC
   stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
   if(!current()){stopStream();close();return dialog;}
   video.srcObject=stream;
-  const detector=new window.BarcodeDetector({formats:[...PRODUCT_BARCODE_FORMATS]});
+  const detector=await createBarcodeReader();
+  if(!current()){close();return dialog;}
   await video.play();if(!current()){close();return dialog;}
   status.textContent='وجّه الكاميرا نحو الباركود';
   const scan=async()=>{
    if(!current()){close();return;}
    try{const found=await detector.detect(video);if(!current()){close();return;}if(found?.[0]?.rawValue&&emit(found[0].rawValue))return;}catch{}
-   if(current())timer=setTimeout(scan,160);else close();
+   if(current())timer=setTimeout(scan,detector.interval);else close();
   };
   scan();
  }catch{

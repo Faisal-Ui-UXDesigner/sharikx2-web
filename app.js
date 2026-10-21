@@ -31,15 +31,17 @@ import {openSupplierEditor} from './supplier-mutation.js';
 import {openSupplierCreate} from './supplier-create-ui.js';
 import {openCustomer} from './customer.js';
 import {openCustomerEditor} from './customer-mutation.js';
+import {bindPwaInstall} from './pwa-install.js';
 let sessionStore=null;try{sessionStore=window.sessionStorage;}catch{}
 let identityStore=null;try{identityStore=window.localStorage;}catch{}
-const api=new Api(window.SHARIKX2_CONFIG,sessionStore),app=document.querySelector('#app');
+// Configuration is deliberately not cached. Offline shell startup must not crash
+// or invent a backend/session when config.js cannot be loaded.
+const api=new Api(window.SHARIKX2_CONFIG??{url:'',publicKey:''},sessionStore),app=document.querySelector('#app');
 let project=null,mode='owner',screen='cashier',epoch=0,accountPeriod='month';
 let reportState=createReportState();
 let inventoryViewStore=createInventoryViewStore();
-let installPrompt=null;
 let releaseShellLayout=()=>{};
-window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;const button=document.createElement('button');button.className='outline';button.textContent='تثبيت التطبيق';button.onclick=async()=>{button.disabled=true;await installPrompt.prompt();installPrompt=null;button.remove();};document.querySelector('#notice')?.append(button);});
+bindPwaInstall({root:document.querySelector('#install-action')});
 function notice(message){document.querySelector('#notice').textContent=message;}
 function entry(){releaseShellLayout();releaseShellLayout=()=>{};epoch++;api.clearDeviceContext();project=null;setCurrency('ILS');reportState=createReportState();inventoryViewStore=createInventoryViewStore();openOnboarding({app,api,storage:sessionStore,onOpen:(opened,role)=>{project=opened;mode=role;setCurrency(project.currency);screen='cashier';shell();void promptOpeningDistribution({api,storage:sessionStore,projectId:opened.id,mode:role,isCurrent:()=>project?.id===opened.id&&mode===role,onComplete:shell}).catch(error=>{if(project?.id===opened.id)notice(error.message);});}});}
 function shell(){
@@ -84,7 +86,7 @@ async function load(content,revision){try{
   content.innerHTML=`<section class="cashier-intro"><h2>الكاشير</h2><p class="muted">سجّل المبيعات والديون والمصروفات من مكان واحد</p></section><div class="cashier-grid"><button data-sale><span class="action-icon"><img src="./assets/icon_cashier_colorful.png" alt=""></span><b>مبيعة جديدة</b></button><button data-customers><span class="action-icon"><img src="./assets/icon_customer_debt_colorful.png" alt=""></span><b>ديون الزبائن</b></button><button data-suppliers><span class="action-icon"><img src="./assets/icon_supplier_debt_colorful.png" alt=""></span><b>حسابات الموردين</b></button><button data-expense><span class="action-icon"><img src="./assets/icon_expense_colorful.png" alt=""></span><b>مصروف جديد</b></button></div><button class="purchase-action" data-purchase><img src="./assets/icon_purchase_colorful.png" alt=""><span>تسجيل فاتورة شراء</span></button><section data-activity></section>`;
   content.querySelector('[data-customers]').onclick=()=>{screen='customers';shell();};content.querySelector('[data-suppliers]').onclick=()=>{screen='suppliers';shell();};
   if(mode==='owner'){content.querySelector('[data-sale]').onclick=()=>openSale({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});content.querySelector('[data-expense]').onclick=()=>openExpense({api,projectId:project.id,mode,container:app,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});content.querySelector('[data-purchase]').onclick=()=>openPurchase({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});}else{content.querySelectorAll('[data-sale],[data-expense],[data-purchase]').forEach(b=>{b.disabled=true;b.title='المشروع للمشاهدة فقط';});}
-  await renderActivity({api,projectId:project.id,container:content.querySelector('[data-activity]'),isCurrent:()=>revision===epoch,mode,onSaved:shell,allowMutations:window.SHARIKX2_CONFIG.expenseMutations===true,onSale:saleDetails});
+  await renderActivity({api,projectId:project.id,container:content.querySelector('[data-activity]'),isCurrent:()=>revision===epoch,mode,onSaved:shell,storage:sessionStore,allowMutations:window.SHARIKX2_CONFIG.expenseMutations===true,onSale:saleDetails});
  }else if(screen==='plans'){
   const features=[['حفظ المعلومات والحسابات','دائم','دائم'],['عدد الشركاء','2','غير محدود'],['المبيعات اليومية','100','غير محدود'],['أصناف البضاعة','25','غير محدود'],['عدد الموردين','5','غير محدود'],['تقارير شاملة','غير متاح','متاح'],['مشاركة المشروع','غير متاح','غير محدود']];
   content.innerHTML=`<section class="plans-screen"><h2>أهلًا وسهلًا بك</h2><p class="muted">استمتع باستخدام كامل المزايا بالنسخة المدفوعة</p><div class="plans-table"><div class="plan-head"><b>وجه المقارنة</b><b>المجاني</b><b>المدفوع ♛</b></div>${features.map(([title,free,paid])=>`<div class="plan-row"><span>${escape(title)}</span><span>${escape(free)}</span><span>${escape(paid)}</span></div>`).join('')}</div><div class="panel plan-price"><small>سعر الاشتراك الشهري</small><strong>30 ₪</strong><p class="muted">جميع المزايا الكاملة بدون قيود</p></div></section>`;
@@ -111,4 +113,5 @@ function personPayment(kind,person,revision=epoch,projectId=project.id){
 function personDetails(kind,person){const revision=epoch,projectId=project.id;return openDebtDetails({api,container:app,projectId,kind,person,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell,onDebtSale:customer=>openSale({api,projectId,mode,storage:sessionStore,initialCustomer:customer,isCurrent:()=>revision===epoch,onSaved:shell}),onCollect:person=>personPayment(kind,person,revision,projectId)});}
 document.addEventListener('click',event=>{if(event.target.closest?.('#logout'))api.clearSession();},true);
 entry();
+if(!window.SHARIKX2_CONFIG)notice('تعذر تحميل إعدادات الاتصال؛ اتصل بالإنترنت ثم أعد تحميل التطبيق. لا يمكن تسجيل عمليات مالية دون اتصال.');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').then(reg=>{reg.addEventListener('updatefound',()=>{const worker=reg.installing;if(!worker)return;worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller){const button=document.createElement('button');button.className='primary';button.textContent='تحديث التطبيق الآن';button.onclick=()=>{worker.postMessage({type:'SKIP_WAITING'});location.reload();};document.querySelector('#notice')?.append(button);}});});}).catch(()=>notice('تعذر تهيئة التثبيت؛ يمكنك الاستمرار باستخدام المتصفح'));

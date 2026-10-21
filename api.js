@@ -9,6 +9,8 @@ import {sharePin,sharingProjectResult,sharingSaveResult} from './project-sharing
 import {controlDeviceId,deviceControlRows,deviceControlPayload,readDeviceIdentity} from './device-control.js';
 import {deviceRequestScope,deviceWriteError} from './device-write-gate.js';
 import {supplierRefundSnapshot} from './supplier-refund.js';
+import {downloadReceipt} from './receipt-api.js';
+import {receiptOwner,receiptRecord,uploadReceiptObject,linkReceipt} from './receipt-upload-api.js';
 
 function storedSession(value){
   if(typeof value?.access_token!=='string'||!value.access_token||typeof value.refresh_token!=='string'||!value.refresh_token||!Number.isFinite(value.expires_at)||value.expires_at<=0)return null;
@@ -23,6 +25,11 @@ export function netMonthlySales(rows) {
   return rows.filter(r => !['pending','cancelled'].includes(r.status)).reduce((sum,r) => sum + Number(r.total || 0),0);
 }
 export class Api {
+  receiptBlob(options){return downloadReceipt(this,options);}
+  receiptOwner(target){return receiptOwner(this,target);}
+  receiptRecord(target){return receiptRecord(this,target);}
+  uploadReceiptObject(intent,file){return uploadReceiptObject(this,intent,file);}
+  linkReceipt(intent){return linkReceipt(this,intent);}
   constructor(config,storage=null) {
     this.config=config;this.auth=null;this.refreshing=null;this.generation=0;this.storage=storage;this.deviceContext=null;this.deviceEpoch=0;
     this.sessionKey=`sharikx2-auth:${config.url}`;

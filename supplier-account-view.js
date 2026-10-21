@@ -1,4 +1,5 @@
 import {auditInstant} from './date-display.js';
+import {recordedReceiptPath} from './receipt.js';
 
 const invalid=()=>new Error('تعذر قراءة بيانات حساب المورد؛ أعد المحاولة');
 const amount=value=>{
@@ -24,7 +25,7 @@ export function supplierAccountView({person,projectId,purchases,payments,oldDebt
    rows.push(Object.freeze({key:kind+':'+index,kind,date,amount:amount(kind==='purchase'?row.total:row.amount),
     initialPaid:kind==='purchase'&&row.paid_amount!==undefined&&row.paid_amount!==null?amount(row.paid_amount):null,
     number:kind==='purchase'?String(row.invoice_number??''):'',status:String(row.status||''),
-    note:String(kind==='old_debt'?row.description||'':row.note||''),accounts:Object.freeze(names)}));
+    note:String(kind==='old_debt'?row.description||'':row.note||''),receiptPath:recordedReceiptPath(row,kind),accounts:Object.freeze(names)}));
   }
  }
  rows.sort((a,b)=>(auditInstant(b.date)??-Infinity)-(auditInstant(a.date)??-Infinity));

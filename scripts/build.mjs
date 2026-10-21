@@ -3,6 +3,11 @@ const key=process.env.SUPABASE_ANON_KEY||'';
 if(key.startsWith('sb_secret_'))throw new Error('A secret key must never be included in a browser build');
 if(key.split('.').length===3){const claims=JSON.parse(Buffer.from(key.split('.')[1],'base64url'));if(claims.role!=='anon')throw new Error('Only a public anon key is allowed');}
 await mkdir('dist',{recursive:true});
+await mkdir('dist/vendor',{recursive:true});
+for(const file of ['zxing.min.js','zxing-LICENSE.txt','ts-custom-error-LICENSE.txt','text-encoding-LICENSE.txt'])await copyFile(`vendor/${file}`,`dist/vendor/${file}`);
+for(const file of ['barcode-reader.js','pwa-install.js'])await copyFile(file,`dist/${file}`);
+for(const file of ['receipt.js','receipt-api.js','receipt-ui.js','expense-details-ui.js'])await copyFile(file,`dist/${file}`);
+for(const file of ['receipt-upload.js','receipt-upload-api.js','receipt-upload-ui.js','receipt-picker-ui.js'])await copyFile(file,`dist/${file}`);
 await copyFile('app-shell-layout.js','dist/app-shell-layout.js');
 await copyFile('shared-report.js','dist/shared-report.js');
 await copyFile('purchase-form-ui.js','dist/purchase-form-ui.js');
@@ -107,6 +112,7 @@ for(const file of ['theme.js','theme-ui.js','theme-bootstrap.js'])await copyFile
 for(const file of ['inventory-history.js','inventory-history-ui.js','inventory-category.js','inventory-category-ui.js','inventory-popularity.js','inventory-pinned.js','barcode-scanner.js','debt-model.js','debt-details.js','supplier-mutation.js','partner-mutation.js','customer-mutation.js','supplier-credit.js','supplier-old-debt.js','debt-details-ui.js','debt-payment.js','debt-payment-ui.js','supplier-payment-review.js','purchase-model.js','currency.js','currency-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['index.html','styles.css','app.js','api.js','pagination.js','product-contract.js','ui.js','reports.js','report-ui.js','subscription.js','operations.js','expense.js','expense-mutation.js','sale.js','customer.js','activity.js','transfer.js','purchase.js','payment.js','collection.js','return.js','return-ui.js','financial.js','statement.js','accounts-ui.js','inventory.js','inventory-ui.js','inventory-mutation.js','onboarding.js','icons.js','icon.svg','manifest.webmanifest','service-worker.js'])await copyFile(file,`dist/${file}`);
 await mkdir('dist/assets',{recursive:true});
+for(const file of ['pwa-192.png','pwa-512.png','apple-touch-icon.png'])await copyFile(`assets/${file}`,`dist/assets/${file}`);
 for(const file of ['cairo_regular.ttf','cairo_semibold.ttf','cairo_bold.ttf','icon_cashier_colorful.png','icon_customer_debt_colorful.png','icon_supplier_debt_colorful.png','icon_expense_colorful.png','icon_purchase_colorful.png'])await copyFile(`assets/${file}`,`dist/assets/${file}`);
 await writeFile('dist/config.js',`window.SHARIKX2_CONFIG=${JSON.stringify({url:process.env.SUPABASE_URL||'https://wygvznwsalwiclrztcdh.supabase.co',publicKey:key,expenseMutations:process.env.ENABLE_EXPENSE_MUTATIONS!=='false',transfers:process.env.ENABLE_TRANSFERS==='true'})};\n`);
 console.log(key?'Build ready for connection testing':'Preview build only: public Supabase configuration is not set');

@@ -35,6 +35,6 @@ export function supplierAccountMarkup(view){
  ${row.invoice?invoiceSummary(row.invoice,index):row.kind==='purchase'?`<div class="supplier-invoice-recorded"><span>قيمة الفاتورة المسجلة</span><b>${money(row.amount,2)}</b>${row.initialPaid!==null?`<span>المدفوع عند تسجيل الفاتورة</span><b>${money(row.initialPaid,2)}</b>`:''}</div>`:''}
  ${row.invoice?.items.length?`<h4>أصناف الفاتورة</h4>${row.invoice.items.map(item=>`<div class="row supplier-invoice-item"><span>${escape(item.name)} • ${escape(item.quantity)} ${escape(item.unit)}</span><b>${money(item.total)}</b></div>`).join('')}`:''}
  ${row.kind==='old_debt'&&row.remaining!==undefined?`<p class="${row.remaining>.009?'danger-text':'success-text'}">المتبقي الحالي من هذا الدين: ${money(row.remaining)}</p>`:''}
- ${allocationMarkup(row)}
+ ${allocationMarkup(row)}<div data-supplier-receipt="${index}"></div>
  ${row.accounts.length?`<p class="muted small">من: ${escape(row.accounts.join('، '))}</p>`:''}${row.status?`<p class="muted small">${escape(status(row.status))}</p>`:''}${row.note?`<p>${escape(row.note)}</p>`:''}<small class="muted">${escape(timestamp(row.date))}</small></article>`).join('')||'<p class="muted">لا توجد حركات حتى الآن</p>'}`;
 }

@@ -12,6 +12,8 @@ import {openSupplierRefund} from './supplier-refund-ui.js';
 import {mountSupplierRefundHistory} from './supplier-refund-history-ui.js';
 import {purchaseReturnAction} from './purchase-return.js';
 import {openPurchaseReturn} from './purchase-return-ui.js';
+import {mountReceiptAction} from './receipt-ui.js';
+import {openReceiptUpload,receiptUploadAction} from './receipt-upload-ui.js';
 
 export async function openSupplierAccount({api,container,projectId,person,mode,storage,isCurrent=()=>true,onSaved,onCollect}){
  if(!isCurrent()||!container?.isConnected)return;
@@ -38,6 +40,14 @@ export async function openSupplierAccount({api,container,projectId,person,mode,s
   const fresh=Object.freeze({...captured,...history.supplier,calculated_debt:view.identity.debt,available_supplier_credit:view.identity.credit});
   const contact=dialog.querySelector('[data-supplier-call]');contact.replaceChildren();appendContactAction(contact,{phone:fresh.phone,isCurrent:current});
   dialog.querySelector('.details').innerHTML=supplierAccountMarkup(view);loaded=true;
+  view.rows.forEach((row,index)=>mountReceiptAction(dialog.querySelector(`[data-supplier-receipt="${index}"]`),{api,projectId,kind:row.kind,path:row.receiptPath,container:dialog,isCurrent:current}));
+  view.rows.forEach((row,index)=>{
+   const record=({purchase:history.purchases,payment:history.payments,old_debt:history.old_debts})[row.kind][Number(row.key.split(':')[1])];
+   const eligible=!(row.kind==='payment'&&record.payment_kind==='discount'||row.kind==='purchase'&&['draft','cancelled'].includes(record.status));
+   const target={projectId,kind:row.kind,recordId:record.id},label=receiptUploadAction({mode,storage,existingValue:row.kind==='payment'?record.reference:record.receipt_path,target,eligible});if(!label)return;
+   const button=document.createElement('button');button.type='button';button.dataset.attachReceipt='';button.className='outline';button.textContent=label;dialog.querySelector(`[data-supplier-receipt="${index}"]`).append(button);
+   button.onclick=()=>launch(saved=>openReceiptUpload({api,target,mode,storage,owner:dialog,isCurrent:current,onLinked:saved}));
+  });
   mountSupplierRefundHistory({api,container:dialog.querySelector('[data-supplier-refund-history]'),projectId,supplierId:captured.id,isCurrent:current});
   dialog.querySelectorAll('[data-invoice-details]').forEach(button=>{button.onclick=()=>launch(()=>openSupplierInvoiceDetails({invoice:view.rows[Number(button.dataset.invoiceDetails)].invoice,container:dialog,isCurrent:current}));});
   if(mode==='owner'){

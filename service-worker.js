@@ -1,7 +1,10 @@
-const CACHE='sharikx2-shell-v152';
+const CACHE='sharikx2-shell-v156';
 // Explicit audit-zone parsing is shared across the complete financial UI.
 const SHELL=['./','./index.html','./styles.css','./app.js','./api.js','./pagination.js','./product-contract.js','./ui.js','./reports.js','./report-ui.js','./subscription.js','./operations.js','./expense.js','./expense-mutation.js','./sale.js','./customer.js','./activity.js','./transfer.js','./purchase.js','./payment.js','./collection.js','./return.js','./return-ui.js','./financial.js','./statement.js','./accounts-ui.js','./inventory.js','./inventory-ui.js','./inventory-mutation.js','./onboarding.js','./icons.js','./icon.svg','./manifest.webmanifest','./assets/cairo_regular.ttf','./assets/cairo_semibold.ttf','./assets/cairo_bold.ttf','./assets/icon_cashier_colorful.png','./assets/icon_customer_debt_colorful.png','./assets/icon_supplier_debt_colorful.png','./assets/icon_expense_colorful.png','./assets/icon_purchase_colorful.png'];
 SHELL.push('./supplier-history.js','./supplier-invoice-details-ui.js');
+SHELL.push('./barcode-reader.js','./vendor/zxing.min.js','./pwa-install.js','./assets/pwa-192.png','./assets/pwa-512.png','./assets/apple-touch-icon.png');
+SHELL.push('./receipt.js','./receipt-api.js','./receipt-ui.js','./expense-details-ui.js');
+SHELL.push('./receipt-upload.js','./receipt-upload-api.js','./receipt-upload-ui.js','./receipt-picker-ui.js');
 SHELL.push('./supplier-payment-sources.js');
 SHELL.push('./supplier-discount-ledger.js','./approval-discounts-ui.js');
 SHELL.push('./supplier-discount.js','./supplier-discount-ui.js');

@@ -1,5 +1,5 @@
-import {escape,money,expenseMoney,timestamp,status} from './ui.js';
-import {editExpense,deleteExpense} from './expense-mutation.js';
+import {escape,money,expenseMoney} from './ui.js';
+import {openExpenseDetails} from './expense-details-ui.js';
 import {icon} from './icons.js';
 import {collectPages} from './pagination.js';
 import {cashierHistoryCards,cashierHistorySelection} from './cashier-history.js';
@@ -9,11 +9,8 @@ export function createActivityFeed(fetchPage){
  async function next(){const snapshot=sources.map(s=>({...s,buffer:[...s.buffer]}));try{const result=[];while(result.length<20){const loads=await Promise.allSettled(sources.filter(s=>!s.done&&!s.buffer.length).map(async s=>{const rows=await fetchPage(s.kind,s.offset);s.offset+=rows.length;s.done=rows.length<20;s.buffer.push(...rows.map(row=>({kind:s.kind,row})));}));const failure=loads.find(x=>x.status==='rejected');if(failure)throw failure.reason;const heads=sources.filter(s=>s.buffer.length).sort((a,b)=>compareActivity(a.buffer[0],b.buffer[0]));if(!heads.length)break;result.push(heads[0].buffer.shift());}return result;}catch(e){sources.forEach((s,i)=>Object.assign(s,snapshot[i]));throw e;}}
  return {next(){if(!running)running=next().finally(()=>running=null);return running;},hasMore(){return sources.some(s=>!s.done||s.buffer.length);}};
 }
-function expenseDetails({item,api,projectId,mode,allowMutations,onSaved}){
- const dialog=document.createElement('dialog');dialog.innerHTML=`<h2>تفاصيل المصروف</h2><div class="panel row"><div><b>${escape(item.description)}</b><p>${['daily_wage','daily_wages'].includes(item.category)?'يوميات':'مصروف'}</p><small>${escape(timestamp(item.created_at))}</small></div><strong class="expense-amount">${expenseMoney(item.amount)}</strong></div><div class="panel row"><span>الدفع من</span><b>${escape(item.account?.name||'غير محدد')}</b></div><p class="muted small">إرفاق الفاتورة قيد الاستكمال.</p><div class="actions">${mode==='owner'&&allowMutations?'<button data-edit>تعديل</button><button data-delete class="danger">حذف</button>':''}<button data-close class="primary">إغلاق</button></div>`;document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-close]').onclick=()=>dialog.remove();const options={api,projectId,item,mode,onSaved:()=>{dialog.remove();onSaved();}};dialog.querySelector('[data-edit]')?.addEventListener('click',()=>editExpense(options));dialog.querySelector('[data-delete]')?.addEventListener('click',()=>deleteExpense(options));
-}
 const activityRenders=new WeakMap();
-export async function renderActivity({api,projectId,container,isCurrent,mode,onSaved,allowMutations,onSale}){
+export async function renderActivity({api,projectId,container,isCurrent,mode,onSaved,allowMutations,onSale,storage}){
  if(!isCurrent()||!container.isConnected)return;
  const token={};activityRenders.set(container,token);
  const current=()=>isCurrent()&&container.isConnected&&activityRenders.get(container)===token;
@@ -31,7 +28,7 @@ export async function renderActivity({api,projectId,container,isCurrent,mode,onS
   records.querySelectorAll('[data-index]').forEach(button=>button.onclick=()=>{
    if(!current()||!button.isConnected)return;
    const card=model.rows[Number(button.dataset.index)],item=source.get(card.kind+':'+card.id);
-   if(card.kind==='sales')onSale?.(card.id);else expenseDetails({item,api,projectId,mode,onSaved,allowMutations});
+   if(card.kind==='sales')onSale?.(card.id);else openExpenseDetails({item,api,projectId,mode,onSaved,allowMutations,storage,isCurrent:current});
   });
  };
  const load=async()=>{

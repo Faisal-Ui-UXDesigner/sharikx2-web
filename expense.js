@@ -1,16 +1,9 @@
 import {escape,money,expenseMoney,timestamp} from './ui.js';
 import {createOperation} from './operations.js';
-import {editExpense,deleteExpense} from './expense-mutation.js';
-import {expenseEntryAccounts,expenseEntryType} from './expense-entry.js';
+import {openExpenseDetails} from './expense-details-ui.js';
+import {expenseEntryAccounts,expenseEntryType,expensePayload} from './expense-entry.js';
 import {expenseTypeMarkup,expenseEntryMarkup} from './expense-entry-ui.js';
-export function expensePayload(projectId,values,accounts){
- const amount=Number(values.amount),account=accounts.find(x=>x.id===values.account);
- if(!String(values.description||'').trim())throw new Error('أدخل وصف المصروف');
- if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100&&Math.abs(Math.round(amount*100)-amount*100)>1e-8)throw new Error('أدخل مبلغًا صحيحًا حتى منزلتين عشريتين');
- if(!account)throw new Error('اختر حساب الدفع');
- if(amount>Number(account.balance))throw new Error('المبلغ أكبر من الرصيد المتاح في الحساب');
- return {p_project_id:projectId,p_category:['daily_wage','daily_wages'].includes(values.category)?'daily_wage':'operating_expense',p_description:String(values.description).trim(),p_amount:amount,p_account_id:account.id};
-}
+export {expensePayload} from './expense-entry.js';
 export async function openExpense({api,projectId,mode,container,onSaved,storage,isCurrent=()=>true}){
  if(mode!=='owner')throw new Error('المشاركة للمشاهدة فقط');
  if(!isCurrent()||!container?.isConnected)return;
@@ -69,17 +62,13 @@ export async function openExpense({api,projectId,mode,container,onSaved,storage,
  body.innerHTML=expenseTypeMarkup();
  body.querySelectorAll('[data-expense-type]').forEach(button=>button.onclick=()=>render(button.dataset.expenseType));
 }
-export async function renderExpenses({api,projectId,container,isCurrent,mode='viewer',onSaved=()=>{},allowMutations=false}){
+export async function renderExpenses({api,projectId,container,isCurrent,mode='viewer',onSaved=()=>{},allowMutations=false,storage}){
  const section=document.createElement('section');container.append(section);section.innerHTML='<h2>آخر المصاريف</h2><div class="skeleton"></div>';
  try{const rows=await api.rows('expenses',projectId,'*,account:sharikx2_accounts(name)');if(!isCurrent()||!section.isConnected)return;
   section.innerHTML='<h2>آخر المصاريف</h2>'+(rows.length?rows.map(x=>`<button class="panel record row" data-expense="${escape(x.id)}"><div><b>${escape(x.description)}</b><p class="muted">${escape(x.account?.name||'حساب غير محدد')}</p><small>${escape(timestamp(x.created_at||x.occurred_at))}</small></div><strong class="expense-amount">${expenseMoney(x.amount)}</strong></button>`).join(''):'<p>لا توجد مصاريف</p>')+(rows.length===20?'<p class="muted small">أحدث 20 مصروفًا</p>':'');
   section.querySelectorAll('[data-expense]').forEach(button=>button.onclick=()=>{
-   const item=rows.find(x=>x.id===button.dataset.expense),dialog=document.createElement('dialog');
-   dialog.innerHTML=`<h2>تفاصيل المصروف</h2><div class="panel row"><div><b>${escape(item.description)}</b><p>${['daily_wage','daily_wages'].includes(item.category)?'يوميات':'مصروف'}</p><p class="muted">${escape(timestamp(item.created_at||item.occurred_at))}</p></div><strong class="expense-amount">${expenseMoney(item.amount)}</strong></div><div class="panel row"><span>الدفع من</span><b>${escape(item.account?.name||'غير محدد')}</b></div><p class="muted small">إرفاق الفاتورة قيد الاستكمال.</p><div class="actions">${mode==='owner'&&allowMutations?'<button data-edit>تعديل</button><button data-delete class="danger">حذف</button>':''}<button data-close class="primary">إغلاق</button></div>`;
-   document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-close]').onclick=()=>dialog.remove();
-   const options={api,projectId,item,mode,onSaved:()=>{dialog.remove();onSaved();}};
-   dialog.querySelector('[data-edit]')?.addEventListener('click',()=>editExpense(options));
-   dialog.querySelector('[data-delete]')?.addEventListener('click',()=>deleteExpense(options));
+   if(!isCurrent()||!section.isConnected)return;
+   openExpenseDetails({item:rows.find(x=>x.id===button.dataset.expense),api,projectId,mode,onSaved,allowMutations,storage,isCurrent:()=>section.isConnected&&isCurrent()});
   });
  }catch(error){if(section.isConnected&&isCurrent())section.textContent=error.message;}
 }

@@ -13,7 +13,7 @@ test('missing malformed or duplicate accounts fail rather than display invented 
  for(const value of [null,{},[null],[{id:'a',balance:null}],[{id:'a',balance:''}],[{id:'a',balance:true}],[{id:'a',balance:Infinity}],[{id:'a',balance:2},{id:'a',balance:3}]])assert.throws(()=>expenseEntryAccounts(value));
 });
 test('fresh form defaults only first active account and cannot switch category within the form',()=>{
- const html=expenseEntryMarkup(expenseEntryAccounts([{id:'a',balance:0},{id:'b',balance:5}]),'daily_wage');assert.equal((html.match(/ checked/g)||[]).length,1);assert.match(html,/value="a" checked/);assert.match(html,/name="category" value="daily_wage"/);assert.match(html,/وصف اليومية/);assert.match(html,/إرفاق الفاتورة غير متاح/);assert.match(expenseTypeMarkup(),/data-expense-type="operating_expense"/);
+ const html=expenseEntryMarkup(expenseEntryAccounts([{id:'a',balance:0},{id:'b',balance:5}]),'daily_wage');assert.equal((html.match(/ checked/g)||[]).length,1);assert.match(html,/value="a" checked/);assert.match(html,/name="category" value="daily_wage"/);assert.match(html,/وصف اليومية/);assert.match(html,/بعد حفظ المصروف/);assert.doesNotMatch(html,/<button[^>]+expense-attachment/);assert.match(expenseTypeMarkup(),/data-expense-type="operating_expense"/);
 });
 test('markup escapes hostile identities and names; empty accounts disable fresh confirmation',()=>{
  const html=expenseEntryMarkup(expenseEntryAccounts([{id:'a"]<img>',name:'<script>bad</script>',balance:1}]),'operating_expense');assert.ok(!html.includes('<script>'));assert.ok(!html.includes('<img>'));assert.match(html,/&lt;script&gt;/);assert.match(expenseEntryMarkup([],'operating_expense'),/type="submit" disabled/);

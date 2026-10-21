@@ -18,3 +18,13 @@ export function expenseEntryAccounts(accounts){
  }
  return Object.freeze(rows);
 }
+
+// Shared unchanged payment validation; UI controllers must not depend on each other.
+export function expensePayload(projectId,values,accounts){
+ const amount=Number(values.amount),account=accounts.find(x=>x.id===values.account);
+ if(!String(values.description||'').trim())throw new Error('أدخل وصف المصروف');
+ if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100&&Math.abs(Math.round(amount*100)-amount*100)>1e-8)throw new Error('أدخل مبلغًا صحيحًا حتى منزلتين عشريتين');
+ if(!account)throw new Error('اختر حساب الدفع');
+ if(amount>Number(account.balance))throw new Error('المبلغ أكبر من الرصيد المتاح في الحساب');
+ return {p_project_id:projectId,p_category:['daily_wage','daily_wages'].includes(values.category)?'daily_wage':'operating_expense',p_description:String(values.description).trim(),p_amount:amount,p_account_id:account.id};
+}

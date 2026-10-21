@@ -3,7 +3,7 @@ import {readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 
 const root=fileURLToPath(new URL('..',import.meta.url));
-const run=args=>execFileSync(process.execPath,args,{cwd:root,stdio:'inherit'});
+const run=(args,env=process.env)=>execFileSync(process.execPath,args,{cwd:root,stdio:'inherit',env});
 const unitTests=(await readdir(new URL('../tests/',import.meta.url)))
  .filter(name=>name.endsWith('.test.mjs')).sort().map(name=>`tests/${name}`);
 
@@ -15,6 +15,10 @@ for(const folder of ['scripts','tests']){
 console.log('Running unit tests');
 run(['--test',...unitTests]);
 console.log('Running isolated browser regressions');
+run(['tests/purchase-attachment-browser-smoke.mjs']);
+run(['tests/receipt-upload-browser-smoke.mjs']);
+run(['tests/receipt-browser-smoke.mjs']);
+run(['tests/iphone-foundation-browser-smoke.mjs']);
 run(['tests/purchase-return-receipt-browser-smoke.mjs']);
 run(['tests/purchase-return-browser-smoke.mjs']);
 run(['tests/supplier-refund-history-browser-smoke.mjs']);
@@ -38,6 +42,7 @@ run(['tests/sale-price-edit-browser-smoke.mjs']);
 run(['tests/sale-payment-browser-smoke.mjs']);
 run(['tests/sale-payment-step-browser-smoke.mjs']);
 run(['tests/native-pages-browser-smoke.mjs']);
+run(['tests/native-pages-browser-smoke.mjs'],{...process.env,SHARIKX2_TEST_BROWSER:'webkit'});
 run(['tests/shared-report-browser-smoke.mjs']);
 run(['tests/debt-directory-browser-smoke.mjs']);
 run(['tests/sale-layout-browser-smoke.mjs']);

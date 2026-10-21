@@ -36,8 +36,8 @@ export function purchaseFormMarkup(suppliers){
    </section>
    <label class="purchase-note">ملاحظات (اختياري)<textarea name="note" maxlength="500"></textarea></label>
    <section class="panel purchase-attachment">
-    <h3>إشعار أو صورة الفاتورة</h3><button type="button" disabled>رفع إشعار الفاتورة</button>
-    <p class="muted small">اختياري — إرفاق الصورة غير متاح في نسخة الويب بعد.</p>
+    <h3>صورة الفاتورة — اختياري</h3>
+    <div data-purchase-receipt></div>
    </section>
   </fieldset>
   <footer class="purchase-footer" data-purchase-footer>

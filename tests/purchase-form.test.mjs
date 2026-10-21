@@ -3,7 +3,7 @@ import {purchaseFormMarkup,purchaseSummaryMarkup,mountPurchaseFooter,purchaseHea
 import {purchaseCartReview} from '../purchase-cart-review.js';
 test('purchase composition keeps supplier, optional payments, note and separate confirmation footer',()=>{
  const html=purchaseFormMarkup([{id:'s',name:'مورد',phone:'0590000000'}]);
- assert.match(html,/name="supplier" required/);assert.match(html,/<details[^>]+data-purchase-payments>/);assert.ok(!html.includes('data-purchase-payments open'));assert.match(html,/الدفع الآن — اختياري/);assert.match(html,/إرفاق الصورة غير متاح/);assert.ok(html.indexOf('</fieldset>')<html.indexOf('data-purchase-footer'));assert.match(html,/name="note" maxlength="500"/);
+ assert.match(html,/name="supplier" required/);assert.match(html,/<details[^>]+data-purchase-payments>/);assert.ok(!html.includes('data-purchase-payments open'));assert.match(html,/الدفع الآن — اختياري/);assert.match(html,/data-purchase-receipt/);assert.doesNotMatch(html,/disabled>رفع إشعار/);assert.ok(html.indexOf('</fieldset>')<html.indexOf('data-purchase-footer'));assert.match(html,/name="note" maxlength="500"/);
 });
 test('supplier source text and identities are escaped without modifying source',()=>{
  const rows=[{id:'s"<img>',name:'<script>bad</script>',phone:'"&'}],before=JSON.stringify(rows),html=purchaseFormMarkup(rows);

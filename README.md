@@ -1,5 +1,11 @@
 # SharikX2 Web — foundation
 
+**Current inventory and implementation plan (2026-10-21): [CURRENT_STATUS.md](CURRENT_STATUS.md).** The notes below are historical foundation notes, not the current feature inventory. Stage history is in `ANDROID_PARITY.md`; full Android/live/iPhone acceptance remains incomplete.
+
+Current iPhone foundation check: `node tests/iphone-foundation-browser-smoke.mjs` requires installed Edge plus the Playwright WebKit browser (`<Playwright runtime>/cli.js install webkit`). It tests actual decoding, synthetic media, install guidance, mobile/desktop themes and shell cache. It does not certify actual iPhone hardware/installation. Windows WebKit offline navigation is explicitly unverified. Barcode assets are locally vendored with licenses; see `vendor/README.md` for reproducible regeneration. Normal builds do not download a runtime decoder from a CDN.
+
+Receipt checks: `node tests/receipt-browser-smoke.mjs` covers private viewing/download; `node tests/receipt-upload-browser-smoke.mjs` covers owner-only upload/linking to existing saved records, immutable recovery across reload and read-only verification in Edge/WebKit with synthetic images/intercepted requests. `node tests/purchase-attachment-browser-smoke.mjs` covers selection inside purchase creation and financial-before-attachment handoff without financial replay. File sharing is mocked. Actual iPhone camera, deployed CORS/RLS and cross-auth Android/web access are not certified; source Storage read policies are uploader-scoped. No public-image fallback is used. In-form expense selection and replacement/deletion of existing images remain incomplete. See v154–v156 in `CURRENT_STATUS.md`.
+
 Standalone web project. Android files and Supabase schemas have not been modified.
 
 Current progress and verification are recorded chronologically in `ANDROID_PARITY.md`; the foundation notes below describe earlier milestones and are not a current completeness checklist. Use `npm run check` for the full local synthetic regression suite and `npm run build` separately. Neither command certifies deployed accounting behavior or full Android parity.
