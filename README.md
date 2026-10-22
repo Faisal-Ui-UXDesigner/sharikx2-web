@@ -2,6 +2,10 @@
 
 **Current inventory and implementation plan (2026-10-22): [CURRENT_STATUS.md](CURRENT_STATUS.md).** The notes below are historical foundation notes, not the current feature inventory. Stage history is in `ANDROID_PARITY.md`; full Android/live/iPhone acceptance remains incomplete.
 
+Local v163: `node tests/project-notifications-browser-smoke.mjs` checks the source-driven in-app bell page (subscription/month-close/empty catalog), explicit read/retry, viewer/stale guards and both themes in Edge/WebKit. This is not Push/background notification support or persistent unread-state parity; no system permission is requested. Uses synthetic data only; no accounting/schema change.
+
+Local v164 extends that group with shell-entry notification evaluation, native red/muted unread indicator, shared in-flight reads and read-state retained only during navigation within one opened project session. New login/project/restoration resets the ephemeral marker; reload persistence and background notifications are not implemented. No token/notification storage or server mutation. Loading/error accessibility states do not claim an empty successful evaluation.
+
 Local v162: `node tests/owner-password-browser-smoke.mjs` covers the native owner four-digit password-change form, real settings entry and safe unknown-result handling in Edge/WebKit with synthetic credentials. Uses the existing RPC and device gate; no password journal/storage/automatic retry or fake fingerprint option. No live password was changed.
 
 Local v160: `node tests/subscription-details-browser-smoke.mjs` covers native plan status/expiry/limits, real app navigation and same-table USD pricing plus owner-only copyable bank/wallet instructions in Edge/WebKit. It uses synthetic data; subscription receipt submission/activation is explicitly not implemented, and viewing/copying does not create a request. No production setting, schema or financial equation change.

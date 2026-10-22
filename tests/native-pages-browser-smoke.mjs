@@ -30,6 +30,8 @@ try{
   // Plans now perform a real read through their isolated settings adapter.
   // Keep it explicit in this visual fixture; no external request or write.
   Api.prototype.subscriptionPaymentSettings=async()=>({price:10,currency:'USD',bank_name:'',bank_account_number:'',bank_iban:'',bank_phone:'',wallet_name:'',wallet_phone:''});
+  Api.prototype.sharingProject=async()=>structuredClone(project);
+  Api.prototype.projectCreatedAt=async()=> '2026-09-01T00:00:00Z';
   Api.prototype.rows=async(table)=>table==='sales'?structuredClone(sales):table==='expenses'?[]:[];
   Api.prototype.allRows=async(table)=>{if(window.failHome&&table==='debt_writeoffs')throw Error('خطأ تجريبي في قراءة الملخص');return structuredClone(({products,sales,expenses,purchases:[{id:'p1',invoice_number:1,status:'received',total:170,purchased_at:'2026-10-14T08:00:00Z',returns:[],payments:[{amount:70}],credits:[]}],debt_writeoffs:[],supplier_payments:[],purchase_returns:[]})[table]||[]);};
   Api.prototype.summary=async()=>({customer_debt:0,supplier_debt:100,liquidity:1972,net_project_value:1940,inventory_cost:68,accounts:[{id:'cash',name:'النقد',balance:1972}]});

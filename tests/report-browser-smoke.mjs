@@ -28,6 +28,14 @@ await page.route('**/*',async route=>{
   let data;
   if(url.pathname==='/auth/v1/signup')data={access_token:'fixture-token',refresh_token:'fixture-refresh',expires_in:3600};
   else if(url.pathname.endsWith('/restore_sharikx2_owner_project_v2')||url.pathname.endsWith('/join_sharikx2_project_v1'))data={id:'11111111-1111-4111-8111-111111111111',name:'مشروع اختبار محلي',currency:'JOD',subscription_status:active?'active':'trial'};
+  else if(url.pathname==='/rest/v1/sharikx2_projects'){
+    assert.equal(request.method(),'GET');assert.equal(url.searchParams.get('id'),'eq.11111111-1111-4111-8111-111111111111');
+    assert.ok(['id,created_at','id,name,share_pin,subscription_status,subscription_expires_at,archived_at'].includes(url.searchParams.get('select')));
+    data=[{id:'11111111-1111-4111-8111-111111111111',name:'مشروع اختبار محلي',share_pin:'1234',subscription_status:active?'active':'trial',subscription_expires_at:null,archived_at:null,created_at:'2026-09-01T00:00:00Z'}];
+  }
+  else if(url.pathname==='/rest/v1/sharikx2_products'){
+    assert.equal(request.method(),'GET');assert.equal(url.searchParams.get('project_id'),'eq.11111111-1111-4111-8111-111111111111');assert.equal(url.searchParams.get('select'),'id');assert.equal(url.searchParams.get('active'),'eq.true');data=[];
+  }
   else if(url.pathname.endsWith('/get_sharikx2_financial_summary_v2'))data={net_project_value:120,liquidity:50,inventory_cost:63,customer_debt:12,supplier_debt:5,accounts:[{id:'cash',name:'النقد',balance:50}]};
   else if(url.pathname.endsWith('/get_sharikx2_debt_balances_v2'))data=malformedDebt?{customers:[],customer_debt:null}:{customer_debt:12.345,supplier_debt:5,customers:[{id:'debtor',name:'Test <img src=x>',phone:'0590000000',calculated_debt:'12.345'},{id:'settled',name:'مسدد',calculated_debt:'0.009'}],suppliers:[{id:'supplier-fixture',name:'مورد اختبار',calculated_debt:5}]};
   else if(url.pathname.endsWith('/get_sharikx2_supplier_history_v1'))data={supplier:{id:'supplier-fixture',project_id:'11111111-1111-4111-8111-111111111111',name:'مورد اختبار',opening_debt:5},purchases:[],payments:[],old_debts:[{id:'old-fixture',amount:5,description:'رصيد سابق',created_at:'2026-10-01T10:00:00Z'}],credits:[],purchase_returns:[],allocation_snapshot:{version:1,allocations:[]}};

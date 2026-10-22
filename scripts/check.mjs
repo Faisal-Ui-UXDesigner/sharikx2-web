@@ -18,6 +18,7 @@ console.log('Running isolated browser regressions');
 run(['tests/subscription-details-browser-smoke.mjs']);
 run(['tests/subscription-requests-browser-smoke.mjs']);
 run(['tests/owner-password-browser-smoke.mjs']);
+run(['tests/project-notifications-browser-smoke.mjs']);
 run(['tests/supplier-payment-attachment-browser-smoke.mjs']);
 run(['tests/old-debt-attachment-browser-smoke.mjs']);
 run(['tests/expense-attachment-browser-smoke.mjs']);
