@@ -1,6 +1,8 @@
 # SharikX2 Web — foundation
 
-**Current inventory and implementation plan (2026-10-21): [CURRENT_STATUS.md](CURRENT_STATUS.md).** The notes below are historical foundation notes, not the current feature inventory. Stage history is in `ANDROID_PARITY.md`; full Android/live/iPhone acceptance remains incomplete.
+**Current inventory and implementation plan (2026-10-22): [CURRENT_STATUS.md](CURRENT_STATUS.md).** The notes below are historical foundation notes, not the current feature inventory. Stage history is in `ANDROID_PARITY.md`; full Android/live/iPhone acceptance remains incomplete.
+
+Stage v159: `node tests/supplier-payment-attachment-browser-smoke.mjs` checks native supplier-payment ordering (verified image upload, payment, then linking), immutable split amounts, original-request recovery across reload and a zero-debt archived account, without duplicate outflow. `node tests/old-debt-attachment-browser-smoke.mjs` checks v158 old-liability entry, whose native financial-before-image ordering is intentionally different. Both use synthetic images/backends in Edge/WebKit, not deployed permissions, live accounting or an actual iPhone. The latest user request authorizes a GitHub source push after validation; current gaps are in `CURRENT_STATUS.md`.
 
 Current iPhone foundation check: `node tests/iphone-foundation-browser-smoke.mjs` requires installed Edge plus the Playwright WebKit browser (`<Playwright runtime>/cli.js install webkit`). It tests actual decoding, synthetic media, install guidance, mobile/desktop themes and shell cache. It does not certify actual iPhone hardware/installation. Windows WebKit offline navigation is explicitly unverified. Barcode assets are locally vendored with licenses; see `vendor/README.md` for reproducible regeneration. Normal builds do not download a runtime decoder from a CDN.
 

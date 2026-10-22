@@ -64,8 +64,9 @@ export async function openSupplierAccount({api,container,projectId,person,mode,s
     dialog.querySelector('[data-supplier-refund-slot]').append(refund);
     refund.onclick=()=>launch(saved=>openSupplierRefund({api,projectId,supplier:fresh,mode,storage,owner:dialog,isCurrent:current,onSaved:saved,onChanged:saved}));
    }
-   if(view.identity.active){
-   const collect=document.createElement('button');collect.type='button';collect.className='primary';collect.dataset.detailsCollect='';collect.textContent=view.identity.debt>.009?'تسديد دفعة':'الدين مسدد';collect.disabled=!(view.identity.debt>.009&&onCollect);host.append(collect);
+   let paymentRecovery=false;try{paymentRecovery=storage?.getItem(`sharikx2-pending-supplier-payment:${projectId}:${fresh.id}`)!=null;}catch{paymentRecovery=true;}
+   if(view.identity.active||paymentRecovery){
+   const collect=document.createElement('button');collect.type='button';collect.className='primary';collect.dataset.detailsCollect='';collect.textContent=paymentRecovery?'التحقق من دفعة سابقة':view.identity.debt>.009?'تسديد دفعة':'الدين مسدد';collect.disabled=!((paymentRecovery||view.identity.debt>.009)&&onCollect);host.append(collect);
    collect.onclick=()=>{if(!current()||busy||collect.disabled)return;close();onCollect?.(fresh);};
    }
    const discountAction=supplierDiscountAction(storage,projectId,fresh);

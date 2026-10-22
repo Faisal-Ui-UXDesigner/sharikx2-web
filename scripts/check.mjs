@@ -15,6 +15,8 @@ for(const folder of ['scripts','tests']){
 console.log('Running unit tests');
 run(['--test',...unitTests]);
 console.log('Running isolated browser regressions');
+run(['tests/supplier-payment-attachment-browser-smoke.mjs']);
+run(['tests/old-debt-attachment-browser-smoke.mjs']);
 run(['tests/expense-attachment-browser-smoke.mjs']);
 run(['tests/purchase-attachment-browser-smoke.mjs']);
 run(['tests/receipt-upload-browser-smoke.mjs']);

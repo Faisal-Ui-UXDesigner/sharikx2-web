@@ -55,7 +55,9 @@ try{
    await page.locator('[data-receipt-close]').click();await page.evaluate(()=>{corrupt=true;show();});await page.locator('[data-receipt-retry]').waitFor({state:'visible'});assert.equal(await page.locator('.receipt-dialog img').count(),0);await page.locator('[data-receipt-close]').click();
    // Expense list and cashier activity use the same details/viewer without writes.
    await page.evaluate(async()=>{
-    window.corrupt=false;window.expense={id:'e1',project_id:projectId,description:'مصروف اختبار <img src=x>',category:'operating_expense',amount:1.25,created_at:'2026-10-21T08:00:00Z',account:{name:'نقد'},receipt_path:pathFor('expense')};
+    // Activity defaults to today's Palestine day; a fixed calendar date made
+    // this viewer integration test silently expire on the following day.
+    window.corrupt=false;window.expense={id:'e1',project_id:projectId,description:'مصروف اختبار <img src=x>',category:'operating_expense',amount:1.25,created_at:new Date().toISOString(),account:{name:'نقد'},receipt_path:pathFor('expense')};
     api.rows=async()=>[expense];api.allRows=async kind=>kind==='expenses'?[expense]:[];
     const {renderExpenses}=await import('/expense.js');await renderExpenses({api,projectId,container:document.querySelector('#app'),mode:'viewer',isCurrent:()=>current});
    });

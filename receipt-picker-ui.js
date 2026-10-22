@@ -1,9 +1,10 @@
 import {verifiedReceiptBlob} from './receipt.js';
 
 // Memory-only selection: never put image bytes or names in a financial journal.
-export function mountReceiptPicker({container,isCurrent=()=>true,canEdit=()=>true,onChange=()=>{}}){
+export function mountReceiptPicker({container,isCurrent=()=>true,canEdit=()=>true,onChange=()=>{},hint}){
  container.classList.add('receipt-picker');
  container.innerHTML='<p class="muted small">JPEG أو PNG أو WebP، حتى 6 ميجابايت. لا تُحفظ الصورة في المسودة؛ تُرفع بعد تأكيد الحفظ المالي، دون تكرار العملية.</p><div class="actions"><button type="button" data-pick-image>اختيار صورة</button><button type="button" data-capture-image>التقاط صورة</button><button type="button" data-clear-image hidden>إزالة الاختيار</button></div><input type="file" data-image-file accept="image/jpeg,image/png,image/webp" hidden><input type="file" data-image-camera accept="image/jpeg,image/png,image/webp" capture="environment" hidden><p data-image-name dir="auto"></p><div data-image-preview></div><p data-image-error role="status"></p>';
+ if(hint)container.querySelector('p').textContent=hint;
  let file=null,url=null,processing=false,revision=0,ended=false;
  const current=()=>!ended&&container.isConnected&&isCurrent();
  const name=container.querySelector('[data-image-name]'),preview=container.querySelector('[data-image-preview]'),error=container.querySelector('[data-image-error]'),clear=container.querySelector('[data-clear-image]');

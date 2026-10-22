@@ -2,6 +2,10 @@ import {escape,money} from './ui.js';
 import {createOperation} from './operations.js';
 import {collectionPayload,paymentPayload,debtPaymentRemaining,validateDebtPaymentSnapshot,validateDebtPaymentJournal,verifyDebtPaymentResult,supplierPaymentReview} from './debt-payment.js';
 import {openSupplierPaymentReview} from './supplier-payment-review.js';
+import {mountReceiptPicker} from './receipt-picker-ui.js';
+import {createSupplierPaymentReceipt} from './supplier-payment-receipt.js';
+import {receiptUuid} from './receipt-upload.js';
+import {openReceiptUpload} from './receipt-upload-ui.js';
 
 // Shared lifecycle and recovery; each domain retains its own RPC contract.
 export function openDebtPayment({api,projectId,person,kind,mode,storage,onSaved,isCurrent=()=>true}){
@@ -15,18 +19,31 @@ export function openDebtPayment({api,projectId,person,kind,mode,storage,onSaved,
  dialog.dataset.paymentKey=key;
  dialog.innerHTML=`<h2>${supplier?'تسديد دفعة للمورد':'تسديد دفعة من'} ${escape(person.name)}</h2><div class="body"><div class="skeleton"></div></div><button data-close class="outline">إلغاء</button>`;
  document.body.append(dialog);dialog.showModal();
- const current=()=>isCurrent()&&dialog.isConnected;
- let busy=false,operation=null,pendingPayload=null,blocked=false;
- const close=()=>{if(!busy)dialog.remove();};dialog.querySelector('[data-close]').onclick=close;
+ const current=()=>isCurrent()&&dialog.isConnected&&dialog.open;
+ let busy=false,operation=null,pendingPayload=null,blocked=false,receiptRequired=false,confirmedPayment=null,receiptPicker=null,attachmentDialog=null,reviewDialog=null,ended=false;
+ const observer=new MutationObserver(()=>{if(!current())dispose();});
+ const dispose=()=>{if(ended)return;ended=true;observer.disconnect();receiptPicker?.dispose();reviewDialog?.remove();attachmentDialog?.remove();dialog.remove();};
+ const finish=()=>{const notify=current();dispose();if(notify)onSaved?.();};
+ observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['open']});
+ const close=()=>{if(!busy&&!attachmentDialog&&!reviewDialog?.isConnected){if(confirmedPayment)finish();else dispose();}};dialog.querySelector('[data-close]').onclick=close;
  dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
  try{
   const saved=JSON.parse(storage?.getItem(key)||'null');
-  if(saved){pendingPayload=validateDebtPaymentJournal(saved,kind,projectId,person.id);operation=createOperation(rpc,pendingPayload,saved.requestId);}
+  if(saved){pendingPayload=validateDebtPaymentJournal(saved,kind,projectId,person.id);operation=createOperation(rpc,pendingPayload,saved.requestId);if(Object.hasOwn(saved,'receiptRequired')&&typeof saved.receiptRequired!=='boolean')throw Error('INVALID_RECEIPT_DRAFT');receiptRequired=saved.receiptRequired===true;if(receiptRequired&&!supplier)throw Error('INVALID_RECEIPT_DOMAIN');if(saved.confirmedPayment){if(!receiptRequired||!receiptUuid(saved.confirmedPayment.id))throw Error('INVALID_PAYMENT_RECEIPT');verifyDebtPaymentResult(saved.confirmedPayment,pendingPayload);confirmedPayment={id:saved.confirmedPayment.id,amount:Number(saved.confirmedPayment.amount)};}}
  }catch{blocked=true;}
  const render=accounts=>{
   if(!current())return;
   dialog.querySelector('.body').innerHTML=`<form><fieldset><p>الدين الحالي ${money(person.calculated_debt)}</p>${supplier?'<div data-sources></div><button type="button" data-add class="outline">إضافة حساب</button>':`<label>حساب الاستلام<select name="account" required>${accounts.map(a=>`<option value="${escape(a.id)}">${escape(a.name)} — الرصيد ${money(a.balance,2)}</option>`).join('')}</select></label><label>قيمة الدفعة<input name="amount" type="number" min="0.01" step="0.01" required></label><button type="button" data-full class="outline">تسديد كامل الدين</button>`}<label>ملاحظة اختيارية<textarea name="note"></textarea></label></fieldset><p data-payment-total></p><p data-remaining></p><p role="alert"></p><button type="submit" class="primary">${supplier?'تسجيل الدفعة':'تسجيل التحصيل'}</button></form>`;
   const form=dialog.querySelector('form'),fields=form.querySelector('fieldset'),error=form.querySelector('[role=alert]'),submit=form.querySelector('[type=submit]');
+  const sync=()=>{submit.disabled=blocked||busy||!!receiptPicker?.processing||!!attachmentDialog||!!reviewDialog?.isConnected;dialog.querySelector('[data-close]').disabled=busy||!!attachmentDialog;};
+  if(supplier){
+   const section=document.createElement('section');section.className='panel payment-receipt-section';section.innerHTML='<h3>فاتورة السداد — اختياري</h3><div data-payment-receipt></div>';fields.append(section);
+   if(!blocked&&(!operation||receiptRequired&&!confirmedPayment))receiptPicker=mountReceiptPicker({container:section.querySelector('div'),isCurrent:current,canEdit:()=>current()&&!busy&&!reviewDialog?.isConnected&&!confirmedPayment, onChange:sync,hint:'JPEG أو PNG أو WebP حتى 6 ميجابايت. يُرفع الإيصال ويُتحقق منه قبل إرسال الدفعة، كما في Android. عند الاسترجاع أعد اختيار نفس الملف إن لم يصل؛ الصورة لا تُحفظ محليًا.'});
+   else section.querySelector('div').textContent=confirmedPayment?'الدفعة محفوظة؛ يجري استكمال ربط الإيصال فقط.':'لا توجد صورة محفوظة في هذه المحاولة؛ يمكن إرفاقها من السجل بعد تأكيد الدفعة.';
+   // Original money fields stay locked during recovery; the original file may
+   // still be reselected without changing captured accounts/amounts.
+   if(operation&&receiptRequired&&!confirmedPayment)fields.after(section);
+  }
   let sources=pendingPayload?.p_sources?.map(source=>({...source}))||[];
   const updateTotals=()=>{
    const amount=supplier?sources.reduce((sum,x)=>sum+Number(x.amount||0),0):Number(form.elements.amount.value||0);
@@ -47,38 +64,46 @@ export function openDebtPayment({api,projectId,person,kind,mode,storage,onSaved,
   }
   if(pendingPayload){form.elements.note.value=pendingPayload.p_note||'';fields.disabled=true;error.textContent='توجد دفعة معلّقة؛ سنُعيد نفس الطلب دون إنشاء دفعة أخرى.';submit.textContent='التحقق من الدفعة السابقة';}
   if(blocked){fields.disabled=true;submit.disabled=true;error.textContent='تعذر قراءة الدفعة السابقة؛ تحقق من السجل قبل تسجيل بديل.';}
-  let reviewDialog=null;
   const initialLabel=supplier?'مراجعة الدفعة':'تسجيل التحصيل';
   if(!operation&&!blocked)submit.textContent=initialLabel;
   const savePayment=async payload=>{
-   if(busy||blocked||!current())return;
-   let saved=false;
+   if(busy||blocked||receiptPicker?.processing||attachmentDialog||!current())return;
+   let saved=false,attachmentTarget=null;
+   const persistFinancial=()=>{const value={payload:pendingPayload,requestId:operation.requestId,...(receiptRequired?{receiptRequired:true,...(confirmedPayment?{confirmedPayment}: {})}:{})},json=JSON.stringify(value);storage.setItem(key,json);if(storage.getItem(key)!==json)throw Error('تعذر تثبيت محاولة السداد؛ لم يُرسل طلب جديد');};
    try{
     if(!operation){
      validateDebtPaymentSnapshot(payload,person.calculated_debt,accounts);
      if(!storage)throw new Error('تخزين الجلسة مطلوب لحماية إعادة المحاولة');
-     const candidate=createOperation(rpc,payload);storage.setItem(key,JSON.stringify({payload,requestId:candidate.requestId}));pendingPayload=payload;operation=candidate;
+     const candidate=createOperation(rpc,payload);receiptRequired=supplier&&!!receiptPicker?.file;
+     const json=JSON.stringify({payload,requestId:candidate.requestId,...(receiptRequired?{receiptRequired:true}:{})});storage.setItem(key,json);if(storage.getItem(key)!==json)throw Error('تعذر تثبيت محاولة السداد؛ لم تُرسل الدفعة');pendingPayload=payload;operation=candidate;
     }
     busy=true;fields.disabled=true;submit.disabled=true;dialog.querySelector('[data-close]').disabled=true;submit.textContent='جارٍ الحفظ…';error.textContent='';
-    const result=await operation.run(api);
-    try{verifyDebtPaymentResult(result,pendingPayload);}catch(error){operation=createOperation(rpc,pendingPayload,operation.requestId);throw error;}
-    storage.removeItem(key);saved=current();dialog.remove();
-   }catch(errorValue){error.textContent=(errorValue.message||'تعذر تسجيل الدفعة')+(operation?' — أعد التحقق بنفس الطلب بأمان':'');}
-   finally{busy=false;submit.disabled=false;dialog.querySelector('[data-close]').disabled=false;submit.textContent=operation?'التحقق وإعادة المحاولة':initialLabel;}
+    const receipt=receiptRequired?createSupplierPaymentReceipt({api,storage,scope:{projectId,supplierId:person.id,requestId:operation.requestId},isCurrent:current}):null;
+    if(receipt&&!confirmedPayment){submit.textContent='جارٍ التحقق من رفع الإيصال قبل السداد…';await receipt.prepare(receiptPicker?.file);if(!current())return;}
+    const result=confirmedPayment||await operation.run(api);
+    try{verifyDebtPaymentResult(result,pendingPayload);if(receiptRequired&&!receiptUuid(result.id))throw Error('تعذر تأكيد هوية الدفعة');}catch(error){operation=createOperation(rpc,pendingPayload,operation.requestId);throw error;}
+    if(receipt){confirmedPayment={id:result.id,amount:Number(result.amount)};persistFinancial();attachmentTarget=await receipt.adopt(result.id,Number(result.amount));if(!current())return;}
+    storage.removeItem(key);if(storage.getItem(key)!==null)throw Error('تعذر إنهاء سجل محاولة السداد');saved=current();
+   }catch(errorValue){error.textContent=(errorValue.message||'تعذر تسجيل الدفعة')+(confirmedPayment?' — الدفعة محفوظة؛ استكمل الإيصال دون سداد جديد.':operation?' — أعد التحقق بنفس الطلب بأمان':'');}
+   finally{busy=false;sync();submit.textContent=confirmedPayment?'استكمال إيصال الدفعة المحفوظة':operation?'التحقق وإعادة المحاولة':initialLabel;if(!current())dispose();}
    // A callback failure is not a payment failure and must not prompt a new write.
-   if(saved)onSaved?.();
+   if(saved){
+    if(attachmentTarget){attachmentDialog=openReceiptUpload({api,target:attachmentTarget,mode,storage,owner:dialog,isCurrent:current,autoResume:true,onClose:()=>{attachmentDialog=null;finish();}});if(attachmentDialog)sync();else finish();}
+    else finish();
+   }
   };
   form.onsubmit=event=>{
-   event.preventDefault();if(busy||blocked||!current()||reviewDialog?.isConnected)return;
+   event.preventDefault();if(busy||blocked||receiptPicker?.processing||attachmentDialog||!current()||reviewDialog?.isConnected)return;
    try{
     if(operation){savePayment();return;}
     const payload=supplier?paymentPayload(projectId,person.id,sources,form.elements.note.value.trim()):collectionPayload(projectId,person,Number(form.elements.amount.value),form.elements.account.value,form.elements.note.value);
     validateDebtPaymentSnapshot(payload,person.calculated_debt,accounts);
     if(!supplier){savePayment(payload);return;}
     const review=supplierPaymentReview(payload,person,accounts);error.textContent='';fields.disabled=true;
-    reviewDialog=openSupplierPaymentReview({review,mode,isCurrent:current,onConfirm:savePayment,onClose:()=>{reviewDialog=null;if(current()&&!operation)fields.disabled=false;}});
+    reviewDialog=openSupplierPaymentReview({review,mode,isCurrent:current,hasReceipt:!!receiptPicker?.file,onConfirm:savePayment,onClose:()=>{reviewDialog=null;if(current()&&!operation)fields.disabled=false;sync();}});sync();
    }catch(errorValue){error.textContent=errorValue.message||'تعذر مراجعة الدفعة';}
   };
+  sync();
  };
  if(blocked)render([]);
  else if(pendingPayload){

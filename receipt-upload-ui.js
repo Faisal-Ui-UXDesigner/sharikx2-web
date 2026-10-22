@@ -9,7 +9,7 @@ export function receiptUploadAction({mode,storage,existingValue,target,eligible=
  return existingValue===null||existingValue===undefined||existingValue===''?'إرفاق صورة للسجل المحفوظ':null;
 }
 
-export function openReceiptUpload({api,target,mode,storage,owner=document.body,isCurrent=()=>true,onLinked,onClose,initialFile=null,autoUpload=false}){
+export function openReceiptUpload({api,target,mode,storage,owner=document.body,isCurrent=()=>true,onLinked,onClose,initialFile=null,autoUpload=false,autoResume=false}){
  if(mode!=='owner'||!isCurrent()||!owner?.isConnected||document.querySelector('.receipt-upload-dialog'))return;
  target=receiptUploadTarget(target);
  const dialog=document.createElement('dialog');dialog.className='receipt-upload-dialog';dialog.setAttribute('aria-label','إرفاق صورة للسجل المحفوظ');
@@ -20,7 +20,7 @@ export function openReceiptUpload({api,target,mode,storage,owner=document.body,i
  const finish=linked=>{if(ended)return;const notify=current();ended=true;observer.disconnect();revision++;cleanup();dialog.remove();onClose?.();if(linked&&notify)onLinked?.();};
  const observer=new MutationObserver(()=>{if(!current())finish(false);});
  const close=dialog.querySelector('[data-close-upload]'),submit=dialog.querySelector('[data-upload-receipt]'),verify=dialog.querySelector('[data-verify-receipt]'),status=dialog.querySelector('[data-upload-status]'),alert=dialog.querySelector('[role=alert]'),preview=dialog.querySelector('[data-receipt-preview]');
- if(initialFile)close.textContent=target.kind==='expense'?'متابعة — المصروف محفوظ':'متابعة — الفاتورة محفوظة';
+ if(initialFile||autoResume)close.textContent=target.kind==='payment'?'متابعة — الدفعة محفوظة':target.kind==='expense'?'متابعة — المصروف محفوظ':target.kind==='old_debt'?'متابعة — الدين محفوظ':'متابعة — الفاتورة محفوظة';
  const lock=()=>{
   const pending=phase!=='new';submit.disabled=busy||processing||phase==='pending'||phase==='blocked'||(!file&&phase!=='uploaded');verify.hidden=!pending;verify.disabled=busy||processing||phase==='blocked';close.disabled=busy||processing;
   dialog.querySelectorAll('[data-pick-receipt],[data-camera-receipt],input').forEach(node=>node.disabled=busy||processing||['pending','blocked','uploaded'].includes(phase));
@@ -57,5 +57,6 @@ export function openReceiptUpload({api,target,mode,storage,owner=document.body,i
  };
  submit.onclick=()=>{if(!submit.disabled)void attempt(false);};verify.onclick=()=>{if(!verify.disabled)void attempt(true);};
  if(initialFile&&phase==='new')void selectFile(initialFile).then(()=>{if(current()&&file&&autoUpload&&phase==='new')return attempt(false);});
+ else if(autoResume&&phase==='pending')void attempt(false);
  return dialog;
 }

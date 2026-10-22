@@ -15,7 +15,7 @@ try{
  await page.evaluate(async()=>{
   window.editor=(await import('/supplier-old-debt.js')).openSupplierOldDebt;
   window.calls=[];window.saved=0;window.fail=true;
-  window.args={projectId:'p',supplier:{id:'s'},mode:'owner',storage:sessionStorage,onSaved:()=>window.saved++,api:{rpc:async(name,payload)=>{window.calls.push({name,payload});if(window.fail)throw new Error('انقطاع تجريبي');return {id:'old',amount:payload.p_amount};}}};
+  window.args={projectId:'p',supplier:{id:'s'},mode:'owner',storage:sessionStorage,onSaved:()=>window.saved++,api:{rpc:async(name,payload)=>{window.calls.push({name,payload});if(window.fail)throw new Error('انقطاع تجريبي');return {id:'33333333-3333-4333-8333-333333333333',amount:payload.p_amount,supplier_debt:payload.p_amount};}}};
   window.editor(window.args);
  });
  await page.locator('[name=description]').fill('رصيد سابق');await page.locator('[name=amount]').fill('1.13');
