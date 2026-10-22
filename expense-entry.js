@@ -28,3 +28,10 @@ export function expensePayload(projectId,values,accounts){
  if(amount>Number(account.balance))throw new Error('المبلغ أكبر من الرصيد المتاح في الحساب');
  return {p_project_id:projectId,p_category:['daily_wage','daily_wages'].includes(values.category)?'daily_wage':'operating_expense',p_description:String(values.description).trim(),p_amount:amount,p_account_id:account.id};
 }
+
+// confirm_expense_v3 returns this row through the existing idempotent wrapper.
+// Validate its numeric(14,2) acknowledgement, without rounding/changing the request.
+export function verifyExpenseResult(result,payload){
+ const validAmount=value=>['number','string'].includes(typeof value)&&/^(?:\d+)(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(String(value))&&Number.isFinite(Number(value))&&Number(value)>0&&Math.abs(Number(value)*100-Math.round(Number(value)*100))<=1e-8;
+ if(!payload||!result||Array.isArray(result)||typeof result.id!=='string'||! /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(result.id)||!validAmount(result.amount)||!validAmount(payload.p_amount)||Math.round(Number(result.amount)*100)!==Math.round(Number(payload.p_amount)*100)||result.account_id!==payload.p_account_id||result.category!==payload.p_category||result.description!==payload.p_description||Object.hasOwn(result,'project_id')&&result.project_id!==payload.p_project_id)throw Error('تعذر تأكيد بيانات المصروف؛ أعد التحقق بنفس الطلب');
+}

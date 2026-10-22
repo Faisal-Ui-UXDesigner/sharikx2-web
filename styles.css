@@ -59,7 +59,7 @@ dialog[data-barcode-scanner] video[hidden]{display:none}
 .receipt-upload-dialog img{display:block;width:100%;max-height:35dvh;object-fit:contain}
 .receipt-upload-dialog .actions{flex-wrap:wrap}.receipt-upload-dialog .actions>button{flex:1 1 130px}
 .receipt-upload-dialog [hidden]{display:none!important}
-[data-purchase-receipt]{overflow-wrap:anywhere}[data-purchase-receipt] img{display:block;width:100%;max-height:30dvh;object-fit:contain}
-[data-purchase-receipt] .actions{flex-wrap:wrap}[data-purchase-receipt] .actions>button{flex:1 1 120px}
-[data-purchase-receipt] [hidden]{display:none!important}
+.receipt-picker{overflow-wrap:anywhere}.receipt-picker img{display:block;width:100%;max-height:30dvh;object-fit:contain}
+.receipt-picker .actions{flex-wrap:wrap}.receipt-picker .actions>button{flex:1 1 120px}
+.receipt-picker [hidden]{display:none!important}
 .purchase-dialog .purchase-note textarea{display:block;width:100%;min-height:72px;resize:vertical;font:inherit;margin-top:8px;border:1px solid var(--border);border-radius:14px;padding:12px 16px;background:var(--field);color:var(--text)}

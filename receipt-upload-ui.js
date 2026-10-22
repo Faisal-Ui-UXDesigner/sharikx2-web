@@ -20,7 +20,7 @@ export function openReceiptUpload({api,target,mode,storage,owner=document.body,i
  const finish=linked=>{if(ended)return;const notify=current();ended=true;observer.disconnect();revision++;cleanup();dialog.remove();onClose?.();if(linked&&notify)onLinked?.();};
  const observer=new MutationObserver(()=>{if(!current())finish(false);});
  const close=dialog.querySelector('[data-close-upload]'),submit=dialog.querySelector('[data-upload-receipt]'),verify=dialog.querySelector('[data-verify-receipt]'),status=dialog.querySelector('[data-upload-status]'),alert=dialog.querySelector('[role=alert]'),preview=dialog.querySelector('[data-receipt-preview]');
- if(initialFile)close.textContent='متابعة — الفاتورة محفوظة';
+ if(initialFile)close.textContent=target.kind==='expense'?'متابعة — المصروف محفوظ':'متابعة — الفاتورة محفوظة';
  const lock=()=>{
   const pending=phase!=='new';submit.disabled=busy||processing||phase==='pending'||phase==='blocked'||(!file&&phase!=='uploaded');verify.hidden=!pending;verify.disabled=busy||processing||phase==='blocked';close.disabled=busy||processing;
   dialog.querySelectorAll('[data-pick-receipt],[data-camera-receipt],input').forEach(node=>node.disabled=busy||processing||['pending','blocked','uploaded'].includes(phase));
