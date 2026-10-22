@@ -10,6 +10,9 @@ import {controlDeviceId,deviceControlRows,deviceControlPayload,readDeviceIdentit
 import {deviceRequestScope,deviceWriteError} from './device-write-gate.js';
 import {supplierRefundSnapshot} from './supplier-refund.js';
 import {downloadReceipt} from './receipt-api.js';
+import {SUBSCRIPTION_SETTINGS_PATH,subscriptionPaymentSettings} from './subscription-details.js';
+import {loadSubscriptionRequests} from './subscription-requests.js';
+import {changeOwnerPassword} from './owner-password.js';
 import {receiptOwner,receiptRecord,uploadReceiptObject,linkReceipt,paymentReceiptOwner,uploadPaymentReceipt,paymentReceiptRecord} from './receipt-upload-api.js';
 
 function storedSession(value){
@@ -33,6 +36,12 @@ export class Api {
   paymentReceiptOwner(scope){return paymentReceiptOwner(this,scope);}
   uploadPaymentReceipt(intent,file){return uploadPaymentReceipt(this,intent,file);}
   paymentReceiptRecord(scope,id,amount){return paymentReceiptRecord(this,scope,id,amount);}
+  async subscriptionPaymentSettings(){
+    const generation=this.generation,rows=await this.request(SUBSCRIPTION_SETTINGS_PATH,{cache:'no-store',credentials:'omit',redirect:'error',referrerPolicy:'no-referrer'});
+    this.assertGeneration(generation);return subscriptionPaymentSettings(rows);
+  }
+  subscriptionRequests(projectId){return loadSubscriptionRequests(this,projectId);}
+  changeOwnerPassword(projectId,current,next,confirmation){return changeOwnerPassword(this,projectId,current,next,confirmation);}
   constructor(config,storage=null) {
     this.config=config;this.auth=null;this.refreshing=null;this.generation=0;this.storage=storage;this.deviceContext=null;this.deviceEpoch=0;
     this.sessionKey=`sharikx2-auth:${config.url}`;

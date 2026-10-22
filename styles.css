@@ -64,5 +64,14 @@ dialog[data-barcode-scanner] video[hidden]{display:none}
 .receipt-picker [hidden]{display:none!important}
 .supplier-old-debt-dialog{font-family:Cairo,Tahoma,sans-serif;width:min(100% - 16px,520px);max-height:90dvh;overflow-wrap:anywhere}
 .supplier-old-debt-dialog input{font-size:16px}.supplier-old-debt-dialog .old-debt-supplier{font-weight:600}
+.subscription-status-dialog{font-family:Cairo,Tahoma,sans-serif;width:min(100% - 16px,520px);max-height:90dvh;overflow-wrap:anywhere}
+.subscription-status{display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between}.subscription-status.warning{color:var(--primary)}
+.subscription-limit{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--border)}
+.subscription-screen{overflow-wrap:anywhere}.subscription-screen>h2{color:var(--primary)}.subscription-screen>h2,.subscription-screen>p{text-align:center}
+.subscription-payment-accounts summary{cursor:pointer;padding:16px;border:1px solid var(--border);border-radius:16px;background:var(--field)}
+.subscription-payment-detail>div{display:flex;align-items:center;gap:12px;justify-content:space-between}.subscription-payment-detail bdi{overflow-wrap:anywhere;min-width:0;user-select:text}.subscription-payment-detail button{flex-shrink:0}
+.subscription-payment-detail>span{color:var(--muted);font-size:13px}.subscription-payment-detail{margin:16px 0}
+.owner-password-dialog{font-family:Cairo,Tahoma,sans-serif;width:min(100% - 16px,520px);max-height:90dvh;overflow-wrap:anywhere}.owner-password-dialog>p,.owner-password-dialog label{font-size:14px}.owner-password-dialog input{text-align:center;font-size:16px;height:54px}.owner-password-dialog .actions{flex-wrap:wrap}.owner-password-dialog .actions>button{flex:1 1 120px;font-size:14px;padding-inline:8px}.owner-password-action{width:100%;margin-bottom:16px;color:var(--primary)}
+.subscription-requests-dialog{font-family:Cairo,Tahoma,sans-serif;width:min(100% - 16px,560px);max-height:90dvh;overflow-wrap:anywhere}.subscription-requests-dialog [data-request-status=pending] h3{color:var(--primary)}.subscription-requests-dialog [data-request-status=rejected] h3{color:var(--red)}.subscription-requests-dialog [data-request-status=approved] h3{color:var(--green)}
 .supplier-old-debt-dialog .actions{flex-wrap:wrap}.supplier-old-debt-dialog .actions>button{flex:1 1 120px}
 .purchase-dialog .purchase-note textarea,.payment-dialog textarea,.collection-dialog textarea{display:block;width:100%;min-height:72px;resize:vertical;font:inherit;margin-top:8px;border:1px solid var(--border);border-radius:14px;padding:12px 16px;background:var(--field);color:var(--text)}

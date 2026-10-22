@@ -10,6 +10,9 @@ for(const file of ['receipt.js','receipt-api.js','receipt-ui.js','expense-detail
 for(const file of ['receipt-upload.js','receipt-upload-api.js','receipt-upload-ui.js','receipt-picker-ui.js'])await copyFile(file,`dist/${file}`);
 await copyFile('supplier-old-debt-model.js','dist/supplier-old-debt-model.js');
 await copyFile('supplier-payment-receipt.js','dist/supplier-payment-receipt.js');
+for(const file of ['subscription-details.js','subscription-ui.js'])await copyFile(file,`dist/${file}`);
+for(const file of ['subscription-requests.js','subscription-requests-ui.js'])await copyFile(file,`dist/${file}`);
+for(const file of ['owner-password.js','owner-password-ui.js'])await copyFile(file,`dist/${file}`);
 await copyFile('app-shell-layout.js','dist/app-shell-layout.js');
 await copyFile('shared-report.js','dist/shared-report.js');
 await copyFile('purchase-form-ui.js','dist/purchase-form-ui.js');

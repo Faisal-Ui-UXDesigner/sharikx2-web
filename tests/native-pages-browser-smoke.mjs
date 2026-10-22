@@ -27,6 +27,9 @@ try{
   window.original=JSON.stringify(source);
   const identity='web-v1-22222222-2222-4222-8222-222222222222';localStorage.setItem('sharikx2-device:v1:'+encodeURIComponent(SHARIKX2_CONFIG.url),identity);
   Api.prototype.restore=async()=>structuredClone(project);Api.prototype.deviceControl=async()=>({project_id:project.id,active_device_id:identity,active_device_name:'متصفح',generation:1,last_seen_at:'2026-10-14T14:08:00Z',requested_device_id:null,requested_device_name:null,requested_at:null});Api.prototype.financeState=async()=>structuredClone(source);
+  // Plans now perform a real read through their isolated settings adapter.
+  // Keep it explicit in this visual fixture; no external request or write.
+  Api.prototype.subscriptionPaymentSettings=async()=>({price:10,currency:'USD',bank_name:'',bank_account_number:'',bank_iban:'',bank_phone:'',wallet_name:'',wallet_phone:''});
   Api.prototype.rows=async(table)=>table==='sales'?structuredClone(sales):table==='expenses'?[]:[];
   Api.prototype.allRows=async(table)=>{if(window.failHome&&table==='debt_writeoffs')throw Error('خطأ تجريبي في قراءة الملخص');return structuredClone(({products,sales,expenses,purchases:[{id:'p1',invoice_number:1,status:'received',total:170,purchased_at:'2026-10-14T08:00:00Z',returns:[],payments:[{amount:70}],credits:[]}],debt_writeoffs:[],supplier_payments:[],purchase_returns:[]})[table]||[]);};
   Api.prototype.summary=async()=>({customer_debt:0,supplier_debt:100,liquidity:1972,net_project_value:1940,inventory_cost:68,accounts:[{id:'cash',name:'النقد',balance:1972}]});

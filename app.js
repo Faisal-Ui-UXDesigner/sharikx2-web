@@ -32,6 +32,8 @@ import {openSupplierCreate} from './supplier-create-ui.js';
 import {openCustomer} from './customer.js';
 import {openCustomerEditor} from './customer-mutation.js';
 import {bindPwaInstall} from './pwa-install.js';
+import {openSubscriptionStatus,renderSubscriptionPlans} from './subscription-ui.js';
+import {renderOwnerPasswordAction} from './owner-password-ui.js';
 let sessionStore=null;try{sessionStore=window.sessionStorage;}catch{}
 let identityStore=null;try{identityStore=window.localStorage;}catch{}
 // Configuration is deliberately not cached. Offline shell startup must not crash
@@ -52,7 +54,7 @@ function shell(){
  releaseShellLayout=bindAppShellLayout(app.querySelector('.native-app'));
  app.querySelector('[data-menu]').onclick=()=>{const dialog=document.createElement('dialog');dialog.innerHTML=`<h2>القائمة</h2><div class="menu-list"><button data-go="settings">الإعدادات</button><button data-go="accounts">الحسابات</button><button data-go="cashier">الكاشير</button><button data-go="products">البضاعة</button><button data-go="partners">الشركاء</button><button data-go="reports">التقارير</button><button data-logout>تسجيل الخروج</button></div><button data-close class="outline">إغلاق</button>`;app.append(dialog);dialog.showModal();dialog.querySelector('[data-close]').onclick=()=>dialog.remove();dialog.querySelector('[data-logout]').onclick=()=>{api.clearSession();dialog.remove();entry();};dialog.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{screen=b.dataset.go;dialog.remove();shell();});};
  app.querySelector('[data-notifications]').onclick=()=>{const d=document.createElement('dialog');d.innerHTML='<h2>الإشعارات</h2><p class="muted">لا توجد إشعارات لعرضها حاليًا.</p><button class="primary">إغلاق</button>';app.append(d);d.showModal();d.querySelector('button').onclick=()=>d.remove();};
- app.querySelector('[data-plan]').onclick=()=>{const d=document.createElement('dialog');d.innerHTML=`<h2>حالة الحساب</h2><div class="panel">${mode==='viewer'?'المشروع متاح للمشاهدة فقط':project.subscription_status==='active'?'الاشتراك فعّال':'الخطة المجانية فعّالة'}</div><button class="primary">فهمت</button>`;app.append(d);d.showModal();d.querySelector('button').onclick=()=>d.remove();};
+ app.querySelector('[data-plan]').onclick=()=>openSubscriptionStatus({container:app,project,mode,isCurrent:()=>revision===epoch,onPlans:()=>{screen='plans';shell();}});
  app.querySelector('[data-subscribe]')?.addEventListener('click',()=>{screen='plans';shell();});
  app.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{screen=b.dataset.page;shell();});
  const content=app.querySelector('#content');content.innerHTML='<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';window.scrollTo({top:0,behavior:'instant'});load(content,revision);
@@ -62,6 +64,7 @@ async function load(content,revision){try{
  if(screen==='settings'){
   content.innerHTML='<h2>الإعدادات</h2>';
   renderThemeSettings({container:content,controller:themeController,isCurrent:()=>revision===epoch});
+  renderOwnerPasswordAction({api,container:content,project,mode,isCurrent:()=>revision===epoch});
   renderProjectSharing({api,container:content,project,mode,isCurrent:()=>revision===epoch});
   renderDeviceControl({api,container:content,project,mode,isCurrent:()=>revision===epoch});
   renderCurrencySettings({api,container:content,project,mode,isCurrent:()=>revision===epoch,onSaved:shell});
@@ -88,8 +91,7 @@ async function load(content,revision){try{
   if(mode==='owner'){content.querySelector('[data-sale]').onclick=()=>openSale({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});content.querySelector('[data-expense]').onclick=()=>openExpense({api,projectId:project.id,mode,container:app,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});content.querySelector('[data-purchase]').onclick=()=>openPurchase({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});}else{content.querySelectorAll('[data-sale],[data-expense],[data-purchase]').forEach(b=>{b.disabled=true;b.title='المشروع للمشاهدة فقط';});}
   await renderActivity({api,projectId:project.id,container:content.querySelector('[data-activity]'),isCurrent:()=>revision===epoch,mode,onSaved:shell,storage:sessionStore,allowMutations:window.SHARIKX2_CONFIG.expenseMutations===true,onSale:saleDetails});
  }else if(screen==='plans'){
-  const features=[['حفظ المعلومات والحسابات','دائم','دائم'],['عدد الشركاء','2','غير محدود'],['المبيعات اليومية','100','غير محدود'],['أصناف البضاعة','25','غير محدود'],['عدد الموردين','5','غير محدود'],['تقارير شاملة','غير متاح','متاح'],['مشاركة المشروع','غير متاح','غير محدود']];
-  content.innerHTML=`<section class="plans-screen"><h2>أهلًا وسهلًا بك</h2><p class="muted">استمتع باستخدام كامل المزايا بالنسخة المدفوعة</p><div class="plans-table"><div class="plan-head"><b>وجه المقارنة</b><b>المجاني</b><b>المدفوع ♛</b></div>${features.map(([title,free,paid])=>`<div class="plan-row"><span>${escape(title)}</span><span>${escape(free)}</span><span>${escape(paid)}</span></div>`).join('')}</div><div class="panel plan-price"><small>سعر الاشتراك الشهري</small><strong>30 ₪</strong><p class="muted">جميع المزايا الكاملة بدون قيود</p></div></section>`;
+  await renderSubscriptionPlans({api,container:content,projectId:project.id,mode,isCurrent:()=>revision===epoch,onBack:()=>{screen='cashier';shell();}});
  }else if(screen==='reports'){
   await renderReports({api,project,container:content,state:reportState,isCurrent:()=>revision===epoch,onAccounts:()=>{screen='accounts';shell();},onPlans:()=>{screen='plans';shell();}});
  }else if(screen==='partners'){
