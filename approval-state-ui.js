@@ -1,0 +1,7 @@
+import {escape,money} from './ui.js';
+import {approvalStateAudit} from './approval-state.js';
+
+export function approvalStateMarkup(preview){
+ const audit=approvalStateAudit(preview),precise=value=>escape(String(value));
+ return `<section class="panel" data-approval-state-audit><details><summary>تفاصيل ترحيل حسابات الفترة</summary><p class="muted">محاكاة للسجل فقط؛ لا يوجد اعتماد محفوظ أو وقت اعتماد فعلي. التسوية أولًا، ثم تعويض الأرباح السابقة، ثم إضافة حصص الفترة. الأرقام التفصيلية دون تقريب.</p><p>الرصيد المحمي قبل: <b data-state-protected="before">${money(audit.protectedBefore)}</b> — بعد: <b data-state-protected="after">${money(audit.protectedAfter)}</b></p><h4>تغيّر الجزء المسوّى من كل ذمة</h4>${audit.debtChanges.map(row=>`<article data-state-debt-index="${row.index}"><p>${escape(row.name)} — ${escape(row.debtId??'ذمة قديمة بلا معرّف')}</p><p>قبل: <b data-state-debt="before">${precise(row.before)}</b> + تسوية: <b data-state-debt="amount">${precise(row.amount)}</b> = بعد: <b data-state-debt="after">${precise(row.after)}</b></p></article>`).join('')||'<p>لا توجد تسويات جديدة.</p>'}<p>مجموع التسويات دون تقريب: <b data-state-settled>${precise(audit.settled)}</b></p><p>حركة نقدية إضافية بسبب الترحيل: <b data-state-cash>${money(audit.cashMovement)}</b>. تبقى السحوبات وأصل الذمم ورأس المال كما هي.</p><p class="muted">التثبيت الفعلي غير متاح حتى اكتمال حماية الجهاز المسؤول والتحقق من المزامنة. تفاصيل الترحيل لا تمنح صلاحية مالية ولا تنشئ طلب حفظ.</p></details></section>`;
+}

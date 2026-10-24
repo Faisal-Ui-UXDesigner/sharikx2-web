@@ -1,0 +1,56 @@
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import assert from 'node:assert/strict';
+import {startPreviewServer} from '../scripts/preview-server.mjs';
+const require=createRequire(import.meta.url),{chromium}=require('C:/Users/HP/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const browser=await chromium.launch({headless:true,channel:'msedge'}),preview=await startPreviewServer({root:fileURLToPath(new URL('..',import.meta.url))});
+try{
+ const page=await browser.newPage({viewport:{width:393,height:874},serviceWorkers:'block'}),errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/*',route=>new URL(route.request().url()).origin===preview.origin?route.continue():route.abort());
+ await page.goto(preview.origin+'/styles.css');
+ await page.setContent('<html dir="rtl" lang="ar"><head><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/native-layout.css"></head><body></body></html>');
+ await page.evaluate(async()=>{
+  const {openPurchase}=await import('/purchase.js');window.current=true;window.calls=0;
+  window.products=[{id:'p',name:'صنف تجريبي',weighted_unit_cost:1.005}];window.original=JSON.stringify(products);
+  window.api={allRows:async table=>table==='products'?structuredClone(products):[{id:'s',name:'مورد'}],summary:async()=>({accounts:[{id:'a',name:'النقد',balance:100}]}),supplierCredits:async()=>[],rpc:async()=>{calls++;throw Error('No writes');}};
+  window.show=()=>openPurchase({api,projectId:'fixture',mode:'owner',storage:sessionStorage,isCurrent:()=>current});show();
+ });
+ const entry=page.locator('.purchase-inline-entry'),calculator=page.locator('.purchase-calculator');
+ const quantity=entry.locator('[name=quantity]'),cost=entry.locator('[name=cost]');
+ const expression=()=>calculator.locator('[name=expression]');
+ const open=target=>entry.locator(`[data-purchase-calculator=${target}]`).click();
+ const apply=()=>calculator.locator('[type=submit]').click();
+ const submitParent=()=>page.locator('.purchase-dialog > .body > form').evaluate(form=>form.dispatchEvent(new Event('submit',{cancelable:true})));
+ await quantity.fill('2.5');await cost.fill('1.005');await open('quantity');
+ assert.equal(await quantity.isDisabled(),true);assert.equal(await calculator.count(),1);
+ await expression().fill('١ + ٢ × ٣');await calculator.locator('[data-key="="]').click();
+ assert.equal(await calculator.locator('output').innerText(),'= 7');assert.equal(await quantity.inputValue(),'2.5');
+ await submitParent();await entry.locator('[data-enter-purchase-line]').evaluate(button=>button.onclick());
+ await entry.locator('[data-purchase-calculator=cost]').evaluate(button=>button.onclick());
+ assert.equal(await page.locator('[data-qty]').count(),0);assert.equal(await calculator.count(),1);
+ await page.keyboard.press('Escape');assert.equal(await quantity.inputValue(),'2.5');
+ assert.equal(await entry.locator('[data-purchase-calculator=quantity]').evaluate(node=>node===document.activeElement),true);
+ await open('quantity');await expression().fill('1/0');await apply();assert.match(await calculator.locator('[role=alert]').innerText(),/صفر/);
+ await expression().fill('1-2');await page.keyboard.press('=');assert.equal(await calculator.locator('output').innerText(),'= -1');await apply();assert.match(await calculator.locator('[role=alert]').innerText(),/أكبر من صفر/);
+ await expression().fill('1/8');await apply();assert.equal(await quantity.inputValue(),'0.13');assert.equal(await cost.inputValue(),'1.005');
+ await open('cost');assert.equal(await calculator.getAttribute('aria-label'),'حاسبة سعر الشراء');
+ await calculator.locator('[data-key="مسح"]').click();for(const key of ['1','.','0','0','5'])await calculator.locator(`[data-key="${key}"]`).click();
+ await calculator.locator('[data-key="="]').click();assert.equal(await calculator.locator('output').innerText(),'= 1.01');
+ for(const width of [320,393,720]){await page.setViewportSize({width,height:874});assert.equal(await calculator.evaluate(node=>node.scrollWidth>node.clientWidth),false);}
+ await apply();await entry.locator('[data-enter-purchase-line]').click();
+ assert.equal(await quantity.inputValue(),'');assert.equal(await cost.inputValue(),'');assert.match(await page.locator('[data-total]').innerText(),/0\.13/);
+ await quantity.fill('1');await cost.fill('1.005');await open('cost');await expression().fill('9');await calculator.locator('[data-cancel-calculator]').click();assert.equal(await cost.inputValue(),'1.005');
+ await entry.locator('[data-enter-purchase-line]').click();assert.equal(await page.locator('[data-cost]').last().inputValue(),'1.005');
+ await cost.fill('2');await open('cost');await page.evaluate(()=>{document.querySelector('.purchase-inline-entry [name=cost]').value='3';});
+ await calculator.locator('form').evaluate(form=>form.dispatchEvent(new Event('submit',{cancelable:true})));
+ await page.waitForFunction(()=>!document.querySelector('.purchase-calculator'));assert.equal(await cost.inputValue(),'3');assert.equal(await cost.isDisabled(),false);
+ await open('quantity');await page.evaluate(()=>current=false);await calculator.locator('form').evaluate(form=>form.dispatchEvent(new Event('submit',{cancelable:true})));await page.keyboard.press('Escape');
+ assert.equal(await page.evaluate(()=>calls),0);
+ await page.evaluate(()=>{document.querySelector('.purchase-dialog').remove();current=true;show();});await open('quantity');
+ await page.evaluate(()=>document.querySelector('.purchase-dialog').close());await page.waitForFunction(()=>!document.querySelector('.purchase-calculator'));
+ await page.evaluate(()=>{document.querySelector('.purchase-dialog').remove();show();});await open('quantity');
+ await page.evaluate(()=>document.querySelector('.purchase-dialog').remove());await page.waitForFunction(()=>!document.querySelector('.purchase-calculator'));
+ assert.equal(await page.evaluate(()=>sessionStorage.length),0);assert.equal(await page.evaluate(()=>JSON.stringify(products)===original),true);assert.deepEqual(errors,[]);
+ console.log('PASS: inline quantity/price calculators, exact Unicode/keypad preview/apply vs cancel, parent submit/child locks, focus and manual precision, changed-target/stale/closed/removed cleanup, 320/393/720px RTL and no financial writes');
+}finally{await browser.close();await preview.close();}

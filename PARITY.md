@@ -1,5 +1,7 @@
 # Android parity gate
 
+Current inventory, data boundaries, accounting references and staged acceptance: [CURRENT_STATUS.md](CURRENT_STATUS.md). The original checklist below is historical; do not use its early “not implemented” labels as a current implementation inventory, or confuse local test coverage with deployed parity.
+
 All entries below remain incomplete until validated against Android and server behavior.
 
 - Project creation, restoration, owner credentials, view-only sharing, subscription state and free limits. Web now has a three-step creation flow and opening capital distribution using SharikX2 RPCs; live end-to-end verification is still required before calling this parity-complete.

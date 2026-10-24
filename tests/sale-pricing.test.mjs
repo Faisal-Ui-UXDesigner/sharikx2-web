@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {saleUnitPrice,salePriceForTotal,saleLineTotal,salePriceTotals} from '../sale-pricing.js';
+import {salePayload} from '../sale.js';
+test('unit prices round half up at four decimal places like Android',()=>{assert.equal(saleUnitPrice('1.23445'),1.2345);assert.equal(saleUnitPrice('0.00005'),.0001);assert.equal(saleUnitPrice('.005'),.005);assert.equal(saleUnitPrice(1e-7),0);assert.equal(saleUnitPrice(0),0);});
+test('promotional total derives four-place price and resulting rounded line amount',()=>{assert.equal(salePriceForTotal(10,3),3.3333);assert.equal(saleLineTotal({price:3.3333,quantity:3}),10);assert.equal(salePriceForTotal('1','0.25'),4);});
+test('line money rounds decimal boundaries without binary floating errors',()=>{assert.equal(saleLineTotal({price:1.005,quantity:1}),1.01);assert.equal(saleLineTotal({price:.1,quantity:.25}),.03);});
+test('Android sum and per-line server sum remain separate explicit projections',()=>{const cart=[{price:.005,quantity:1},{price:.005,quantity:1}],copy=structuredClone(cart);assert.deepEqual(salePriceTotals(cart),{subtotal:.01,serverSubtotal:.02});assert.deepEqual(cart,copy);assert.deepEqual(salePriceTotals([]),{subtotal:0,serverSubtotal:0});});
+test('invalid prices and promotional totals fail before dispatch',()=>{for(const value of ['',null,undefined,NaN,Infinity,-1,true,'bad',1e11])assert.throws(()=>saleUnitPrice(value));for(const [t,q] of [[0,1],[1,0],[-1,1],[1,'']])assert.throws(()=>salePriceForTotal(t,q));});
+test('sale payload permits rounded fractional price without modifying cart or product state',()=>{const cart=[{id:'p',stock:4,quantity:3,price:3.33333,cost:2}],copy=structuredClone(cart);assert.equal(salePayload('project',cart,'cash',[{id:'cash'}]).p_items[0].unit_sale_price,3.3333);assert.deepEqual(cart,copy);});

@@ -1,4 +1,6 @@
 import {Api} from './api.js';
+import {appShellMarkup} from './app-shell-ui.js';
+import {bindAppShellLayout} from './app-shell-layout.js';
 import {escape,money,timestamp,status,setCurrency} from './ui.js';
 import {openExpense,renderExpenses} from './expense.js';
 import {openSale} from './sale.js';
@@ -8,59 +10,126 @@ import {openPurchase} from './purchase.js';
 import {openPayment} from './payment.js';
 import {openCollection} from './collection.js';
 import {openReturn} from './return-ui.js';
+import {openSaleDetails} from './sale-details-ui.js';
 import {openOnboarding} from './onboarding.js';
-import {icon} from './icons.js';
+import {promptOpeningDistribution} from './opening-distribution-ui.js';
+import {createReportState,renderReports} from './report-ui.js';
+import {renderPartners} from './partners-ui.js';
+import {renderFinancialAccounts} from './accounts-ui.js';
+import {renderCurrencySettings} from './currency-ui.js';
+import {themeController} from './theme-bootstrap.js';
+import {renderThemeSettings} from './theme-ui.js';
+import {renderFaq} from './faq-ui.js';
+import {renderProjectSharing} from './project-sharing-ui.js';
+import {renderDeviceControl} from './device-control-ui.js';
+import {renderDeviceBanner} from './device-banner-ui.js';
+import {renderInventory} from './inventory-ui.js';
+import {createInventoryViewStore} from './inventory-view-state.js';
+import {renderDebtDirectory} from './debt-directory-ui.js';
+import {openDebtDetails} from './debt-details-ui.js';
+import {openSupplierEditor} from './supplier-mutation.js';
+import {openSupplierCreate} from './supplier-create-ui.js';
+import {openCustomer} from './customer.js';
+import {openCustomerEditor} from './customer-mutation.js';
+import {bindPwaInstall} from './pwa-install.js';
+import {openSubscriptionStatus,renderSubscriptionPlans} from './subscription-ui.js';
+import {renderOwnerPasswordAction} from './owner-password-ui.js';
+import {bindProjectNotificationBell} from './project-notification-bell.js';
+import {createNotificationReadState} from './project-notification-state.js';
 let sessionStore=null;try{sessionStore=window.sessionStorage;}catch{}
-const api=new Api(window.SHARIKX2_CONFIG,sessionStore),app=document.querySelector('#app');
-let project=null,mode='owner',screen='cashier',epoch=0;
-let installPrompt=null;
-window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;const button=document.createElement('button');button.className='outline';button.textContent='تثبيت التطبيق';button.onclick=async()=>{button.disabled=true;await installPrompt.prompt();installPrompt=null;button.remove();};document.querySelector('#notice')?.append(button);});
+let identityStore=null;try{identityStore=window.localStorage;}catch{}
+// Configuration is deliberately not cached. Offline shell startup must not crash
+// or invent a backend/session when config.js cannot be loaded.
+const api=new Api(window.SHARIKX2_CONFIG??{url:'',publicKey:''},sessionStore),app=document.querySelector('#app');
+let project=null,mode='owner',screen='cashier',epoch=0,accountPeriod='month';
+let reportState=createReportState();
+let inventoryViewStore=createInventoryViewStore();
+let releaseShellLayout=()=>{};
+let releaseNotificationBell=()=>{},notificationReadState=createNotificationReadState();
+bindPwaInstall({root:document.querySelector('#install-action')});
 function notice(message){document.querySelector('#notice').textContent=message;}
-function entry(){epoch++;project=null;openOnboarding({app,api,onOpen:(opened,role)=>{project=opened;mode=role;screen='cashier';shell();}});}
+function entry(){
+ releaseShellLayout();releaseShellLayout=()=>{};
+ releaseNotificationBell();releaseNotificationBell=()=>{};
+ notificationReadState=createNotificationReadState();
+ epoch++;api.clearDeviceContext();project=null;setCurrency('ILS');
+ reportState=createReportState();inventoryViewStore=createInventoryViewStore();
+ openOnboarding({app,api,storage:sessionStore,onOpen:(opened,role)=>{
+  notificationReadState=createNotificationReadState();project=opened;mode=role;
+  setCurrency(project.currency);screen='cashier';shell();
+  void promptOpeningDistribution({api,storage:sessionStore,projectId:opened.id,mode:role,isCurrent:()=>project?.id===opened.id&&mode===role,onComplete:shell})
+   .catch(error=>{if(project?.id===opened.id)notice(error.message);});
+ }});
+}
 function shell(){
+ releaseShellLayout();
+ releaseNotificationBell();
  const revision=++epoch;
- const navigation=[['accounts','الحسابات','accounts'],['products','البضاعة','inventory'],['cashier','الكاشير','cashier'],['partners','الشركاء','partners'],['reports','التقارير','reports']];
- app.innerHTML=`<div class="workspace"><header class="app-header"><div class="project-heading"><h1><span class="project-pencil">✎</span>${escape(project.name)}</h1><small>#${escape(project.project_number||'')}</small><div class="plan-line"><button data-plan class="plan-info">${mode==='viewer'?'مشاهدة فقط':project.subscription_status==='active'?'حساب مفعل':'خطة مجانية'} ⓘ</button>${mode==='owner'&&project.subscription_status!=='active'?'<button data-subscribe class="subscribe">اشترك الآن</button>':''}</div></div><div class="header-tools"><button data-menu aria-label="القائمة الجانبية">${icon('menu',26)}</button><button data-notifications aria-label="الإشعارات">${icon('bell',26)}</button></div></header><section id="content"></section><nav aria-label="التنقل الرئيسي">${navigation.map(([id,title,symbol])=>`<button data-page="${id}" class="${screen===id?'selected':''} ${id==='cashier'?'cashier-nav':''}" aria-current="${screen===id?'page':'false'}"><span class="nav-icon">${icon(symbol,id==='cashier'?27:24)}</span><span class="nav-label">${title}</span></button>`).join('')}</nav></div>`;
- app.querySelector('[data-menu]').onclick=()=>{const dialog=document.createElement('dialog');dialog.innerHTML=`<h2>القائمة</h2><div class="menu-list"><button data-go="accounts">الحسابات</button><button data-go="cashier">الكاشير</button><button data-go="products">البضاعة</button><button data-go="partners">الشركاء</button><button data-go="reports">التقارير</button><button data-logout>تسجيل الخروج</button></div><button data-close class="outline">إغلاق</button>`;app.append(dialog);dialog.showModal();dialog.querySelector('[data-close]').onclick=()=>dialog.remove();dialog.querySelector('[data-logout]').onclick=()=>{api.clearSession();dialog.remove();entry();};dialog.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{screen=b.dataset.go;dialog.remove();shell();});};
- app.querySelector('[data-notifications]').onclick=()=>{const d=document.createElement('dialog');d.innerHTML='<h2>الإشعارات</h2><p class="muted">لا توجد إشعارات لعرضها حاليًا.</p><button class="primary">إغلاق</button>';app.append(d);d.showModal();d.querySelector('button').onclick=()=>d.remove();};
- app.querySelector('[data-plan]').onclick=()=>{const d=document.createElement('dialog');d.innerHTML=`<h2>حالة الحساب</h2><div class="panel">${mode==='viewer'?'المشروع متاح للمشاهدة فقط':project.subscription_status==='active'?'الاشتراك فعّال':'الخطة المجانية فعّالة'}</div><button class="primary">فهمت</button>`;app.append(d);d.showModal();d.querySelector('button').onclick=()=>d.remove();};
+ api.setDeviceContext({projectId:project.id,mode,identityStorage:identityStore});
+ app.innerHTML=appShellMarkup({project,mode,screen});
+ releaseShellLayout=bindAppShellLayout(app.querySelector('.native-app'));
+ app.querySelector('[data-menu]').onclick=()=>{const dialog=document.createElement('dialog');dialog.innerHTML=`<h2>القائمة</h2><div class="menu-list"><button data-go="settings">الإعدادات</button><button data-go="accounts">الحسابات</button><button data-go="cashier">الكاشير</button><button data-go="products">البضاعة</button><button data-go="partners">الشركاء</button><button data-go="reports">التقارير</button><button data-logout>تسجيل الخروج</button></div><button data-close class="outline">إغلاق</button>`;app.append(dialog);dialog.showModal();dialog.querySelector('[data-close]').onclick=()=>dialog.remove();dialog.querySelector('[data-logout]').onclick=()=>{api.clearSession();dialog.remove();entry();};dialog.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{screen=b.dataset.go;dialog.remove();shell();});};
+ releaseNotificationBell=bindProjectNotificationBell({button:app.querySelector('[data-notifications]'),api,project,mode,readState:notificationReadState,owner:app,isCurrent:()=>revision===epoch});
+ app.querySelector('[data-plan]').onclick=()=>openSubscriptionStatus({container:app,project,mode,isCurrent:()=>revision===epoch,onPlans:()=>{screen='plans';shell();}});
  app.querySelector('[data-subscribe]')?.addEventListener('click',()=>{screen='plans';shell();});
  app.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{screen=b.dataset.page;shell();});
- const content=app.querySelector('#content');content.innerHTML='<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';load(content,revision);
+ const content=app.querySelector('#content');content.innerHTML='<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';window.scrollTo({top:0,behavior:'instant'});load(content,revision);
+ renderDeviceBanner({api,container:app.querySelector('.workspace'),project,mode,identityStorage:identityStore,isCurrent:()=>revision===epoch});
 }
 async function load(content,revision){try{
- if(screen==='accounts'){
-  const s=await api.summary(project.id);if(revision!==epoch)return;
-  content.innerHTML=`<h2>الحسابات</h2><div class="hero panel"><p>الموجود في المشروع</p><strong>${money(s.net_project_value)}</strong><div class="metrics"><span>السيولة<br><b>${money(s.liquidity)}</b></span><span>البضاعة بسعر الشراء<br><b>${money(s.inventory_cost)}</b></span></div><p class="muted small">السيولة + البضاعة + ديون الزبائن − ديون الموردين</p></div><div class="metrics panel"><span>ديون الزبائن<br><b>${money(s.customer_debt)}</b></span><span>ديون الموردين<br><b>${money(s.supplier_debt)}</b></span></div><h2>السيولة داخل الحسابات</h2>${(s.accounts||[]).map(a=>`<article class="panel row"><span>${escape(a.name)}</span><b>${money(a.balance)}</b></article>`).join('')}`;
-  if(mode==='owner'){const currencyPanel=document.createElement('section');currencyPanel.className='panel';currencyPanel.innerHTML='<label>عملة المشروع<select><option value="ILS">الشيكل الإسرائيلي</option><option value="JOD">الدينار الأردني</option><option value="SAR">الريال السعودي</option><option value="AED">الدرهم الإماراتي</option><option value="EGP">الجنيه المصري</option></select></label><button class="primary">حفظ العملة</button><p role="alert"></p>';content.append(currencyPanel);const select=currencyPanel.querySelector('select'),save=currencyPanel.querySelector('button');select.value=project.currency||'ILS';save.onclick=async()=>{save.disabled=true;save.textContent='جارٍ الحفظ…';try{await api.updateCurrency(project.id,select.value);project.currency=select.value;setCurrency(select.value);shell();}catch(e){currencyPanel.querySelector('[role=alert]').textContent=e.message;}finally{save.disabled=false;save.textContent='حفظ العملة';}};}
-  if(mode==='owner'&&window.SHARIKX2_CONFIG.transfers===true){const b=document.createElement('button');b.className='outline';b.textContent='التحويل بين الحسابات';content.append(b);b.onclick=()=>openTransfer({api,projectId:project.id,mode,storage:sessionStore,onSaved:shell});}
+ if(screen==='settings'){
+  content.innerHTML='<h2>الإعدادات</h2>';
+  renderThemeSettings({container:content,controller:themeController,isCurrent:()=>revision===epoch});
+  renderOwnerPasswordAction({api,container:content,project,mode,isCurrent:()=>revision===epoch});
+  renderProjectSharing({api,container:content,project,mode,isCurrent:()=>revision===epoch});
+  renderDeviceControl({api,container:content,project,mode,isCurrent:()=>revision===epoch});
+  renderCurrencySettings({api,container:content,project,mode,isCurrent:()=>revision===epoch,onSaved:shell});
+  const faq=document.createElement('button');faq.type='button';faq.className='outline';faq.dataset.openFaq='';faq.textContent='الأسئلة الشائعة';content.append(faq);faq.onclick=()=>{if(revision===epoch&&content.isConnected){screen='faq';shell();}};
+ }else if(screen==='faq'){
+  renderFaq({container:content,isCurrent:()=>revision===epoch,onBack:()=>{screen='settings';shell();}});
+ }else if(screen==='accounts'){
+  await renderFinancialAccounts({api,project,container:content,isCurrent:()=>revision===epoch,periodMode:accountPeriod,onPeriodChange:value=>{accountPeriod=value;shell();},mode,onTransfer:mode==='owner'&&window.SHARIKX2_CONFIG.transfers===true?()=>openTransfer({api,projectId:project.id,mode,storage:sessionStore,onSaved:shell}):undefined});
+  if(revision!==epoch)return;
+  renderCurrencySettings({api,container:content,project,mode,isCurrent:()=>revision===epoch,onSaved:shell});
  }else if(['customers','suppliers'].includes(screen)){
-  const data=await api.debts(project.id);if(revision!==epoch)return;
-  const kind=screen,rows=data[kind]||[];let archived=false,count=20;
-  if(kind==='suppliers'&&mode==='owner'){const b=document.createElement('button');b.className='primary';b.textContent='تسجيل فاتورة شراء';content.append(b);b.onclick=()=>openPurchase({api,projectId:project.id,mode,storage:sessionStore,onSaved:shell});}
-  content.innerHTML=`<h2>${kind==='customers'?'ديون الزبائن':'ديون الموردين'}</h2><div class="tabs"><button class="primary" data-tab="active">ديون عالقة</button><button data-tab="archive">أرشيف السداد</button></div><label class="search">بحث<input id="search" type="search" placeholder="الاسم أو رقم الجوال"></label><div class="panel metrics"><span>إجمالي الديون العالقة<br><b>${money(data[kind==='customers'?'customer_debt':'supplier_debt'])}</b></span><span>عدد المدينين<br><b>${rows.filter(x=>Number(x.calculated_debt)>0).length}</b></span></div><div id="rows"></div><button id="more" class="outline">تحميل المزيد</button>`;
-  const draw=()=>{const q=content.querySelector('#search').value;const filtered=rows.filter(x=>(Number(x.calculated_debt)<=0)===archived&&`${x.name} ${x.phone}`.includes(q));content.querySelector('#rows').innerHTML=filtered.slice(0,count).map((x,i)=>`<article class="panel row" data-person="${escape(x.id)}"><div><b>${escape(x.name)}</b><p class="muted">${escape(x.phone)}</p>${mode==='owner'&&Number(x.calculated_debt)>0?`<button type="button" data-collect="${escape(x.id)}">${kind==='customers'?'تحصيل دفعة':'تسديد دفعة'}</button>`:''}</div><strong>${money(x.calculated_debt)}</strong></article>`).join('')||'<div class="panel">لا توجد نتائج</div>';content.querySelector('#more').hidden=filtered.length<=count;content.querySelectorAll('[data-collect]').forEach(b=>b.onclick=()=>{const person=rows.find(x=>x.id===b.dataset.collect);if(kind==='customers')openCollection({api,projectId:project.id,customer:person,mode,storage:sessionStore,onSaved:shell});else openPayment({api,projectId:project.id,supplier:person,mode,storage:sessionStore,onSaved:shell});});content.querySelectorAll('[data-person]').forEach(b=>b.onclick=e=>{if(e.target.closest('button'))return;personDetails(kind,rows.find(x=>x.id===b.dataset.person));});};
-  content.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{archived=b.dataset.tab==='archive';count=20;content.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x===b));draw();});content.querySelector('#search').oninput=()=>{count=20;draw();};content.querySelector('#more').onclick=()=>{count+=20;draw();};draw();
+  const kind=screen,projectId=project.id,current=()=>revision===epoch;
+  const options={api,projectId,mode,storage:sessionStore,isCurrent:current,onSaved:shell};
+  await renderDebtDirectory({container:content,kind,mode,isCurrent:current,loadSnapshot:()=>api.debts(projectId),
+   onBack:()=>{screen='cashier';shell();},onOpen:person=>personDetails(kind,person),
+   onAdd:()=>kind==='customers'?openCustomer(options):openSupplierCreate(options),onPurchase:()=>openPurchase(options),
+   onEdit:person=>kind==='customers'?openCustomerEditor({...options,customer:person}):openSupplierEditor({...options,supplier:person}),
+   onPayment:person=>personPayment(kind,person,revision,projectId),
+   onArchive:async person=>{if(window.confirm('هل تريد أرشفة المورد؟')){await api.archiveSupplier(projectId,person.id);if(current())shell();}}
+  });
  }else if(screen==='cashier'){
-  content.innerHTML=`<section class="cashier-intro"><h2>الكاشير</h2><p class="muted">سجّل المبيعات والديون والمصروفات من مكان واحد</p></section><div class="cashier-grid"><button data-sale><span class="action-icon"><img src="./assets/icon_cashier_colorful.png" alt=""></span><b>مبيعة جديدة</b></button><button data-customers><span class="action-icon"><img src="./assets/icon_customer_debt_colorful.png" alt=""></span><b>ديون الزبائن</b></button><button data-suppliers><span class="action-icon"><img src="./assets/icon_supplier_debt_colorful.png" alt=""></span><b>ديون الموردين</b></button><button data-expense><span class="action-icon"><img src="./assets/icon_expense_colorful.png" alt=""></span><b>مصروف جديد</b></button></div><button class="purchase-action" data-purchase><img src="./assets/icon_purchase_colorful.png" alt=""><span>تسجيل فاتورة شراء</span></button><section data-activity></section>`;
+  content.innerHTML=`<section class="cashier-intro"><h2>الكاشير</h2><p class="muted">سجّل المبيعات والديون والمصروفات من مكان واحد</p></section><div class="cashier-grid"><button data-sale><span class="action-icon"><img src="./assets/icon_cashier_colorful.png" alt=""></span><b>مبيعة جديدة</b></button><button data-customers><span class="action-icon"><img src="./assets/icon_customer_debt_colorful.png" alt=""></span><b>ديون الزبائن</b></button><button data-suppliers><span class="action-icon"><img src="./assets/icon_supplier_debt_colorful.png" alt=""></span><b>حسابات الموردين</b></button><button data-expense><span class="action-icon"><img src="./assets/icon_expense_colorful.png" alt=""></span><b>مصروف جديد</b></button></div><button class="purchase-action" data-purchase><img src="./assets/icon_purchase_colorful.png" alt=""><span>تسجيل فاتورة شراء</span></button><section data-activity></section>`;
   content.querySelector('[data-customers]').onclick=()=>{screen='customers';shell();};content.querySelector('[data-suppliers]').onclick=()=>{screen='suppliers';shell();};
-  if(mode==='owner'){content.querySelector('[data-sale]').onclick=()=>openSale({api,projectId:project.id,mode,storage:sessionStore,onSaved:shell});content.querySelector('[data-expense]').onclick=()=>openExpense({api,projectId:project.id,mode,container:app,storage:sessionStore,onSaved:shell});content.querySelector('[data-purchase]').onclick=()=>openPurchase({api,projectId:project.id,mode,storage:sessionStore,onSaved:shell});}else{content.querySelectorAll('[data-sale],[data-expense],[data-purchase]').forEach(b=>{b.disabled=true;b.title='المشروع للمشاهدة فقط';});}
-  await renderActivity({api,projectId:project.id,container:content.querySelector('[data-activity]'),isCurrent:()=>revision===epoch,mode,onSaved:shell,allowMutations:window.SHARIKX2_CONFIG.expenseMutations===true,onSale:saleDetails});
+  if(mode==='owner'){content.querySelector('[data-sale]').onclick=()=>openSale({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});content.querySelector('[data-expense]').onclick=()=>openExpense({api,projectId:project.id,mode,container:app,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});content.querySelector('[data-purchase]').onclick=()=>openPurchase({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});}else{content.querySelectorAll('[data-sale],[data-expense],[data-purchase]').forEach(b=>{b.disabled=true;b.title='المشروع للمشاهدة فقط';});}
+  await renderActivity({api,projectId:project.id,container:content.querySelector('[data-activity]'),isCurrent:()=>revision===epoch,mode,onSaved:shell,storage:sessionStore,allowMutations:window.SHARIKX2_CONFIG.expenseMutations===true,onSale:saleDetails});
  }else if(screen==='plans'){
-  const features=[['حفظ المعلومات والحسابات','دائم','دائم'],['عدد الشركاء','2','غير محدود'],['المبيعات اليومية','100','غير محدود'],['أصناف البضاعة','25','غير محدود'],['عدد الموردين','5','غير محدود'],['تقارير شاملة','غير متاح','متاح'],['مشاركة المشروع','غير متاح','غير محدود']];
-  content.innerHTML=`<section class="plans-screen"><h2>أهلًا وسهلًا بك</h2><p class="muted">استمتع باستخدام كامل المزايا بالنسخة المدفوعة</p><div class="plans-table"><div class="plan-head"><b>وجه المقارنة</b><b>المجاني</b><b>المدفوع ♛</b></div>${features.map(([title,free,paid])=>`<div class="plan-row"><span>${escape(title)}</span><span>${escape(free)}</span><span>${escape(paid)}</span></div>`).join('')}</div><div class="panel plan-price"><small>سعر الاشتراك الشهري</small><strong>30 ₪</strong><p class="muted">جميع المزايا الكاملة بدون قيود</p></div></section>`;
- }else if(screen==='partners'||screen==='reports'){
-  content.innerHTML=`<h2>${screen==='partners'?'الشركاء':'التقارير'}</h2><div class="panel"><p class="muted">${screen==='partners'?'إدارة الشركاء التفصيلية لم تكتمل بعد في الويب. بيانات المشروع محفوظة في SharikX2.':'التقارير التفصيلية لم تكتمل بعد في الويب؛ لا يؤثر ذلك على حسابات المشروع.'}</p></div>`;
+  await renderSubscriptionPlans({api,container:content,projectId:project.id,mode,isCurrent:()=>revision===epoch,onBack:()=>{screen='cashier';shell();}});
+ }else if(screen==='reports'){
+  await renderReports({api,project,container:content,state:reportState,isCurrent:()=>revision===epoch,onAccounts:()=>{screen='accounts';shell();},onPlans:()=>{screen='plans';shell();}});
+ }else if(screen==='partners'){
+  await renderPartners({api,projectId:project.id,project,storage:sessionStore,container:content,mode,isCurrent:()=>revision===epoch,onSaved:shell,onPlans:()=>{screen='plans';shell();}});
+ }else if(screen==='products'){
+  await renderInventory({api,projectId:project.id,project,container:content,isCurrent:()=>revision===epoch,mode,onSaved:shell,onPlans:()=>{screen='plans';shell();},viewStore:inventoryViewStore});
  }else{
   const table=screen==='cashier'?'sales':'products';const select=table==='sales'?'*,customer:sharikx2_customers(name,phone)':'*';let rows=await api.rows(table,project.id,select,0,table==='products'?{active:'eq.true'}:{});if(revision!==epoch)return;let offset=rows.length,hasMore=rows.length===20;
   content.innerHTML=`<h2>${table==='sales'?'سجل المبيعات':'البضاعة'}</h2><p class="muted small">عرض للقراءة فقط — عمليات الإضافة والتعديل قيد التنفيذ.</p><label>بحث في السجلات المحملة<input id="search" type="search" placeholder="ابحث بالاسم أو الرقم"></label><div id="rows"></div><p id="list-error" role="alert"></p><button id="more" class="outline">تحميل المزيد</button>`;
-  if(table==='sales'){renderExpenses({api,projectId:project.id,container:content,isCurrent:()=>revision===epoch,mode,onSaved:shell,allowMutations:window.SHARIKX2_CONFIG.expenseMutations===true});if(mode==='owner'){const actions=document.createElement('div');actions.className='actions';actions.innerHTML='<button class="primary" data-new-sale>مبيعة جديدة</button><button data-new-expense>مصروف جديد</button>';content.prepend(actions);actions.querySelector('[data-new-sale]').onclick=()=>openSale({api,projectId:project.id,mode,storage:sessionStore,onSaved:()=>{notice('تم اعتماد المبيعة وإضافة المبلغ للحساب');shell();}});actions.querySelector('[data-new-expense]').onclick=()=>openExpense({api,projectId:project.id,mode,container:app,onSaved:()=>{notice('تم تسجيل المصروف وخصمه من الحساب');shell();},storage:sessionStore});}}
+  if(table==='sales'){renderExpenses({api,projectId:project.id,container:content,isCurrent:()=>revision===epoch,mode,onSaved:shell,allowMutations:window.SHARIKX2_CONFIG.expenseMutations===true});if(mode==='owner'){const actions=document.createElement('div');actions.className='actions';actions.innerHTML='<button class="primary" data-new-sale>مبيعة جديدة</button><button data-new-expense>مصروف جديد</button>';content.prepend(actions);actions.querySelector('[data-new-sale]').onclick=()=>openSale({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:()=>{notice('تم اعتماد المبيعة وإضافة المبلغ للحساب');shell();}});actions.querySelector('[data-new-expense]').onclick=()=>openExpense({api,projectId:project.id,mode,container:app,isCurrent:()=>revision===epoch,onSaved:()=>{notice('تم تسجيل المصروف وخصمه من الحساب');shell();},storage:sessionStore});}}
   const draw=()=>{const q=content.querySelector('#search').value;const shown=rows.filter(x=>`${x.name||''} ${x.customer?.name||''} ${x.sale_number||''}`.includes(q));content.querySelector('#rows').innerHTML=shown.map(x=>table==='sales'?`<button class="panel row record" data-sale="${escape(x.id)}"><div><b>مبيعة #${escape(x.sale_number)}</b><p>${escape(x.customer?.name||'زبون غير محدد')}</p><p class="muted">${escape(x.customer?.phone||'بدون رقم جوال')}</p><small>${escape(timestamp(x.created_at))}</small></div><div><strong>${money(x.total)}</strong><span class="badge">${escape(status(x.status))}</span></div></button>`:`<article class="panel"><p class="eyebrow">${escape(x.category||'بدون تصنيف')}</p><h2>${escape(x.name)}</h2><div class="metrics"><span>الوحدة<br><b>${escape(x.unit||'قطعة')}</b></span><span>سعر البيع<br><b>${money(x.sale_price,2)}</b></span></div><p class="muted">${escape(x.notes||'')}</p></article>`).join('')||'<div class="panel">لا توجد نتائج</div>';content.querySelector('#more').hidden=!hasMore;content.querySelectorAll('[data-sale]').forEach(b=>b.onclick=()=>saleDetails(b.dataset.sale));};
   content.querySelector('#search').oninput=draw;content.querySelector('#more').onclick=async e=>{const b=e.target;b.disabled=true;b.textContent='جارٍ التحميل…';try{const next=await api.rows(table,project.id,select,offset,table==='products'?{active:'eq.true'}:{});if(revision!==epoch)return;rows.push(...next);offset+=next.length;hasMore=next.length===20;draw();}catch(error){content.querySelector('#list-error').textContent=error.message;}finally{b.disabled=false;b.textContent='تحميل المزيد';}};draw();
  }
 }catch(error){if(revision!==epoch)return;content.innerHTML='<div class="panel"><p role="alert"></p><button class="outline">إعادة المحاولة</button></div>';content.querySelector('p').textContent=error.message;content.querySelector('button').onclick=shell;}}
-async function saleDetails(id){const dialog=document.createElement('dialog');dialog.innerHTML='<h2>تفاصيل المبيعة</h2><div class="details"><div class="skeleton"></div></div><div class="actions"><button data-return>إرجاع مبيعة</button><button class="primary">إغلاق</button></div>';app.append(dialog);dialog.showModal();dialog.querySelector('.primary').onclick=()=>dialog.remove();const revision=epoch;try{const s=await api.sale(project.id,id);if(!dialog.isConnected||revision!==epoch)return;if(!s)throw new Error('المبيعة غير موجودة');dialog.querySelector('[data-return]').onclick=()=>openReturn({api,projectId:project.id,sale:s,storage:sessionStore,onSaved:()=>{dialog.remove();shell();}});dialog.querySelector('.details').innerHTML=`<div class="panel row"><div><b>${escape(s.customer?.name||'زبون غير محدد')}</b><p>${escape(s.customer?.phone||'بدون رقم جوال')}</p><small>${escape(timestamp(s.created_at))}</small></div><div><small>إجمالي المبيعة الحالي</small><h2>${money(s.total)}</h2></div></div><p>${escape(status(s.status))} · الاستلام: ${escape(s.payment_account?.name||'دين')}</p><h2>أصناف المبيعة</h2>${(s.items||[]).map(x=>`<div class="panel row"><div><b>${escape(x.product_name||x.name||'صنف')}</b><p class="muted">الكمية ${escape(x.quantity_pieces)} × ${money(x.unit_price,2)}</p></div><b>${money(x.line_total)}</b></div>`).join('')} ${(s.returns||[]).map(r=>`<div class="panel"><h2>مرتجع بقيمة ${money(r.total)}</h2><small>${escape(timestamp(r.created_at))}</small>${(r.items||[]).map(x=>`<p>كمية المرتجع: ${escape(x.quantity_pieces)} · ${money(x.refund_amount)}</p>`).join('')}</div>`).join('')}`;}catch(error){if(dialog.isConnected)dialog.querySelector('.details').textContent=error.message;}}
-async function personDetails(kind,person){const d=document.createElement('dialog');d.innerHTML=`<h2>سجل ${kind==='customers'?'الزبون':'المورد'}</h2><div class="details"><div class="skeleton"></div></div><button class="primary">إغلاق</button>`;app.append(d);d.showModal();d.querySelector('button').onclick=()=>d.remove();try{const table=kind==='customers'?'sales':'purchases',paymentTable=kind==='customers'?'customer_payments':'supplier_payments',foreign=kind==='customers'?'customer_id':'supplier_id';const [events,payments]=await Promise.all([api.rows(table,project.id,'*',0,{[foreign]:`eq.${person.id}`}),api.rows(paymentTable,project.id,'*',0,{[foreign]:`eq.${person.id}`})]);const all=[...events.map(x=>({date:x.created_at,label:kind==='customers'?`مبيعة بقيمة ${money(x.total)}`:`فاتورة شراء بقيمة ${money(x.total)}`})),...payments.map(x=>({date:x.created_at||x.paid_at,label:`دفعة بقيمة ${money(x.amount)}`}))].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));d.querySelector('.details').innerHTML=`<div class="panel"><b>${escape(person.name)}</b><p class="muted">${escape(person.phone||'بدون رقم جوال')}</p><strong>الرصيد الحالي: ${money(person.calculated_debt)}</strong></div><h3>سجل الحركات</h3>${all.map(x=>`<div class="panel row"><span>${escape(x.label)}</span><small>${escape(timestamp(x.date))}</small></div>`).join('')||'<p class="muted">لا توجد حركات حتى الآن</p>'}`;}catch(e){if(d.isConnected)d.querySelector('.details').textContent=e.message;}}
+function saleDetails(id){const revision=epoch,projectId=project.id;return openSaleDetails({api,container:app,projectId,saleId:id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onReturn:sale=>openReturn({api,projectId,mode,sale,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:()=>shell()})});}
+function personPayment(kind,person,revision=epoch,projectId=project.id){
+ if(revision!==epoch)return;
+ const options={api,projectId,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell};
+ return kind==='customers'?openCollection({...options,customer:person}):openPayment({...options,supplier:person});
+}
+function personDetails(kind,person){const revision=epoch,projectId=project.id;return openDebtDetails({api,container:app,projectId,kind,person,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell,onDebtSale:customer=>openSale({api,projectId,mode,storage:sessionStore,initialCustomer:customer,isCurrent:()=>revision===epoch,onSaved:shell}),onCollect:person=>personPayment(kind,person,revision,projectId)});}
 document.addEventListener('click',event=>{if(event.target.closest?.('#logout'))api.clearSession();},true);
 entry();
+if(!window.SHARIKX2_CONFIG)notice('تعذر تحميل إعدادات الاتصال؛ اتصل بالإنترنت ثم أعد تحميل التطبيق. لا يمكن تسجيل عمليات مالية دون اتصال.');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').then(reg=>{reg.addEventListener('updatefound',()=>{const worker=reg.installing;if(!worker)return;worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller){const button=document.createElement('button');button.className='primary';button.textContent='تحديث التطبيق الآن';button.onclick=()=>{worker.postMessage({type:'SKIP_WAITING'});location.reload();};document.querySelector('#notice')?.append(button);}});});}).catch(()=>notice('تعذر تهيئة التثبيت؛ يمكنك الاستمرار باستخدام المتصفح'));

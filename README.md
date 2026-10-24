@@ -1,6 +1,26 @@
 # SharikX2 Web — foundation
 
+**Current inventory and implementation plan (2026-10-22): [CURRENT_STATUS.md](CURRENT_STATUS.md).** The notes below are historical foundation notes, not the current feature inventory. Stage history is in `ANDROID_PARITY.md`; full Android/live/iPhone acceptance remains incomplete.
+
+Local v163: `node tests/project-notifications-browser-smoke.mjs` checks the source-driven in-app bell page (subscription/month-close/empty catalog), explicit read/retry, viewer/stale guards and both themes in Edge/WebKit. This is not Push/background notification support or persistent unread-state parity; no system permission is requested. Uses synthetic data only; no accounting/schema change.
+
+Local v164 extends that group with shell-entry notification evaluation, native red/muted unread indicator, shared in-flight reads and read-state retained only during navigation within one opened project session. New login/project/restoration resets the ephemeral marker; reload persistence and background notifications are not implemented. No token/notification storage or server mutation. Loading/error accessibility states do not claim an empty successful evaluation.
+
+Local v162: `node tests/owner-password-browser-smoke.mjs` covers the native owner four-digit password-change form, real settings entry and safe unknown-result handling in Edge/WebKit with synthetic credentials. Uses the existing RPC and device gate; no password journal/storage/automatic retry or fake fingerprint option. No live password was changed.
+
+Local v160: `node tests/subscription-details-browser-smoke.mjs` covers native plan status/expiry/limits, real app navigation and same-table USD pricing plus owner-only copyable bank/wallet instructions in Edge/WebKit. It uses synthetic data; subscription receipt submission/activation is explicitly not implemented, and viewing/copying does not create a request. No production setting, schema or financial equation change.
+
+Local v161: `node tests/subscription-requests-browser-smoke.mjs` covers supplementary read-only request verification for the current project/auth requester, not subscription activation. Historical missing currency stays unknown; another Android auth identity's requests may not be visible. Submission remains disabled pending deployed owner/device enforcement review; no server policy changes are made automatically.
+
+Stage v159: `node tests/supplier-payment-attachment-browser-smoke.mjs` checks native supplier-payment ordering (verified image upload, payment, then linking), immutable split amounts, original-request recovery across reload and a zero-debt archived account, without duplicate outflow. `node tests/old-debt-attachment-browser-smoke.mjs` checks v158 old-liability entry, whose native financial-before-image ordering is intentionally different. Both use synthetic images/backends in Edge/WebKit, not deployed permissions, live accounting or an actual iPhone. The latest user request authorizes a GitHub source push after validation; current gaps are in `CURRENT_STATUS.md`.
+
+Current iPhone foundation check: `node tests/iphone-foundation-browser-smoke.mjs` requires installed Edge plus the Playwright WebKit browser (`<Playwright runtime>/cli.js install webkit`). It tests actual decoding, synthetic media, install guidance, mobile/desktop themes and shell cache. It does not certify actual iPhone hardware/installation. Windows WebKit offline navigation is explicitly unverified. Barcode assets are locally vendored with licenses; see `vendor/README.md` for reproducible regeneration. Normal builds do not download a runtime decoder from a CDN.
+
+Receipt checks: `node tests/receipt-browser-smoke.mjs` covers private viewing/download; `node tests/receipt-upload-browser-smoke.mjs` covers owner-only upload/linking to saved records and immutable recovery across reload. `node tests/purchase-attachment-browser-smoke.mjs` and `node tests/expense-attachment-browser-smoke.mjs` cover in-form purchase/expense/wage selection and financial-before-image handoff without financial replay. Expense tests also check exact acknowledgements, unknown-response/401 identity retention, durable journal cleanup and actual reload. Images/backends are synthetic; file sharing is mocked. Actual iPhone camera, deployed CORS/RLS and cross-auth Android/web access are not certified; source Storage read policies are uploader-scoped. No public-image fallback is used. Replacing/deleting existing images and Android-style offline expense synchronization remain incomplete. See v154–v157 in `CURRENT_STATUS.md`.
+
 Standalone web project. Android files and Supabase schemas have not been modified.
+
+Current progress and verification are recorded chronologically in `ANDROID_PARITY.md`; the foundation notes below describe earlier milestones and are not a current completeness checklist. Use `npm run check` for the full local synthetic regression suite and `npm run build` separately. Neither command certifies deployed accounting behavior or full Android parity.
 
 Current scope: responsive Arabic shell, owner/viewer entry adapters, read-only initial lists, skeleton loading, isolated new-table API gateway, shell-only PWA caching, and offline unit tests. This is NOT feature-complete or production-ready.
 
@@ -19,5 +39,7 @@ Manual sales: product picker with pagination, cart removal, quantity and integer
 Integration harness: `node scripts/test-concurrency.mjs` requires a public SUPABASE_ANON_KEY and makes real temporary test requests. It creates three anonymous auth identities, creates only a fresh disposable project, and cleans up that exact project. Run only intentionally against an approved Supabase environment; never use a service-role key. Outputs a credential-free integration-results.json report.
 
 Run `npm test` and `npm run build`. Supply `SUPABASE_ANON_KEY` (public anon key only) at build time for connection testing. Never supply service-role credentials. Serve `dist` over HTTPS for PWA features.
+
+For the full local regression stage, run `npm run check`: JavaScript syntax, unit tests and isolated inventory/report/accounts browser checks. These browser checks start and stop their own loopback servers, block external traffic and use synthetic data only. They require the existing local Playwright runtime and installed Microsoft Edge (Windows); they do not invoke the live integration harness. Build remains a separate `npm run build` step. See `ANDROID_PARITY.md` for the current domain-by-domain progress and unverified gaps.
 
 Before deployment: validate actual RPC response shapes and RLS with a dedicated test project, implement every domain in PARITY.md, verify iPhone Safari behavior and attachments, add install icons, and complete accounting regression tests. `render.yaml` defines a static Render service with auto-deploy; set only the public anon key in Render. GitHub and Render deployment have not yet been performed.
