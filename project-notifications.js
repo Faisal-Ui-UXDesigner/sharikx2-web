@@ -44,7 +44,7 @@ export async function loadProjectNotices({api,project,mode,now=Date.now(),isCurr
  const id=project.id,needPeriod=Number(palestineDate(now).slice(8))<=7;
  const [fresh,createdAt,snapshot,products,sales,expenses]=await Promise.all([
   api.sharingProject(id),api.projectCreatedAt(id),api.financeState(id),api.allRows('products',id,'id',{active:'eq.true'}),
-  needPeriod?api.allRows('sales',id,'id,status,created_at,client_request_id'):[],needPeriod?api.allRows('expenses',id,'id,occurred_at,created_at,client_request_id'):[]
+  needPeriod?api.allRows('sales',id,'id,status,created_at,client_request_id'):[],needPeriod?api.allRows('expenses',id,'id,occurred_at,created_at'):[] /* sharikx2_expenses has no client_request_id column (2026-11-06) */
  ]);current();
  if(fresh?.id!==id||!snapshot?.state||!Array.isArray(products)||!Array.isArray(sales)||!Array.isArray(expenses)||!Array.isArray(snapshot.state.entries??[]))throw Error('مصادر الإشعارات غير مكتملة');
  for(const row of [...sales,...expenses])if(auditInstant(row?.occurred_at??row?.created_at)===null)throw Error('تاريخ حركة المشروع غير صالح');

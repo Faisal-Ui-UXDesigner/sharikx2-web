@@ -1,5 +1,15 @@
 # خطة مطابقة SharikX2 — مراجعة 2026-10-22
 
+## 2026-11-06 — Claude: first live connection + new look
+
+- Built with the public publishable key taken from the Android app (`SUPABASE_ANON_KEY` env, never a secret key); run locally from `dist/`.
+- Live checks on the hosted project: owner login (legacy shop), web project creation + finance save, first-device registration, product insert (201), accounts/partners/reports reads — all OK. Web server updates 30–39 are deployed (checked with `supabase/00_check_web_migrations.sql`).
+- Fixed: notifications asked for `sharikx2_expenses.client_request_id`, which does not exist (no migration adds it) → 400 on every load.
+- New: `project-session.js` — reload keeps the opened shop (per tab); NEW-model shops (accounting_version 2) are refused with a clear message; a shop without a controlling device registers this browser automatically (first controller only, same safe path as the dialog button).
+- Theme: SharikX2 soft black/orange palette from the Figma variables, Light by default; new partners logo + PWA icons; legacy colorful tile icons rendered monochrome; simpler capital-distribution copy. Cache `sharikx2-shell-v165`.
+- Known: the new-model refusal depends on `sharikx2_project_accounting_mode_v1`, which still rejects a second-device owner session until the server fix in SharikX2-next `docs/BUG_NEW_DEVICE_OWNER_LOGIN.md`; until then a new-model shop is not blocked on the web. Not deployed anywhere.
+
+
 هذه هي نقطة البداية الحالية؛ `ANDROID_PARITY.md` سجل مراحل محلية وليس شهادة اكتمال. التطبيق المطلوب ويب فعلي للكمبيوتر والجوال، لا موقع تعريفي. لا تُعتمد نسبة إنجاز بلا قائمة قبول قابلة لإعادة الاختبار.
 
 طلب المستخدم اللاحق «ارفع» يأذن برفع مصدر v163–v164 إلى فرع GitHub الحالي بعد التحقق. عبارات «محلي» أدناه تصف الحالة وقت التنفيذ؛ لا يشمل الرفع ملف SQL غير المرتبط أو لقطات الاختبار، ولا يجيز تغيير الخادم أو البيانات أو نشر استضافة يدويًا. يُذكر الالتزام المتحقق بعد الرفع في المحادثة.

@@ -530,3 +530,7 @@
 @media(min-width:720px){.native-app{max-width:540px;padding-top:32px}.native-app>nav{max-width:512px}.native-app .cashier-grid button{min-height:164px}}
 @media(max-width:350px){.native-app{padding-inline:10px}.native-app .project-heading h1{font-size:25px}.native-app .project-heading>small{font-size:10px}.native-app .header-tools{gap:5px}.native-app .plan-info{font-size:11px}.native-app .subscribe{padding-inline:8px;font-size:12px}.native-app .activity-record{padding-inline:12px}.native-app .activity-record .badge{min-width:76px}}
 @media(max-height:550px){.native-app .app-header{max-height:35dvh;min-height:0}.native-app .inventory-sticky-controls{position:static}.native-app [data-inventory-list] :is(button,[tabindex]){scroll-margin-top:calc(var(--native-header-height,104px) + 12px)}}
+
+/* SharikX2 soft theme (2026-11-06): one accent only — legacy colorful tile icons rendered monochrome. */
+img[src*="_colorful.png"]{filter:grayscale(1) contrast(1.15) brightness(.85)}
+[data-theme=dark] img[src*="_colorful.png"]{filter:grayscale(1) invert(1) brightness(1.1)}

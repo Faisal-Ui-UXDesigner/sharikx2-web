@@ -36,6 +36,7 @@ import {openSubscriptionStatus,renderSubscriptionPlans} from './subscription-ui.
 import {renderOwnerPasswordAction} from './owner-password-ui.js';
 import {bindProjectNotificationBell} from './project-notification-bell.js';
 import {createNotificationReadState} from './project-notification-state.js';
+import {rememberProject,forgetProject,savedProject,assertWebSupportedProject,registerFirstDevice} from './project-session.js';
 let sessionStore=null;try{sessionStore=window.sessionStorage;}catch{}
 let identityStore=null;try{identityStore=window.localStorage;}catch{}
 // Configuration is deliberately not cached. Offline shell startup must not crash
@@ -52,14 +53,21 @@ function entry(){
  releaseShellLayout();releaseShellLayout=()=>{};
  releaseNotificationBell();releaseNotificationBell=()=>{};
  notificationReadState=createNotificationReadState();
- epoch++;api.clearDeviceContext();project=null;setCurrency('ILS');
+ epoch++;api.clearDeviceContext();project=null;setCurrency('ILS');forgetProject(sessionStore);
  reportState=createReportState();inventoryViewStore=createInventoryViewStore();
- openOnboarding({app,api,storage:sessionStore,onOpen:(opened,role)=>{
-  notificationReadState=createNotificationReadState();project=opened;mode=role;
-  setCurrency(project.currency);screen='cashier';shell();
-  void promptOpeningDistribution({api,storage:sessionStore,projectId:opened.id,mode:role,isCurrent:()=>project?.id===opened.id&&mode===role,onComplete:shell})
-   .catch(error=>{if(project?.id===opened.id)notice(error.message);});
- }});
+ openOnboarding({app,api,storage:sessionStore,onOpen:(opened,role)=>{void openProject(opened,role);}});
+}
+async function openProject(opened,role){
+ try{await assertWebSupportedProject(api,opened.id,role);}
+ catch(error){api.clearSession();entry();notice(error.message);return;}
+ notificationReadState=createNotificationReadState();project=opened;mode=role;rememberProject(sessionStore,opened,role);
+ setCurrency(project.currency);screen='cashier';shell();
+ void promptOpeningDistribution({api,storage:sessionStore,projectId:opened.id,mode:role,isCurrent:()=>project?.id===opened.id&&mode===role,onComplete:shell})
+  .catch(error=>{if(project?.id===opened.id)notice(error.message);});
+ // A shop created on the web has no controlling device yet: register this browser (first controller only).
+ registerFirstDevice({api,projectId:opened.id,role,isCurrent:()=>project?.id===opened.id&&mode===role})
+  .then(registered=>{if(registered&&project?.id===opened.id)shell();})
+  .catch(error=>{if(project?.id===opened.id)notice(error.message);});
 }
 function shell(){
  releaseShellLayout();
@@ -129,7 +137,8 @@ function personPayment(kind,person,revision=epoch,projectId=project.id){
  return kind==='customers'?openCollection({...options,customer:person}):openPayment({...options,supplier:person});
 }
 function personDetails(kind,person){const revision=epoch,projectId=project.id;return openDebtDetails({api,container:app,projectId,kind,person,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell,onDebtSale:customer=>openSale({api,projectId,mode,storage:sessionStore,initialCustomer:customer,isCurrent:()=>revision===epoch,onSaved:shell}),onCollect:person=>personPayment(kind,person,revision,projectId)});}
-document.addEventListener('click',event=>{if(event.target.closest?.('#logout'))api.clearSession();},true);
-entry();
+document.addEventListener('click',event=>{if(event.target.closest?.('#logout')){api.clearSession();forgetProject(sessionStore);}},true);
+// Reload keeps the opened shop (token and project are both per tab); otherwise start at the entry screen.
+{const saved=savedProject(sessionStore);if(saved&&api.auth)void openProject(saved.project,saved.role);else entry();}
 if(!window.SHARIKX2_CONFIG)notice('تعذر تحميل إعدادات الاتصال؛ اتصل بالإنترنت ثم أعد تحميل التطبيق. لا يمكن تسجيل عمليات مالية دون اتصال.');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').then(reg=>{reg.addEventListener('updatefound',()=>{const worker=reg.installing;if(!worker)return;worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller){const button=document.createElement('button');button.className='primary';button.textContent='تحديث التطبيق الآن';button.onclick=()=>{worker.postMessage({type:'SKIP_WAITING'});location.reload();};document.querySelector('#notice')?.append(button);}});});}).catch(()=>notice('تعذر تهيئة التثبيت؛ يمكنك الاستمرار باستخدام المتصفح'));

@@ -1,11 +1,13 @@
 // AppThemePalette: device-local appearance, unrelated to project financial state.
 export const THEME_STORAGE_KEY='sharikx2-theme-v1';
 export const THEME_PALETTES=Object.freeze({
- dark:Object.freeze({bg:'#080b17',panel:'#11162a',surface:'#181f37',text:'#f7f8fc',muted:'#9ba4bc',green:'#43d389',gold:'#f4c95d',red:'#ff6b78',border:'#28304c',field:'#0d1224',primary:'#f4c95d',onPrimary:'#181c30',profit:'#4ade80'}),
- light:Object.freeze({bg:'#eff2f6',panel:'#ffffff',surface:'#f4f6f9',text:'#161c2d',muted:'#5b657a',green:'#108a5c',gold:'#c28e1d',red:'#c93546',border:'#d8dee8',field:'#f8f9fb',primary:'#1f2748',onPrimary:'#ffffff',profit:'#15803d'})
+ // SharikX2 soft black/orange theme (Figma «Color» variables, 2026-11-03). `gold` is the single orange accent.
+ dark:Object.freeze({bg:'#0F0F11',panel:'#1A1A1D',surface:'#232327',text:'#FFFFFF',muted:'#A1A1AA',green:'#34C77B',gold:'#FF8A65',red:'#FF8A80',border:'#2E2E33',field:'#232327',primary:'#FFFFFF',onPrimary:'#111111',profit:'#34C77B'}),
+ light:Object.freeze({bg:'#F8F8F9',panel:'#FFFFFF',surface:'#F2F2F4',text:'#111111',muted:'#5F6368',green:'#0F6E3A',gold:'#B8400F',red:'#B3261E',border:'#E4E4E8',field:'#F2F2F4',primary:'#111111',onPrimary:'#FFFFFF',profit:'#0F6E3A'})
 });
-export function themeMode(value){return value==='light'?'light':'dark';}
-export function readTheme(storage){try{return themeMode(storage?.getItem(THEME_STORAGE_KEY));}catch{return 'dark';}}
+// Light is the default, as in the Android app (2026-11-05); a saved choice still wins.
+export function themeMode(value){return value==='dark'?'dark':'light';}
+export function readTheme(storage){try{return themeMode(storage?.getItem(THEME_STORAGE_KEY));}catch{return 'light';}}
 export function saveTheme(storage,mode){
  if(typeof mode!=='string'||!Object.hasOwn(THEME_PALETTES,mode))throw new Error('مظهر التطبيق غير صالح');
  try{if(!storage)return false;storage.setItem(THEME_STORAGE_KEY,mode);return true;}catch{return false;}
