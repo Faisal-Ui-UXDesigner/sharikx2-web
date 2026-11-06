@@ -22,6 +22,8 @@ import {openOwnerApprovals} from './owner-approval-ui.js';
 import {renderOwnerHistory} from './owner-operation-history-ui.js';
 import {openOwnerSaleReturn} from './owner-sale-return-ui.js';
 import {renderOwnerPurchase} from './owner-purchase-ui.js';
+import {openPurchaseProductChoice} from './purchase-product-choice-ui.js';
+import {productListContent} from './product-list-ui.js';
 
 const m=v=>v===null||v===undefined||v===''?'—':fmt(v,2);
 const e=escape;
@@ -241,7 +243,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       :`<div class="op-note"><small>قيمة البضاعة المؤكدة بسعر الشراء</small><p class="op-big">${m(s.confirmed_value)}</p>${s.paid?'':`<small>${products.length} من ${limit} صنفاً</small>`}</div>
       ${s.pending?'<button class="outline" data-check>تحقق من الطلب السابق</button>':''}
       ${saves.length?`<p class="op-warn">${saves.length} صنف لم يكتمل حفظه. <button class="ghost small" data-resave>إعادة المحاولة</button></p>`:''}
-      ${products.map(row=>{const p=row.product,confirmed=!!row.confirmation,d=row.draft?.values_json;return `<div class="op-card"><div class="op-row"><b>${e(d?.name||p.name)}</b>${!confirmed&&!s.opening_locked?`<input type="checkbox" data-pick="${e(p.id)}" ${stockSelected.has(p.id)?'checked':''} aria-label="تحديد ${e(p.name)}">`:''}</div>
+      ${products.map(row=>{const p=row.product,confirmed=!!row.confirmation,d=row.draft?.values_json;return `<div class="op-card"><div class="op-row">${productListContent({...p,name:d?.name||p.name})}${!confirmed&&!s.opening_locked?`<input type="checkbox" data-pick="${e(p.id)}" ${stockSelected.has(p.id)?'checked':''} aria-label="تحديد ${e(p.name)}">`:''}</div>
         ${pill(confirmed?'مؤكد':'بانتظار التأكيد',confirmed?'ok':'')}
         ${d&&!confirmed?`<small class="muted">${e(d.counted_quantity||'—')} ${e(d.unit||'')} · ${m(d.unit_cost)} للوحدة</small>`:`<small class="muted">الكمية المتاحة: ${e(p.quantity_pieces)} ${e(p.base_unit||'')}</small>`}
         ${confirmed?`<p><b>${m(row.confirmation.opening_value)}</b></p>`:''}
@@ -439,7 +441,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     const chosen=pay.account_id||cash?.id||'',asDebt=!!pay.as_debt&&!pay.composed,composed=!!pay.composed;
     const subtotal=ownerSaleSubtotal(items);
     frame(`<form class="op-search" data-search><input name="q" placeholder="امسح باركود أو ابحث عن صنف" autocomplete="off" aria-label="امسح باركود أو ابحث عن صنف"><button class="op-icon" aria-label="بحث">⌕</button><button type="button" class="op-icon" data-scan aria-label="مسح باركود بالكاميرا">${icon('scan')}</button></form>
-      ${products().length?`<p class="muted small">أصناف سريعة</p><div class="op-chips scroll">${products().map(r=>`<button class="op-chip ${r.confirmation||r.purchased?'':'dim'}" data-item="${e(r.product.id)}">${e(r.product.name)}</button>`).join('')}</div>`:''}
+      ${products().length?'<button class="outline" data-owner-sale-picker>اختيار الأصناف — بحث وتصنيفات</button>':''}
       ${items.map((i,n)=>`<div class="op-cart"><button class="op-cart-name" data-edit="${n}"><b>${e(i.name)}</b><small>${m(i.unit_sale_price)}</small></button><span class="op-stepper" dir="ltr"><button data-minus="${n}" aria-label="إنقاص">−</button><b>${e(i.quantity)}</b><button data-plus="${n}" aria-label="زيادة">+</button></span></div>`).join('')||'<p class="muted">السلة فارغة. امسح باركود أو اختر صنفاً.</p>'}
       <p class="muted small">طريقة الدفع</p><div class="op-chips">${accounts().map(a=>`<button class="op-chip ${!asDebt&&!composed&&a.id===chosen?'on':''}" data-pay="${e(a.id)}">${e(a.name)}</button>`).join('')}<button class="op-chip ${asDebt?'on':''}" data-debt>على الحساب</button></div>
       ${Number(state.payment_composition_bridge)===1?`<button class="ghost" data-split>${composed?'مراجعة الدفع الجزئي أو المقسّم':'دفع جزئي أو مقسّم'}</button>`:''}
@@ -449,6 +451,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       `<div class="op-row"><span class="muted">المجموع</span><b class="op-big" data-total>${saleTotalLabel(subtotal,pay.discount)}</b></div><button class="primary" data-finish ${items.length?'':'disabled'}>إتمام البيع</button><button class="ghost" data-refresh>راجع التغييرات في البضاعة</button>`);
     app.querySelector('[data-search]').onsubmit=ev=>{ev.preventDefault();find(ev.target.q.value);};
     on('[data-item]',node=>saleItem(node.dataset.item,-1));
+    on('[data-owner-sale-picker]',()=>openPurchaseProductChoice({products:products().map(row=>row.product),projectId:project.id,mode:'owner',title:'اختيار صنف للبيع',loadSettings:async()=>({}),isCurrent:()=>alive()&&page==='sale'&&!busy,onSelected:row=>saleItem(row.id,-1)}));
     on('[data-edit]',node=>saleItem(items[node.dataset.edit].product_id,Number(node.dataset.edit)));
     on('[data-plus]',node=>changeQty(Number(node.dataset.plus),1));
     on('[data-minus]',node=>changeQty(Number(node.dataset.minus),-1));
@@ -479,7 +482,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     const exact=products().find(r=>r.product.barcode===value);if(exact)return saleItem(exact.product.id,-1);
     const needle=value.toLowerCase(),matches=products().filter(r=>`${r.product.name} ${r.product.barcode||''}`.toLowerCase().includes(needle));
     if(matches.length===1)return saleItem(matches[0].product.id,-1);
-    if(matches.length){const d=sheet('نتائج البحث',matches.map(r=>`<button class="op-line" data-pick="${e(r.product.id)}"><b>${e(r.product.name)}</b><small>${e(r.product.quantity_pieces)} ${e(r.product.base_unit||'')}</small></button>`).join(''),[['العودة للبيع',closeSheet],['الصنف غير موجود',()=>{closeSheet();unregistered(value);}]]);
+    if(matches.length){const d=sheet('نتائج البحث',matches.map(r=>`<button class="op-line" data-pick="${e(r.product.id)}">${productListContent(r.product)}</button>`).join(''),[['العودة للبيع',closeSheet],['الصنف غير موجود',()=>{closeSheet();unregistered(value);}]]);
       d.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{closeSheet();saleItem(b.dataset.pick,-1);});return;}
     unregistered(value);
   }
@@ -533,7 +536,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
         try{values={id,name:v('name'),barcode:v('barcode')||`manual-${id}`,unit:v('unit'),sale_price:number(v('price'),2,'1000000000000')};if(!values.name||!values.unit)throw new Error();}
         catch{return sheetError(dlg,'أكمل الاسم والوحدة وسعر البيع');}
         flow.draft('new_product',values);
-        run(()=>flow.command('product_create',values),()=>{flow.draft('new_product',{});flow.draft('purchase',{...flow.draft('purchase'),product_id:id});closeSheet();reload('purchase');});}]]);
+        run(()=>flow.command('product_create',values),()=>{flow.draft('new_product',{});flow.draft('purchase',{...flow.draft('purchase'),product_id:id,entry:{product_id:id,quantity:'',unit_cost:''}});closeSheet();reload('purchase');});}]]);
   }
 
   // ---------- partners profit, accounts, history (Figma 34–36) ----------

@@ -10,13 +10,14 @@ export function purchaseCalculatorButton(input,target,onOpen){
 }
 
 export function openPurchaseCalculator({owner,target,value,isCurrent=()=>true,onApply,onClose}){
- if(!owner?.isConnected||!owner.open||!isCurrent()||document.querySelector('.purchase-calculator'))return;
+ const ownerCurrent=()=>owner?.isConnected&&(owner.tagName!=='DIALOG'||owner.open);
+ if(!ownerCurrent()||!isCurrent()||document.querySelector('.purchase-calculator'))return;
  const model=purchaseCalculatorTarget(target),dialog=document.createElement('dialog');dialog.className='purchase-calculator';dialog.setAttribute('aria-label',model.title);
  const rows=[['7','8','9','×'],['4','5','6','−'],['1','2','3','+'],['مسح','0','.','÷'],['⌫','=']];
  dialog.innerHTML=`<h2>${model.title}</h2><p class="muted small">احسب بالجمع والطرح والضرب والقسمة. اضغط = لمعاينة النتيجة، ثم إدخال لنقلها إلى ${model.field}.</p><form novalidate><label>العملية الحسابية<input name="expression" type="text" dir="ltr" maxlength="96" inputmode="decimal" autocomplete="off" value="${escape(value)}"></label><output aria-live="polite">اضغط = لعرض النتيجة</output><div class="purchase-calculator-keys" dir="ltr">${rows.map(row=>`<div>${row.map(key=>`<button type="button" data-key="${escape(key)}">${key}</button>`).join('')}</div>`).join('')}</div><p role="alert"></p><div class="actions"><button type="submit" class="primary">Enter — إدخال النتيجة</button><button type="button" data-cancel-calculator>إلغاء</button></div></form>`;
  owner.append(dialog);dialog.showModal();let ended=false;
  const form=dialog.querySelector('form'),input=form.elements.expression,output=form.querySelector('output'),error=form.querySelector('[role=alert]');
- const current=()=>!ended&&dialog.isConnected&&dialog.open&&owner.isConnected&&owner.open&&isCurrent();
+ const current=()=>!ended&&dialog.isConnected&&dialog.open&&ownerCurrent()&&isCurrent();
  const finish=()=>{if(ended)return;ended=true;observer.disconnect();dialog.remove();onClose?.();};
  const reset=()=>{error.textContent='';output.textContent='اضغط = لعرض النتيجة';};
  const preview=()=>{if(!current())return;try{output.textContent='= '+evaluatePurchaseExpression(input.value);error.textContent='';}catch(failure){output.textContent='تعذر الحساب';error.textContent=failure.message;}};

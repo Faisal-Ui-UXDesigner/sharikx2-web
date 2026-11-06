@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 import {ownerPurchaseAmounts,ownerPurchaseAccounts,ownerPurchasePlan} from '../owner-purchase.js';
 const projectId='project';
 function fixture(){return {projectId,draft:{product_id:'p',supplier_id:'supplier',account_id:'cash',quantity:'0.125',unit_cost:'1.0050',paid:'0.10'},products:[{product:{id:'p',project_id:projectId,name:'صنف',base_unit:'كغم'},source_token:'source-original'}],suppliers:[{id:'supplier',name:'مورد'}],accounts:[{id:'cash',balance:1}]};}
+test('multi-product invoice sums rounded lines and split payments while preserving each stock token',()=>{
+ const f=fixture();f.products.push({product:{id:'second',project_id:projectId},source_token:'second-source'});f.accounts.push({id:'bank',balance:10});
+ f.draft={supplier_id:'supplier',items:[{product_id:'p',quantity_pieces:'0.125',unit_cost:'1.0050',source_token:'source-original'},{product_id:'second',quantity_pieces:'0.5',unit_cost:'2.0000',source_token:'second-source'}],payments:[{account_id:'cash',amount:'0.40'},{account_id:'bank',amount:'0.50'}]};
+ const before=structuredClone(f),result=ownerPurchasePlan(f);assert.deepEqual(ownerPurchaseAmounts(result),{total:1.13,paid:0.9,debt:0.23});assert.deepEqual(f,before);assert.deepEqual(result.items,f.draft.items);
+ f.draft.items.push(f.draft.items[0]);assert.throws(()=>ownerPurchasePlan(f),/مضاف/);f.draft.items.pop();
+ f.draft.items[1].source_token='changed';assert.throws(()=>ownerPurchasePlan(f),/تغيّر/);
+});
 test('owner purchase preserves four-place cost, three-place quantity and native payload source token',()=>{
  const f=fixture(),before=structuredClone(f);assert.deepEqual(ownerPurchaseAmounts(f.draft),{quantity:'0.125',cost:'1.0050',paid:'0.10',total:0.13,debt:0.03});
  assert.deepEqual(ownerPurchasePlan(f),{items:[{product_id:'p',quantity_pieces:'0.125',unit_cost:'1.0050',source_token:'source-original'}],payments:[{account_id:'cash',amount:'0.10'}],supplier_id:'supplier'});assert.deepEqual(f,before);

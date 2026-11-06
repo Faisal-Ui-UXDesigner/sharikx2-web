@@ -38,6 +38,7 @@ import {bindProjectNotificationBell} from './project-notification-bell.js';
 import {createNotificationReadState} from './project-notification-state.js';
 import {rememberProject,forgetProject,savedProject,projectAccountingVersion,registerFirstDevice,loadProjectNumber} from './project-session.js';
 import {mountOwnerPath} from './owner-path-ui.js';
+import {showToast} from './toast-ui.js';
 let sessionStore=null;try{sessionStore=window.sessionStorage;}catch{}
 let identityStore=null;try{identityStore=window.localStorage;}catch{}
 // Configuration is deliberately not cached. Offline shell startup must not crash
@@ -49,7 +50,7 @@ let inventoryViewStore=createInventoryViewStore();
 let releaseShellLayout=()=>{};
 let releaseNotificationBell=()=>{},notificationReadState=createNotificationReadState(),releaseOwnerPath=()=>{};
 bindPwaInstall({root:document.querySelector('#install-action')});
-function notice(message){document.querySelector('#notice').textContent=message;}
+function notice(message){showToast(message);}
 function entry(){
  releaseOwnerPath();releaseOwnerPath=()=>{};
  releaseShellLayout();releaseShellLayout=()=>{};

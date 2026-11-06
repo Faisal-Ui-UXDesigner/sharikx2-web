@@ -4,6 +4,7 @@ import {display} from './inventory-category.js';
 import {saleCartCards,salePickerCards} from './sale-presentation.js';
 import {measuredPriceTitle} from './sale-quantity-edit.js';
 import {salePaymentAccountsMarkup} from './sale-payment-ui.js';
+import {productListContent} from './product-list-ui.js';
 
 export function saleFormMarkup(accounts,categories){
  return `<section data-sale-entry class="sale-selection-actions"><button type="button" class="primary" data-open-sale-picker>${icon('inventory',22)} اختيار الأصناف من البضاعة</button><div class="sale-scan-row"><label>إدخال الباركود<input data-barcode-scan inputmode="numeric" autocomplete="off" placeholder="امسح أو اكتب الباركود ثم Enter"></label><button type="button" data-camera-scan class="outline">${icon('scan',22)}<span>مسح بالكاميرا</span></button></div></section>
@@ -33,7 +34,7 @@ export function saleCartMarkup(cart){
 }
 
 export function salePickerMarkup(products,cart){
- return salePickerCards(products,cart).map(row=>`<article class="sale-picker-row" data-picker-row="${escape(row.id)}"><button type="button" data-product="${escape(row.id)}" ${row.canIncrease?'':'disabled'}><b>${escape(row.name)}</b><small class="muted">متوفر ${escape(row.stock)} • ${money(row.price,4)}</small></button><div class="sale-picker-quantity"><button type="button" data-picker-decrease="${escape(row.id)}" aria-label="إنقاص كمية ${escape(row.name)}" ${row.canDecrease?'':'disabled'}>−</button><output data-picker-quantity="${escape(row.id)}" aria-label="الكمية المختارة">${escape(row.quantity)}</output><button type="button" class="primary" data-picker-increase="${escape(row.id)}" aria-label="زيادة كمية ${escape(row.name)}" ${row.canIncrease?'':'disabled'}>+</button></div></article>`).join('')||'<p class="muted">لا توجد نتائج</p>';
+ return salePickerCards(products,cart).map(row=>`<article class="sale-picker-row" data-picker-row="${escape(row.id)}"><button type="button" data-product="${escape(row.id)}" ${row.canIncrease?'':'disabled'}>${productListContent({...products.find(product=>product.id===row.id),name:row.name},{quantity:row.stock,price:row.price,priceDecimals:4})}</button><div class="sale-picker-quantity"><button type="button" data-picker-decrease="${escape(row.id)}" aria-label="إنقاص كمية ${escape(row.name)}" ${row.canDecrease?'':'disabled'}>−</button><output data-picker-quantity="${escape(row.id)}" aria-label="الكمية المختارة">${escape(row.quantity)}</output><button type="button" class="primary" data-picker-increase="${escape(row.id)}" aria-label="زيادة كمية ${escape(row.name)}" ${row.canIncrease?'':'disabled'}>+</button></div></article>`).join('')||'<p class="muted">لا توجد نتائج</p>';
 }
 
 // Update existing nodes, not the whole list: preserve scroll, search text and focus.

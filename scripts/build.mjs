@@ -121,6 +121,7 @@ for(const file of ['project-session.js','owner-path-store.js','owner-path-ui.js'
 for(const file of ['owner-path-money.js','owner-path-storage.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['owner-sale-return.js','owner-sale-return-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['owner-purchase.js','owner-purchase-ui.js'])await copyFile(file,`dist/${file}`);
+for(const file of ['owner-purchase-review-ui.js','product-list-ui.js','toast-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['owner-accounts-ui.js','owner-approval-history.js','owner-approval-workbook.js','owner-approval-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['owner-operation-history.js','owner-operation-details-ui.js','owner-operation-history-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['index.html','styles.css','app.js','api.js','pagination.js','product-contract.js','ui.js','reports.js','report-ui.js','subscription.js','operations.js','expense.js','expense-mutation.js','sale.js','customer.js','activity.js','transfer.js','purchase.js','payment.js','collection.js','return.js','return-ui.js','financial.js','statement.js','accounts-ui.js','inventory.js','inventory-ui.js','inventory-mutation.js','onboarding.js','icons.js','icon.svg','manifest.webmanifest','service-worker.js'])await copyFile(file,`dist/${file}`);

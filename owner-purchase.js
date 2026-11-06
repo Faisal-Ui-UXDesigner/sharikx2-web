@@ -1,5 +1,5 @@
 import {number} from './owner-path-store.js';
-import {purchaseLineTotal,purchaseRemaining,purchaseAmountExceeds} from './purchase-arithmetic.js';
+import {purchaseLineTotal,purchaseRoundedTotal,purchaseRemaining,purchaseAmountExceeds} from './purchase-arithmetic.js';
 import {decimalSum} from './decimal-sum.js';
 
 const invalid=()=>Error('تعذر قراءة بيانات فاتورة الشراء؛ أعد تحميل المحل');
@@ -14,6 +14,11 @@ export function ownerPurchaseAccounts(rows,projectId){
  return scopedRows(rows,projectId).map(row=>({...row,balance:decimalSum([amount(row.opening_balance),amount(row.movement_net)])}));
 }
 export function ownerPurchaseAmounts(draft){
+ if(Array.isArray(draft.items)){
+  const total=purchaseRoundedTotal(draft.items.map(item=>({quantity:item.quantity_pieces,cost:item.unit_cost}))),paid=decimalSum((draft.payments||[]).map(row=>row.amount));
+  if(purchaseAmountExceeds(paid,total))throw Error('المبلغ المدفوع أكبر من قيمة الفاتورة');
+  return {total,paid,debt:purchaseRemaining(total,paid)};
+ }
  const parse=(value,scale,cap,label)=>{try{return number(value,scale,cap);}catch{throw Error(`راجع ${label}؛ الحد ${scale} منازل عشرية`);}};
  const quantity=parse(draft.quantity,3,'100000000000','الكمية'),cost=parse(draft.unit_cost,4,'10000000000','تكلفة الوحدة'),paid=parse(draft.paid||'0',2,'1000000000000','المبلغ المدفوع');
  if(Number(quantity)<=0)throw Error('اكتب كمية أكبر من صفر');
@@ -21,9 +26,36 @@ export function ownerPurchaseAmounts(draft){
  if(purchaseAmountExceeds(paid,total))throw Error('المبلغ المدفوع أكبر من قيمة الفاتورة');
  return {quantity,cost,paid,total,debt:purchaseRemaining(total,paid)};
 }
-/** OwnerPathScreen's single-line purchase contract; never a legacy purchase RPC. */
+export function ownerPurchaseLine(entry,products,projectId){
+ scopedRows(products,projectId,row=>row.product?.id);
+ const row=products.find(item=>item.product.id===entry.product_id);
+ if(!row||row.product.active===false||row.product.project_id!==undefined&&row.product.project_id!==projectId)throw Error('اختر صنفًا متاحًا');
+ if(typeof row.source_token!=='string'||!row.source_token)throw invalid();
+ const {quantity,cost}=ownerPurchaseAmounts({...entry,paid:'0'});
+ return {product_id:row.product.id,quantity_pieces:quantity,unit_cost:cost,source_token:row.source_token};
+}
+/** Multiple distinct products use the existing items[] contract and request journal. */
 export function ownerPurchasePlan({draft,products,suppliers,accounts,projectId}){
  scopedRows(products,projectId,row=>row.product?.id);scopedRows(suppliers,projectId);scopedRows(accounts,projectId);
+ if(Array.isArray(draft.items)){
+  if(!draft.items.length)throw Error('أضف صنفًا واحدًا على الأقل');
+  const ids=new Set(),items=draft.items.map(item=>{
+   if(ids.has(item.product_id))throw Error('الصنف مضاف؛ عدّل كميته وسعره من الفاتورة');ids.add(item.product_id);
+   const line=ownerPurchaseLine({product_id:item.product_id,quantity:item.quantity_pieces,unit_cost:item.unit_cost},products,projectId);
+   if(item.source_token!==line.source_token)throw Error('تغيّر رصيد صنف في الفاتورة؛ راجعه قبل الحفظ');return {...line,source_token:item.source_token};
+  });
+  const seen=new Set(),payments=(draft.payments||[]).map(row=>{
+   if(seen.has(row.account_id))throw Error('حساب الدفع مكرر');seen.add(row.account_id);
+   const account=accounts.find(account=>account.id===row.account_id&&account.active!==false),paid=number(row.amount,2,'1000000000000');
+   if(!account||Number(paid)<=0)throw Error('راجع حسابات الدفع');
+   if(Number(amount(account.balance))<0||purchaseAmountExceeds(paid,account.balance))throw Error('المبلغ المدفوع أكبر من الرصيد المتاح');
+   return {account_id:row.account_id,amount:paid};
+  });
+  const amounts=ownerPurchaseAmounts({items,payments}),supplier=draft.supplier_id||'';
+  if(supplier&&!suppliers.some(row=>row.id===supplier&&row.active!==false))throw Error('اختر موردًا متاحًا');
+  if(amounts.debt>0&&!supplier)throw Error('اختر المورد لتسجيل الباقي عليه');
+  return {items,payments,supplier_id:supplier};
+ }
  const row=products.find(item=>item.product.id===draft.product_id);
  if(!row||row.product.active===false||row.product.project_id!==undefined&&row.product.project_id!==projectId)throw Error('اختر صنفًا متاحًا');
  if(typeof row.source_token!=='string'||!row.source_token)throw invalid();
