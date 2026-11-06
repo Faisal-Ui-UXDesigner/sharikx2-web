@@ -63,8 +63,8 @@
 .op-stepper{display:flex;align-items:center;gap:6px}.op-stepper button{width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:18px;cursor:pointer}.op-stepper b{min-width:28px;text-align:center}
 .op-empty{text-align:center;font-size:18px;font-weight:700;padding:24px 0}.op-empty small{font-weight:400;color:var(--muted);font-size:14px}
 .op-nav{position:sticky;bottom:0;left:auto;right:auto;transform:none;width:auto;max-width:none;z-index:6;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin:0 12px 14px;padding:8px;border-radius:30px;background:var(--panel);border:1px solid var(--border);box-shadow:0 6px 18px rgba(0,0,0,.08)}
-.op-nav button{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;border:0;border-radius:22px;background:transparent;color:var(--muted);font:inherit;font-size:11px;cursor:pointer}
-.op-nav button span{font-size:18px}.op-nav button.on{background:var(--surface);color:var(--text);font-weight:700}
+.op-nav button{min-height:56px!important;padding:6px 2px!important;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;border:0;border-radius:22px;background:transparent;color:var(--muted);font:inherit;font-size:11px;cursor:pointer}
+.op-nav button span{font-size:11px;line-height:1.3}.op-nav button.on{background:var(--surface);color:var(--text);font-weight:700}
 .op-sheet{border:0;padding:0;width:min(560px,100%);max-width:100%;max-height:90dvh;margin:auto auto 0;border-radius:20px 20px 0 0;background:var(--panel);color:var(--text)}
 .op-sheet::backdrop{background:rgba(0,0,0,.35);backdrop-filter:blur(4px)}
 .op-sheet-in{display:flex;flex-direction:column;max-height:90dvh}
@@ -79,3 +79,24 @@ body.op-loading::after{content:"";position:fixed;inset:0;z-index:50;background:r
 body.op-loading::before{content:"";position:fixed;z-index:51;left:50%;top:50%;width:96px;height:80px;margin:-40px 0 0 -48px;background:url(./icon.svg) center/contain no-repeat;animation:op-pulse 1s ease-in-out infinite}
 @keyframes op-pulse{50%{opacity:.45}}
 .op-tiles button.wide{grid-column:1/-1}
+
+/* App icons + header like the app (Figma 19/35) */
+.op-app svg,.op-sheet svg{width:22px;height:22px;flex:none}
+.op-icon{display:inline-grid;place-items:center;position:relative}
+.op-icon svg{width:24px;height:24px}
+.op-dot{position:absolute;top:9px;left:10px;width:8px;height:8px;border-radius:50%;background:var(--red)}
+.op-head{padding:12px 16px 4px}
+.op-id small{direction:ltr;text-align:right}
+.op-plan{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px 8px}
+.op-plan b{font-size:12px;color:var(--muted)}.op-plan b.ok{color:var(--green)}
+.op-plan button{min-height:40px!important}
+.op-nav button svg{width:22px;height:22px}
+.op-nav button.on{color:var(--text)}
+.op-tiles button i{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--surface);flex:none}
+.op-tiles button i svg{width:20px;height:20px}
+.op-hero svg{width:26px;height:26px}
+.op-mark svg{width:14px;height:14px}.op-lock{width:24px;display:grid;place-items:center;color:var(--muted)}
+.op-chev svg{width:18px;height:18px;transform:scaleX(-1)}
+.op-ok svg{width:32px;height:32px}
+.op-sheet .ghost svg{width:18px;height:18px;vertical-align:middle}
+.op-dot{display:none}.has-unread-notices .op-dot{display:block}
