@@ -2,7 +2,8 @@ import {escape} from './ui.js';
 
 // Android offers the first four accounts in their existing order. A saved draft
 // may refer to a later account: keep that choice visible, never silently replace it.
-export function salePaymentAccounts(accounts,selectedId=accounts?.[0]?.id??null){
+export const defaultSaleAccountId=accounts=>(Array.isArray(accounts)?(accounts.find(a=>a?.type==='cash'||/كاش/.test(String(a?.name??'')))??accounts[0]):null)?.id??null;
+export function salePaymentAccounts(accounts,selectedId=defaultSaleAccountId(accounts)){
  if(!Array.isArray(accounts))throw new Error('تعذر قراءة حسابات الاستلام');
  const ids=new Set(),rows=accounts.map(account=>{
   if(typeof account?.id!=='string'||!account.id.trim()||ids.has(account.id))throw new Error('تعذر قراءة حسابات الاستلام');
@@ -29,6 +30,6 @@ export function bindSalePaymentAccounts(container,accounts){
  sync();
  return Object.freeze({
   setDebt:value=>{debt=!!value;sync();},
-  select:(id=source[0]?.id??null)=>{container.innerHTML=salePaymentAccountsMarkup(source,id);sync();}
+  select:(id=defaultSaleAccountId(source))=>{container.innerHTML=salePaymentAccountsMarkup(source,id);sync();}
  });
 }

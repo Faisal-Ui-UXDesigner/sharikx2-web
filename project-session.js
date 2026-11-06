@@ -34,6 +34,12 @@ export async function assertWebSupportedProject(api, projectId, role) {
   }
 }
 
+/** Shop number for the header (a shop just created on the web opens before it is known). */
+export async function loadProjectNumber(api, projectId) {
+  const rows = await api.request(`/rest/v1/sharikx2_projects?id=eq.${encodeURIComponent(projectId)}&select=project_number&limit=1`);
+  return Array.isArray(rows) && rows[0]?.project_number ? String(rows[0].project_number) : '';
+}
+
 /** First-controller registration without the extra dialog. No-op when a controller already exists. */
 export async function registerFirstDevice({api, projectId, role, isCurrent}) {
   if (role !== 'owner') return false;

@@ -36,7 +36,7 @@ import {openSubscriptionStatus,renderSubscriptionPlans} from './subscription-ui.
 import {renderOwnerPasswordAction} from './owner-password-ui.js';
 import {bindProjectNotificationBell} from './project-notification-bell.js';
 import {createNotificationReadState} from './project-notification-state.js';
-import {rememberProject,forgetProject,savedProject,assertWebSupportedProject,registerFirstDevice} from './project-session.js';
+import {rememberProject,forgetProject,savedProject,assertWebSupportedProject,registerFirstDevice,loadProjectNumber} from './project-session.js';
 let sessionStore=null;try{sessionStore=window.sessionStorage;}catch{}
 let identityStore=null;try{identityStore=window.localStorage;}catch{}
 // Configuration is deliberately not cached. Offline shell startup must not crash
@@ -64,6 +64,8 @@ async function openProject(opened,role){
  setCurrency(project.currency);screen='cashier';shell();
  void promptOpeningDistribution({api,storage:sessionStore,projectId:opened.id,mode:role,isCurrent:()=>project?.id===opened.id&&mode===role,onComplete:shell})
   .catch(error=>{if(project?.id===opened.id)notice(error.message);});
+ // A shop created on the web opens before its number is known: read it once and refresh the header.
+ if(!opened.project_number)loadProjectNumber(api,opened.id).then(number=>{if(number&&project?.id===opened.id){project={...project,project_number:number};rememberProject(sessionStore,project,mode);shell();}}).catch(()=>{});
  // A shop created on the web has no controlling device yet: register this browser (first controller only).
  registerFirstDevice({api,projectId:opened.id,role,isCurrent:()=>project?.id===opened.id&&mode===role})
   .then(registered=>{if(registered&&project?.id===opened.id)shell();})
