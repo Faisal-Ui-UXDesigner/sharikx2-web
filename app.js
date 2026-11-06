@@ -60,8 +60,25 @@ function entry(){
  openOnboarding({app,api,storage:sessionStore,onOpen:(opened,role)=>{void openProject(opened,role);}});
 }
 async function openProject(opened,role){
- // New-model shops (accounting_version 2) open the new owner path, like the Android app.
- const version=opened.accounting_version===2?2:await projectAccountingVersion(api,opened.id,role);
+ releaseOwnerPath();releaseOwnerPath=()=>{};
+ releaseShellLayout();releaseShellLayout=()=>{};
+ releaseNotificationBell();releaseNotificationBell=()=>{};
+ const revision=++epoch,generation=api.generation;
+ api.clearDeviceContext();
+ const current=()=>epoch===revision&&api.generation===generation;
+ app.innerHTML='<section class="entry"><p role="status">جارٍ التحقق من نظام حسابات المحل…</p></section>';
+ let version;
+ try{version=await projectAccountingVersion(api,opened.id,role);}
+ catch(error){
+  if(!current())return;
+  app.innerHTML='<section class="entry"><h1>تعذر فتح المحل بأمان</h1><p role="alert"></p><button class="primary" data-retry-mode>إعادة التحقق</button><button class="outline" data-exit-mode>الرجوع للدخول</button></section>';
+  app.querySelector('[role=alert]').textContent=error.message;
+  app.querySelector('[data-retry-mode]').onclick=()=>{if(current())void openProject(opened,role);};
+  app.querySelector('[data-exit-mode]').onclick=()=>{if(current()){api.clearSession();entry();}};
+  return;
+ }
+ if(!current())return;
+ // Cached metadata never substitutes for a fresh server model decision.
  if(version===2){
   releaseOwnerPath();releaseShellLayout();releaseShellLayout=()=>{};releaseNotificationBell();releaseNotificationBell=()=>{};
   epoch++;api.clearDeviceContext();project={...opened,accounting_version:2};mode=role;rememberProject(sessionStore,project,role);setCurrency(opened.currency);

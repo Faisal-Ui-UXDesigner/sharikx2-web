@@ -3,6 +3,7 @@
 // Every financial value shown as a result comes from the server. A request identity is written to
 // localStorage BEFORE it is sent, so a lost reply is checked (status) instead of being sent twice.
 import {readDeviceIdentity} from './device-control.js';
+import {readOwnerJournal as local,writeOwnerJournal as persist,removeOwnerJournal} from './owner-path-storage.js';
 
 const uuid=()=>globalThis.crypto.randomUUID();
 export const FREE_PRODUCTS=50;
@@ -19,9 +20,6 @@ export function number(raw,scale,cap,optional=false){
   if(Number(clean)>=Number(cap))throw new Error('INVALID_NUMBER');
   return clean;
 }
-
-function local(storage,key){try{return JSON.parse(storage.getItem(key)||'{}')||{};}catch{return {};}}
-function persist(storage,key,value){storage.setItem(key,JSON.stringify(value));if(storage.getItem(key)===null)throw new Error('تعذر الحفظ على هذا المتصفح');}
 
 function scoped(value,project){
   if(!value||value.project_id!==project||Number(value.accounting_version)!==2)throw new Error('وصلت بيانات لا تخص هذا المحل. أعد التحميل.');
@@ -51,8 +49,9 @@ export function createOwnerPath({api,project,device,storage=window.localStorage}
     write(saved);
   }
   async function send(pending){
+    if(!pending||typeof pending.action!=='string'||!pending.payload?.request_id)throw new Error('سجل الطلب غير مكتمل؛ تحقق منه قبل المتابعة');
     if(pending.device!==device)throw new Error('هذا الطلب بدأ من متصفح آخر');
-    const payload=pending.payload,result=scoped(await call(pending.action,payload),project);
+    const payload=structuredClone(pending.payload),result=scoped(await call(pending.action,payload),project);
     if(result.request_id!==payload.request_id)throw new Error('تغيّرت نتيجة الطلب. أعد التحميل.');
     const saved=read();
     if(['prepare_lock','prepare_finance'].includes(pending.action)){
@@ -65,7 +64,7 @@ export function createOwnerPath({api,project,device,storage=window.localStorage}
   async function begin(action,payload){
     if(!state)throw new Error('STATE_REQUIRED');
     const saved=read();if(saved.pending)throw new Error('تحقق من نتيجة الطلب السابق أولاً');
-    payload.revision=state.revision;payload.request_id=uuid();
+    payload=structuredClone(payload);payload.revision=state.revision;payload.request_id=uuid();
     saved.pending={action,payload,device};write(saved); // stored BEFORE dispatch
     return send(saved.pending);
   }
@@ -216,15 +215,15 @@ export function createOpeningStock({api,project,device,storage=window.localStora
 /** New shop creation: one durable request id; «not found» never creates a second shop id. */
 export function createOpeningProject({api,storage=window.localStorage}){
   const device=deviceId(api,storage),key=`opening-creation-v2:${device}`;
-  const read=()=>{try{return JSON.parse(storage.getItem(key)||'null');}catch{return null;}};
+  const read=()=>{const value=local(storage,key);return Object.keys(value).length?value:null;};
   const accept=(pending,receipt)=>{
     if(receipt?.status!=='created'||Number(receipt.accounting_version)!==2||receipt.request_id!==pending.request_id||receipt.project?.id!==receipt.project_id)
       throw new Error('نتيجة إنشاء المحل غير مؤكدة. حاول مرة ثانية بنفس البيانات.');
-    storage.removeItem(key);return receipt.project;
+    removeOwnerJournal(storage,key);return receipt.project;
   };
   return {
     pending:()=>{const p=read();return p?{name:p.name,phone:p.phone}:null;},
-    forget:()=>storage.removeItem(key),
+    forget:()=>removeOwnerJournal(storage,key),
     async create(name,phone,pin){
       name=String(name||'').trim();phone=String(phone||'').replace(/[^0-9]/g,'');
       if(name.length<2||!/^[0-9]{9,15}$/.test(phone)||!/^[0-9]{4}$/.test(pin||''))throw new Error('اكتب اسم المحل ورقم الجوال ورقماً سرياً من 4 أرقام');

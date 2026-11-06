@@ -1,6 +1,6 @@
 // Opened-project helpers (2026-11-06):
 // 1) remember the opened project in this tab so a reload returns to it (auth token is already per tab);
-// 2) refuse NEW-model shops (accounting_version 2): this web app writes the legacy finance model;
+// 2) select the server-confirmed accounting model; unknown is NEVER legacy;
 // 3) register this browser as the FIRST controlling device automatically (same safe path as the
 //    «تسجيل هذا المتصفح كأول جهاز مسؤول» button: never displaces another controller).
 import {readDeviceIdentity} from './device-control.js';
@@ -22,21 +22,20 @@ export function savedProject(storage) {
   } catch { return null; }
 }
 
-/** 2 for a new-model shop, otherwise null (legacy or unknown: the legacy screens stay the safe default). */
+/** Owners require explicit project-scoped server metadata. Viewer stays read-only. */
 export async function projectAccountingVersion(api,projectId,role){
   if(role!=='owner')return null;
-  try{const mode=await api.rpc('sharikx2_project_accounting_mode_v1',{p_project:projectId});return Number(mode?.accounting_version)===2?2:null;}
-  catch(error){console.debug('[SharikX2] accounting mode unavailable',String(error?.message||error).slice(0,80));return null;}
+  try{
+    const mode=await api.rpc('sharikx2_project_accounting_mode_v1',{p_project:projectId});
+    if(mode?.project_id!==projectId||![1,2].includes(mode.accounting_version)||typeof mode.enabled!=='boolean')throw new Error('INVALID_ACCOUNTING_MODE');
+    return mode.accounting_version;
+  }catch(cause){throw new Error('تعذر التحقق من نظام حسابات هذا المحل. لن يُفتح النظام القديم تلقائياً. تحقق من الاتصال وأعد المحاولة.',{cause});}
 }
 
-/** Throws a user-facing message for new-model shops. Server errors (old server, owner on a second
- *  device before the server fix) do not block legacy shops: only an explicit version 2 does. */
+/** Legacy-only callers must also fail closed when the model cannot be verified. */
 export async function assertWebSupportedProject(api, projectId, role) {
   if (role !== 'owner') return;
-  let mode = null;
-  try { mode = await api.rpc('sharikx2_project_accounting_mode_v1', {p_project: projectId}); }
-  catch (error) { console.debug('[SharikX2] accounting mode unavailable', String(error?.message || error).slice(0, 80)); return; }
-  if (Number(mode?.accounting_version) === 2) {
+  if (await projectAccountingVersion(api,projectId,role) === 2) {
     throw new Error('هذا المحل مسجّل بنظام التجهيز الجديد، وغير مدعوم في نسخة الويب بعد. افتحه من تطبيق SharikX2 على الجوال.');
   }
 }

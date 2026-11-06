@@ -1,15 +1,26 @@
 // New SharikX2 owner path on the web (Figma 03–16 setup, 19 cashier, 26–27 sale, 34–36 accounts/partners).
 // Same server functions and payloads as the Android OwnerPathScreen. Totals shown before confirming are
 // display only; confirmed numbers always come from the server.
-import {escape,money as fmt} from './ui.js';
+import {escape,money as fmt,setCurrency} from './ui.js';
 import {createOwnerPath,createOpeningMoney,createOpeningStock,deviceId,number,FREE_PRODUCTS} from './owner-path-store.js';
 import {renderReports,createReportState} from './report-ui.js';
 import {openBarcodeScanner} from './barcode-scanner.js';
 import {icon} from './owner-path-icons.js';
+import {openOwnerPassword} from './owner-password-ui.js';
+import {openProjectSharing} from './project-sharing-ui.js';
+import {renderCurrencySettings} from './currency-ui.js';
+import {renderFaq} from './faq-ui.js';
+import {PRIVACY_UPDATED,PRIVACY_SECTIONS} from './owner-path-privacy.js';
 import {hasActiveSubscription} from './subscription.js';
 import {renderSubscriptionPlans,openSubscriptionStatus} from './subscription-ui.js';
 import {openProjectNotifications} from './project-notifications-ui.js';
 import {subscriptionNotice,notificationSignature} from './project-notifications.js';
+import {ownerSaleSubtotal,ownerSaleTotal} from './owner-path-money.js';
+import {decimalSum} from './decimal-sum.js';
+import {renderOwnerAccounts} from './owner-accounts-ui.js';
+import {openOwnerApprovals} from './owner-approval-ui.js';
+import {renderOwnerHistory} from './owner-operation-history-ui.js';
+import {openOwnerSaleReturn} from './owner-sale-return-ui.js';
 
 const m=v=>v===null||v===undefined||v===''?'—':fmt(v,2);
 const e=escape;
@@ -19,6 +30,7 @@ const friendly=error=>{const raw=String(error?.message||error||'');for(const [co
   if(/[؀-ۿ]/.test(raw))return raw;return 'تعذر إكمال الطلب. تحقق من الاتصال وحاول مرة ثانية.';};
 const dec=v=>{const n=Number(v);return Number.isFinite(n)?n:0;};
 const sum2=values=>Math.round(values.reduce((a,v)=>a+Math.round(dec(v)*100),0))/100;
+const saleTotalLabel=(subtotal,raw)=>{try{return m(ownerSaleTotal(subtotal,number(raw||'0',2,'1000000000000')));}catch{return 'راجع الخصم';}};
 
 export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   const device=deviceId(api),flow=createOwnerPath({api,project:project.id,device});
@@ -39,11 +51,20 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     return flow.load();
   }
   const deviceError=error=>/DEVICE_CONTROL_REQUIRED|DEVICE_CONTROL_CHANGED|DEVICE_NOT_ACTIVE/.test(String(error?.message||error));
+  let runRevision=0;
+  const controlLocks=new WeakMap();
   async function run(work,done){
-    if(busy||!alive())return;busy=true;loading(true);app.querySelectorAll('button,input,select').forEach(b=>b.disabled=true);
-    try{const value=await work();if(!alive())return;busy=false;loading(false);await done?.(value);}
-    catch(error){if(!alive())return;busy=false;loading(false);if(deviceError(error)){page='device';closeSheet();render();return;}try{state=flow.snapshot();}catch{try{state=flow.cached();}catch{}}render();showError(friendly(error));}
-    finally{if(busy){busy=false;loading(false);}}
+    if(busy||!alive())return;const revision=++runRevision;busy=true;loading(true);
+    const controls=[...app.querySelectorAll('button,input,select')];
+    for(const node of controls){const lock=controlLocks.get(node)||{count:0,disabled:node.disabled};lock.count++;controlLocks.set(node,lock);node.disabled=true;}
+    try{const value=await work();if(!alive()||revision!==runRevision)return;busy=false;loading(false);await done?.(value);}
+    catch(error){if(!alive()||revision!==runRevision)return;busy=false;loading(false);if(deviceError(error)){page='device';closeSheet();render();return;}try{state=flow.snapshot();}catch{try{state=flow.cached();}catch{}}render();showError(friendly(error));}
+    finally{
+      // A read may open a sheet without replacing its parent. Restore that
+      // parent's original disabled states; nested reloads retain their own lock.
+      for(const node of controls){const lock=controlLocks.get(node);if(--lock.count===0){controlLocks.delete(node);if(node.isConnected)node.disabled=lock.disabled;}}
+      if(alive()&&revision===runRevision){busy=false;loading(false);}
+    }
   }
   const reload=target=>{page=target;closeSheet();run(guardedLoad,value=>{state=value;render();});};
   const go=target=>{page=target;closeSheet();render();window.scrollTo(0,0);};
@@ -67,7 +88,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   function frame(body,footer=''){
     app.innerHTML=`<section class="op-app">${header()}${home()?planRow():''}<main class="op-body"><p class="op-error" data-error hidden></p>${state?.local_only?'<p class="op-warn">آخر بيانات محفوظة على هذا المتصفح. تحتاج اتصالاً للحفظ.</p>':''}${body}</main>${footer?`<footer class="op-foot">${footer}</footer>`:''}${home()||page==='goods'?nav():''}</section>`;
     app.querySelector('[data-back]')?.addEventListener('click',back);
-    app.querySelector('[data-menu]')?.addEventListener('click',menu);
+    app.querySelector('[data-menu]')?.addEventListener('click',openSettings);
     const bell=app.querySelector('[data-bell]');
     if(bell){try{bell.classList.toggle('has-unread-notices',notificationSignature(notices())!==seenNotices());}catch{}
       bell.onclick=()=>openProjectNotifications({api,project,mode:'owner',owner:app,isCurrent:alive,
@@ -157,7 +178,8 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       <button class="op-hero" data-go="sale"><span><b>مبيعة جديدة</b><small>امسح باركود أو اختر صنف رصيده مؤكد ومتاح</small></span>${icon('scan')}</button>
       <div class="op-tiles"><button data-debts="customers"><i>${icon('customers')}</i>ديون الزبائن</button><button data-debts="suppliers"><i>${icon('supplier')}</i>حسابات الموردين</button><button data-go="purchase"><i>${icon('receipt')}</i>فاتورة شراء</button><button data-expense><i>${icon('wallet')}</i>مصروف جديد</button><button data-go="history" class="wide"><i>${icon('pending')}</i>سجل العمليات</button></div>
       ${s.opening_locked?'':ui.checklist_hidden?'<button class="ghost" data-show>إظهار قائمة تجهيز محلك</button>':''}
-      ${held?`<button class="ghost" data-held-list>المبيعات المعلقة (${held})</button>`:''}`);
+      ${held?`<button class="ghost" data-held-list>المبيعات المعلقة (${held})</button>`:''}<h2>سجل العمليات</h2><section data-owner-inline-history></section>`);
+    void renderOwnerHistory({api,projectId:project.id,container:app.querySelector('[data-owner-inline-history]'),owner:app,inline:true,isCurrent:()=>alive()&&page==='cashier'&&!busy,onReturn:Number(state.return_bridge)===1?id=>saleReturn(id):undefined});
     on('[data-open]',node=>{const t=node.dataset.open;if(!t)return;if(t==='money')openMoney('cashier');else if(t==='goods')openGoods('cashier');else go(t);});
     on('[data-go]',node=>go(node.dataset.go));
     on('[data-debts]',node=>openDebts(node.dataset.debts));
@@ -414,7 +436,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   function sale(){
     const items=cart(),pay=flow.draft('payment'),cash=accounts().find(a=>a.type==='cash')||accounts()[0];
     const chosen=pay.account_id||cash?.id||'',asDebt=!!pay.as_debt&&!pay.composed,composed=!!pay.composed;
-    const subtotal=sum2(items.map(i=>Math.round(dec(i.quantity)*dec(i.unit_sale_price)*100)/100));
+    const subtotal=ownerSaleSubtotal(items);
     frame(`<form class="op-search" data-search><input name="q" placeholder="امسح باركود أو ابحث عن صنف" autocomplete="off" aria-label="امسح باركود أو ابحث عن صنف"><button class="op-icon" aria-label="بحث">⌕</button><button type="button" class="op-icon" data-scan aria-label="مسح باركود بالكاميرا">${icon('scan')}</button></form>
       ${products().length?`<p class="muted small">أصناف سريعة</p><div class="op-chips scroll">${products().map(r=>`<button class="op-chip ${r.confirmation||r.purchased?'':'dim'}" data-item="${e(r.product.id)}">${e(r.product.name)}</button>`).join('')}</div>`:''}
       ${items.map((i,n)=>`<div class="op-cart"><button class="op-cart-name" data-edit="${n}"><b>${e(i.name)}</b><small>${m(i.unit_sale_price)}</small></button><span class="op-stepper" dir="ltr"><button data-minus="${n}" aria-label="إنقاص">−</button><b>${e(i.quantity)}</b><button data-plus="${n}" aria-label="زيادة">+</button></span></div>`).join('')||'<p class="muted">السلة فارغة. امسح باركود أو اختر صنفاً.</p>'}
@@ -423,7 +445,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       ${composed?`<div class="op-card">${(pay.payments||[]).map(x=>`<div class="op-row"><span>${e(accountName(x.account_id))}</span><b>${m(x.amount)}</b></div>`).join('')}${pay.customer_id?`<div class="op-row"><span>الباقي على</span><b>${e(customers().find(c=>c.id===pay.customer_id)?.name||'')}</b></div>`:''}</div>`:''}
       ${asDebt?`<label class="op-field">الزبون<select name="customer">${options(customers(),pay.customer_id,'اختر الزبون')}</select></label><button class="ghost" data-new-customer>+ إضافة زبون</button>`:''}
       ${field('discount','الخصم',pay.discount||'0','₪')}`,
-      `<div class="op-row"><span class="muted">المجموع</span><b class="op-big" data-total>${m(subtotal-dec(pay.discount))}</b></div><button class="primary" data-finish ${items.length?'':'disabled'}>إتمام البيع</button><button class="ghost" data-refresh>راجع التغييرات في البضاعة</button>`);
+      `<div class="op-row"><span class="muted">المجموع</span><b class="op-big" data-total>${saleTotalLabel(subtotal,pay.discount)}</b></div><button class="primary" data-finish ${items.length?'':'disabled'}>إتمام البيع</button><button class="ghost" data-refresh>راجع التغييرات في البضاعة</button>`);
     app.querySelector('[data-search]').onsubmit=ev=>{ev.preventDefault();find(ev.target.q.value);};
     on('[data-item]',node=>saleItem(node.dataset.item,-1));
     on('[data-edit]',node=>saleItem(items[node.dataset.edit].product_id,Number(node.dataset.edit)));
@@ -435,13 +457,14 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-new-customer]',()=>newContact('customer',id=>{flow.draft('payment',{...flow.draft('payment'),customer_id:id});}));
     on('[data-scan]',()=>openBarcodeScanner({onDetected:value=>{if(alive()&&page==='sale')find(value);},isCurrent:()=>alive()&&page==='sale'}));
     const customer=app.querySelector('[name=customer]');if(customer)customer.onchange=()=>flow.draft('payment',{...flow.draft('payment'),customer_id:customer.value});
-    const discount=app.querySelector('[name=discount]');discount.oninput=()=>{flow.draft('payment',{...flow.draft('payment'),discount:discount.value});app.querySelector('[data-total]').textContent=m(subtotal-dec(discount.value));};
+    const discount=app.querySelector('[name=discount]');discount.oninput=()=>{flow.draft('payment',{...flow.draft('payment'),discount:discount.value});app.querySelector('[data-total]').textContent=saleTotalLabel(subtotal,discount.value);};
     on('[data-refresh]',()=>run(guardedLoad,v=>{state=v;const fresh=cart().map(line=>{const row=product(line.product_id);return row?{...line,source_token:row.source_token}:null;});
       if(fresh.some(x=>!x))return render(),showError('صنف في السلة لم يعد متاحاً. احذفه أولاً.');saveCart(fresh);render();say('تم تحديث البضاعة');}));
     on('[data-finish]',()=>{
       const frozen=cart();if(!frozen.length)return showError('أضف صنفاً للسلة أولاً');
       let values;try{values={items:frozen,discount:number(discount.value||'0',2,'1000000000000'),as_debt:asDebt};}catch{return showError('راجع الخصم');}
-      if(composed){const total=Math.round((subtotal-dec(values.discount))*100)/100,paid=sum2((pay.payments||[]).map(x=>x.amount));
+      let total;try{total=ownerSaleTotal(subtotal,values.discount);}catch(error){return showError(error.message);}
+      if(composed){const paid=decimalSum((pay.payments||[]).map(x=>x.amount));
         if(paid>total)return showError('المبالغ المدفوعة أكثر من مجموع المبيعة. راجع الدفع المقسّم.');
         if(paid<total&&!pay.customer_id)return showError('اختر الزبون لتسجيل الباقي عليه.');
         values.payments=pay.payments||[];if(paid<total)values.customer_id=pay.customer_id;values.as_debt=false;}
@@ -577,18 +600,17 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-cancel]',()=>run(async()=>{await flow.cancel();return flow.load();},v=>{state=v;page='profits';render();}));
   }
   function accountsPage(){
-    const s=state.profit?.summary;
-    if(!s)return frame('<p class="muted">أرقام الحسابات تظهر بعد تجهيز محلك.</p>');
-    frame(`<div class="op-card"><small class="muted">قيمة محلك اليوم</small><p class="op-big">${m(s.net_project_value)}</p><small class="muted">فلوس + بضاعة بسعر الشراء + ديون لك − ديون عليك</small>
-      ${[['فلوس المحل','liquidity'],['البضاعة بسعر الشراء','inventory_cost'],['ديون لك على زبائن','customer_debt'],['ديون عليك لموردين','supplier_debt']].map(([l,k])=>`<div class="op-row"><span>${l}</span><b>${m(s[k])}</b></div>`).join('')}</div>
-      <div class="op-card"><b>أين فلوسك</b>${(s.accounts||[]).map(a=>`<div class="op-row"><span>${e(a.name)}</span><b class="${dec(a.balance)===0?'muted':''}">${m(a.balance)}</b></div>`).join('')}</div>`);
+    frame('<section class="owner-accounts" data-owner-accounts></section>');
+    void renderOwnerAccounts({container:app.querySelector('[data-owner-accounts]'),api,project,state,
+      isCurrent:()=>alive()&&page==='accounts'&&!busy,
+      onApprove:()=>prepareFinance({},'approve'),
+      onHistory:()=>openOwnerApprovals({owner:app,state,project,isCurrent:()=>alive()&&page==='accounts'}),
+      onCustomers:()=>openDebts('customers'),onSuppliers:()=>openDebts('suppliers')});
   }
   function history(){
-    const ops=state.operations||[],when=v=>{try{return new Date(v).toLocaleString('ar-PS-u-nu-latn',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Hebron'});}catch{return v||'';}};
-    const label=v=>({paid:'مكتملة',credit:'دين',partially_returned:'مرتجع جزئي',returned:'مرتجعة'}[v]||'');
-    frame(ops.map(o=>`<div class="op-card"><b>${o.kind==='sale'?'مبيعة':'فاتورة شراء'} · ${m(o.total)}</b><small class="muted">${e(when(o.occurred_at))}${label(o.status)?' · '+label(o.status):''}</small>${o.kind==='sale'&&o.status!=='returned'&&Number(state.return_bridge)===1?`<button class="ghost small" data-return="${e(o.id)}">تسجيل مرتجع</button>`:''}</div>`).join('')||'<p class="muted">لا توجد عمليات مسجّلة بعد</p>','<button class="primary" data-goto>الرجوع للكاشير</button>');
+    frame('<section data-owner-history></section>','<button class="primary" data-goto>الرجوع للكاشير</button>');
+    void renderOwnerHistory({api,projectId:project.id,container:app.querySelector('[data-owner-history]'),owner:app,isCurrent:()=>alive()&&page==='history'&&!busy,onReturn:Number(state.return_bridge)===1?id=>saleReturn(id):undefined});
     on('[data-goto]',()=>go('cashier'));
-    on('[data-return]',node=>saleReturn(node.dataset.return));
   }
   // ---------- operating actions after the start (Android OpeningCollectionFlow.execute) ----------
   function operating(action,capability,values,done){
@@ -636,28 +658,20 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
         run(()=>customer?api.createCustomer(project.id,value):api.createSupplier(project.id,value),async()=>{closeSheet();say('تم الحفظ');state=await flow.load();await created?.(id);if(page==='sale'||page==='purchase')render();});}],['رجوع',closeSheet]]);
   }
   function splitPayment(subtotal){
-    const pay=flow.draft('payment'),old=new Map((pay.payments||[]).map(x=>[x.account_id,x.amount])),total=Math.round((subtotal-dec(pay.discount))*100)/100;
+    const pay=flow.draft('payment'),old=new Map((pay.payments||[]).map(x=>[x.account_id,x.amount]));
+    let total;try{total=ownerSaleTotal(subtotal,number(pay.discount||'0',2,'1000000000000'));}catch(error){return showError(error.message);}
     sheet('تفاصيل الدفع',`<p class="muted">مجموع المبيعة ${m(total)}. اكتب المبلغ المدفوع من كل حساب. إذا بقي مبلغ، اختر الزبون لتسجيل الباقي عليه.</p>${accounts().map(a=>field(`src-${a.id}`,a.name,old.get(a.id)??'','₪')).join('')}
       <label class="op-field">الزبون (للباقي)<select name="customer">${options(customers(),pay.customer_id,'بدون — الدفع كامل')}</select></label>`,
       [['حفظ طريقة الدفع',d=>{const payments=[];
         try{for(const a of accounts()){const raw=d.querySelector(`[name="src-${CSS.escape(a.id)}"]`).value;if(!raw.trim())continue;const v=number(raw,2,'1000000000000');if(dec(v)>0)payments.push({account_id:a.id,amount:v});}}catch{return sheetError(d,'راجع المبالغ');}
-        const paid=sum2(payments.map(x=>x.amount)),cust=d.querySelector('[name=customer]').value;
+        const paid=decimalSum(payments.map(x=>x.amount)),cust=d.querySelector('[name=customer]').value;
         if(paid>total)return sheetError(d,'المبالغ أكثر من مجموع المبيعة');if(paid<total&&!cust)return sheetError(d,'اختر الزبون لتسجيل الباقي عليه');
         flow.draft('payment',{...pay,payments,customer_id:cust,composed:true,as_debt:false});closeSheet();render();}],['رجوع',closeSheet]]);
   }
   function saleReturn(saleId){
     run(()=>api.sale(project.id,saleId),sale=>{
-      if(!sale)return showError('تعذر تحميل المبيعة');
-      const returned=new Map();for(const r of sale.returns||[])for(const x of r.items||[])returned.set(x.sale_item_id,(returned.get(x.sale_item_id)||0)+dec(x.quantity));
-      const items=(sale.items||[]).map(x=>({...x,left:Math.round((dec(x.quantity)-(returned.get(x.id)||0))*1000)/1000})).filter(x=>x.left>0);
-      const nameOf=x=>x.product_name||x.name||product(x.product_id)?.product?.name||'صنف';
-      sheet(`مرتجع من المبيعة ${sale.sale_number??''}`,`${items.map(x=>`${field(`ret-${x.id}`,`${nameOf(x)} · المتاح للإرجاع ${x.left}`,'','#')}`).join('')||'<p class="muted">لا يوجد أصناف متاحة للإرجاع</p>'}
-        <label class="op-field">ترجع الفلوس من<select name="account">${options(accounts(),sale.payment_account_id||defaultAccount()?.id)}</select></label>${field('reason','السبب (اختياري)','')}`,
-        [['تسجيل المرتجع',d=>{const rows=[];
-          try{for(const x of items){const raw=d.querySelector(`[name="ret-${CSS.escape(x.id)}"]`).value;if(!raw.trim())continue;const q=number(raw,3,'100000000000');if(dec(q)<=0)continue;if(dec(q)>x.left)throw new Error();rows.push({sale_item_id:x.id,quantity:q});}}
-          catch{return sheetError(d,'الكمية أكثر من المتاح للإرجاع');}
-          if(!rows.length)return sheetError(d,'اكتب كمية صنف واحد على الأقل');
-          operating('sale_return','return_bridge',{sale_id:sale.id,items:rows,account_id:d.querySelector('[name=account]').value,reason:d.querySelector('[name=reason]').value},()=>reload('history'));}],['رجوع',closeSheet]]);
+      openOwnerSaleReturn({sale,projectId:project.id,saleId,accounts:accounts(),sheet,sheetError,
+        onSubmit:values=>operating('sale_return','return_bridge',values,()=>reload('history'))});
     });
   }
   function shareAgreement(exiting){
@@ -700,8 +714,80 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     try{if(localStorage.getItem(ignoredKey())===`${d.requested_device_id}|${d.requested_at}`)return '';}catch{}
     return `<div class="op-banner warn"><b>جهاز آخر يطلب التحكم بالمحل</b><small>${e(d.requested_device_name||'جهاز جديد')}. إذا وافقت، هذا الجهاز يصير للمشاهدة فقط.</small><div class="op-row"><button class="outline small" data-approve-device>موافقة</button><button class="ghost small" data-ignore-device>تجاهل</button></div></div>`;
   }
+  // ---------- settings (Figma 54 main, 55 share, 56 device) — same rows as the Android OwnerSettingsView ----------
+  let settingsFrom='cashier',sharing=null;
+  const appOnly=()=>say('هذه الخدمة متاحة من تطبيق SharikX2 على الجوال.');
+  function settingsShell(heading,body,footer='',backTo='settings'){
+    app.innerHTML=`<section class="op-app"><header class="op-head"><button class="op-icon" data-sback aria-label="رجوع">${icon('back')}</button><b class="op-title">${e(heading)}</b></header><main class="op-body"><p class="op-error" data-error hidden></p>${body}</main>${footer?`<footer class="op-foot">${footer}</footer>`:''}</section>`;
+    app.querySelector('[data-sback]').onclick=()=>{if(backTo==='settings')go('settings');else reload(backTo);};
+  }
+  const srow=(id,title,helper,value,tone='',action=true)=>`<button class="op-srow" ${action?`data-s="${id}"`:'disabled'}><span><span class="${id==='delete'?'danger':''}">${e(title)}</span>${helper?`<small>${e(helper)}</small>`:''}</span>${value?`<em class="${tone}">${e(value)}</em>`:''}${action?`<i class="op-chev">${icon('back')}</i>`:''}</button>`;
+  const sgroup=(title,rows)=>`${title?`<p class="op-sgroup-title">${e(title)}</p>`:'<div style="height:12px"></div>'}<div class="op-sgroup">${rows.join('')}</div>`;
+  function openSettings(){if(busy)return say('انتظر حتى ينتهي الطلب الحالي');settingsFrom=page;go('settings');}
+  function settingsPage(){
+    const controls=!!deviceInfo?.is_active,paid=hasActiveSubscription(project),dark=theme?.mode?.()==='dark';
+    settingsShell('الإعدادات',`<h2>${e(project.name||'محلك')}</h2><p class="muted small">${controls?'أنت صاحب المحل · هذا الجهاز يتحكم بالمحل':'أنت صاحب المحل · جهاز آخر يتحكم بالمحل الآن'}</p>
+      ${sgroup('المحل',[srow('name','اسم المحل','',project.name||'','',false),srow('currency','العملة','',({ILS:'شيكل ₪',USD:'دولار $',JOD:'دينار'}[project.currency]||project.currency||'شيكل ₪')),
+        srow('accounts','حسابات الدفع','',''),srow('share','مشاركة المحل','الشركاء يشاهدون فقط',sharing?.share_pin?'مفعّلة':'غير مفعّلة',sharing?.share_pin?'ok':'muted'),srow('history','السجل','','')])}
+      ${sgroup('الأمان',[srow('pin','رمز الدخول','','تغيير'),srow('google','حماية Google','تستعيد به محلك إذا فقدت جوالك','من التطبيق','muted'),srow('recovery','رمز الاستعادة','','من التطبيق','muted'),
+        srow('device','التحكم بالمحل','جهاز واحد فقط يمكنه التسجيل',controls?'هذا الجهاز':'جهاز آخر')])}
+      ${sgroup('الاشتراك',[srow('plan','الخطة',paid?'أصناف ومشاركة بلا حد':`الخطة المجانية · حتى ${FREE_PRODUCTS} صنفاً وشريكين`,paid?'الاشتراك الشهري':'مجانية',paid?'ok':'')])}
+      ${sgroup('التطبيق',[srow('theme','المظهر','',dark?'داكن':'فاتح'),srow('faq','الأسئلة الشائعة','',''),srow('support','الدعم الفني','',''),srow('privacy','سياسة الخصوصية','','')])}
+      ${sgroup('',[srow('logout','تسجيل الخروج','',''),srow('delete','حذف المحل والحساب','يحذف كل البيانات نهائياً','')])}`,'',settingsFrom);
+    if(!sharing)api.sharingProject(project.id).then(v=>{sharing=v||{};if(alive()&&page==='settings')settingsPage();}).catch(()=>{sharing={};});
+    const actions={currency:()=>go('set_currency'),accounts:()=>reload('accounts'),share:()=>go('set_share'),history:()=>reload('history'),
+      pin:()=>openOwnerPassword({api,projectId:project.id,mode:'owner',owner:app,isCurrent:alive}),google:appOnly,recovery:appOnly,device:()=>go('set_device'),
+      plan:plans,theme:()=>{theme?.toggle?.();settingsPage();},faq:()=>go('set_faq'),support:()=>go('set_support'),privacy:()=>go('set_privacy'),
+      logout:()=>{if(confirm('تسجيل الخروج من المحل على هذا المتصفح؟'))onExit();},delete:appOnly};
+    app.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>actions[b.dataset.s]?.());
+  }
+  function sharePage(){
+    const s=sharing||{},pin=s.share_pin&&/^\d{4}$/.test(s.share_pin)?s.share_pin:'',paid=hasActiveSubscription({...project,...s});
+    const sees=[['✓','قيمة المحل وحسابات الشركاء'],['✓','المبيعات والتقارير والأرباح'],['✓','البضاعة والديون'],['✗','يبيع أو يسجّل أو يعدّل','التسجيل لصاحب المحل فقط']];
+    settingsShell('مشاركة المحل',`<h2>رمز المشاركة</h2><p class="muted">شاركه مع شركائك. يدخلون به من «عندي رمز مشاركة» في شاشة البداية.</p>
+      <div class="op-card op-code"><b dir="ltr">${pin?pin.split('').join('  '):'— — — —'}</b><small class="muted">${pin?'رقم من 4 خانات اخترته بنفسك':'لم تفعّل المشاركة بعد'}</small></div>
+      <div class="op-card"><b>ماذا يرى الشريك</b>${sees.map(x=>`<div class="op-row"><span>${e(x[1])}${x[2]?`<br><small class="muted">${e(x[2])}</small>`:''}</span><b class="${x[0]==='✓'?'ok':'danger'}">${x[0]}</b></div>`).join('')}</div>
+      <div class="op-card"><b>${paid?'ضمن اشتراكك':'ميزة في الاشتراك الشهري'}</b><small class="muted">المشاركة ميزة في الاشتراك الشهري. إذا انتهى الاشتراك، لا يقدر الشركاء يدخلون حتى تجدّده.</small></div>`,
+      pin?'<button class="primary" data-share-pin>مشاركة الرمز</button><button class="outline" data-change-pin>تغيير الرمز</button>':`<button class="primary" data-enable>${paid?'تفعيل المشاركة':'عرض الاشتراك'}</button>`);
+    const edit=()=>{try{const d=openProjectSharing({api,project:{...project,...s},mode:'owner',isCurrent:alive});d?.addEventListener?.('close',()=>{sharing=null;api.sharingProject(project.id).then(v=>{sharing=v;if(alive()&&page==='set_share')sharePage();}).catch(()=>{});});}catch(error){showError(friendly(error));}};
+    app.querySelector('[data-share-pin]')?.addEventListener('click',async()=>{const text=`رمز مشاركة محل ${project.name||''}: ${pin}`;try{if(navigator.share)await navigator.share({text});else{await navigator.clipboard.writeText(pin);say('تم نسخ الرمز');}}catch{}});
+    app.querySelector('[data-change-pin]')?.addEventListener('click',edit);
+    app.querySelector('[data-enable]')?.addEventListener('click',()=>paid?edit():plans());
+    if(!sharing)api.sharingProject(project.id).then(v=>{sharing=v||{};if(alive()&&page==='set_share')sharePage();}).catch(error=>showError(friendly(error)));
+  }
+  function devicePage(){
+    const d=deviceInfo||{},controls=!!d.is_active,mine=d.requested_device_id===device;
+    settingsShell('التحكم بالمحل',`<h2>جهاز واحد للتسجيل</h2><p class="muted">حتى لا تتسجل نفس المبيعة مرتين، جهاز واحد فقط يقدر يبيع ويعدّل في نفس الوقت.</p>
+      <div class="op-card"><div class="op-row"><span><b>${controls?'يتحكم الآن':'جهاز آخر يتحكم الآن'}</b><br><small class="muted">${e(d.active_device_name||'')}</small></span><b class="${controls?'ok':'warn'}">${controls?'هذا الجهاز':'ليس هذا الجهاز'}</b></div>
+      <div class="op-row"><span>عمليات تنتظر المزامنة</span><b class="muted">لا يوجد</b></div></div>
+      ${mine?'<div class="op-banner warn"><b>طلبت التحكم بالمحل</b><small>بانتظار موافقة الجهاز الذي يتحكم الآن.</small></div>':controls?'<p class="muted small">إذا أردت التسجيل من جهاز آخر، اطلب التحكم من الجهاز الآخر، ووافق عليه من هنا.</p>':''}
+      ${controls&&d.requested_device_id?approvalBanner():''}`,
+      !controls&&!mine?'<button class="primary" data-request>طلب التحكم بهذا الجهاز</button>':'');
+    app.querySelector('[data-request]')?.addEventListener('click',()=>run(()=>deviceRpc('request_sharikx2_device_transfer_v1',{p_device_name:DEVICE_NAME}),v=>{deviceInfo=v;devicePage();say('تم إرسال الطلب');}));
+    app.querySelector('[data-approve-device]')?.addEventListener('click',()=>{if(!confirm('نقل التحكم للجهاز الجديد؟ هذا المتصفح يتوقف عن تسجيل العمليات.'))return;
+      run(()=>deviceRpc('approve_sharikx2_device_transfer_v1'),()=>{say('تم نقل التحكم للجهاز الجديد');deviceInfo={...deviceInfo,is_active:false,requested_device_id:''};page='device';render();});});
+  }
+  function currencyPage(){
+    settingsShell('العملة','<div data-box></div>');
+    renderCurrencySettings({api,container:app.querySelector('[data-box]'),project,mode:'owner',isCurrent:()=>alive()&&page==='set_currency',
+      onSaved:value=>{const next=typeof value==='string'?value:value?.currency;if(next){project.currency=next;setCurrency(next);}say('تم حفظ العملة');go('settings');}});
+  }
+  function faqPage(){settingsShell('الأسئلة الشائعة','<div data-box></div>');renderFaq({container:app.querySelector('[data-box]'),isCurrent:()=>alive()&&page==='set_faq',onBack:()=>go('settings')});}
+  function privacyPage(){settingsShell('سياسة الخصوصية',`<p class="muted small">${e(PRIVACY_UPDATED)}</p>${PRIVACY_SECTIONS.map(x=>`<div class="op-card"><b>${e(x.title)}</b><p>${e(x.body)}</p></div>`).join('')}`);}
+  function supportPage(){
+    const types=['مشكلة حسابية','اقتراح','الحساب وكلمة المرور','أخرى'];
+    settingsShell('تواصل معنا',`${field('phone','رقم جوال التواصل',project.owner_phone||'','','dir="ltr" inputmode="tel" placeholder="مثال: 0591234567"')}
+      <label class="op-field">نوع المشكلة<select name="type">${types.map(t=>`<option>${t}</option>`).join('')}</select></label>
+      <label class="op-field">وصف المشكلة<textarea name="message" rows="5" placeholder="اكتب المشكلة بالتفصيل"></textarea></label>`,'<button class="primary" data-send>إرسال الطلب</button>');
+    app.querySelector('[data-send]').onclick=()=>{const v=n=>app.querySelector(`[name=${n}]`).value.trim();const phone=v('phone').replace(/[^0-9]/g,'');
+      if(!/^[0-9]{9,15}$/.test(phone))return showError('اكتب رقم جوال صحيح');if(v('message').length<3)return showError('اكتب وصف المشكلة');
+      run(()=>api.request('/rest/v1/sharikx2_support_requests',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({contact_phone:phone,issue_type:v('type'),message:v('message'),status:'new'})}).catch(error=>{if(error?.status===201||error?.status===204)return null;throw error;}),
+        ()=>{say('تم إرسال طلب المساعدة');go('settings');});};
+  }
   function render(){
     if(!alive())return;
+    const settings={settings:settingsPage,set_share:sharePage,set_device:devicePage,set_currency:currencyPage,set_faq:faqPage,set_privacy:privacyPage,set_support:supportPage}[page];
+    if(settings)return settings();
     if(page==='device')return deviceScreen();
     if(page==='money')return money();
     if(page==='goods')return goods();

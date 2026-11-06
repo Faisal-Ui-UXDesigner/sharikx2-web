@@ -15,6 +15,10 @@ for(const folder of ['scripts','tests']){
 console.log('Running unit tests');
 run(['--test',...unitTests]);
 console.log('Running isolated browser regressions');
+run(['tests/owner-path-safety-browser-smoke.mjs']);
+run(['tests/owner-accounts-browser-smoke.mjs']);
+run(['tests/owner-history-browser-smoke.mjs']);
+run(['tests/owner-return-browser-smoke.mjs']);
 run(['tests/subscription-details-browser-smoke.mjs']);
 run(['tests/subscription-requests-browser-smoke.mjs']);
 run(['tests/owner-password-browser-smoke.mjs']);
