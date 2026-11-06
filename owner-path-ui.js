@@ -9,7 +9,7 @@ import {openBarcodeScanner} from './barcode-scanner.js';
 const m=v=>v===null||v===undefined||v===''?'—':fmt(v,2);
 const e=escape;
 const STATUS={done:'مكتمل',in_progress:'قيد الاستكمال',not_started:'لم تكتبه بعد'};
-const ERRORS={OWNER_REQUIRED:'هذا المحل مفتوح على جهاز آخر. افتحه من الجهاز الذي أنشأته منه.',STALE_REVISION:'تغيّرت بيانات المحل. أعد التحميل وراجع.',INSUFFICIENT_STOCK:'الكمية أكثر من المتاح.',FREE_PLAN_LIMIT:'وصلت حد الخطة المجانية.'};
+const ERRORS={DEVICE_STILL_ACTIVE:'الجهاز القديم ظهر خلال آخر 24 ساعة. اطلب نقل التحكم ووافق عليه منه.',OWNER_REQUIRED:'هذا الحساب ليس مالك المحل.',STALE_REVISION:'تغيّرت بيانات المحل. أعد التحميل وراجع.',INSUFFICIENT_STOCK:'الكمية أكثر من المتاح.',FREE_PLAN_LIMIT:'وصلت حد الخطة المجانية.'};
 const friendly=error=>{const raw=String(error?.message||error||'');for(const [code,text] of Object.entries(ERRORS))if(raw.includes(code))return text;
   if(/[؀-ۿ]/.test(raw))return raw;return 'تعذر إكمال الطلب. تحقق من الاتصال وحاول مرة ثانية.';};
 const dec=v=>{const n=Number(v);return Number.isFinite(n)?n:0;};
@@ -18,19 +18,29 @@ const sum2=values=>Math.round(values.reduce((a,v)=>a+Math.round(dec(v)*100),0))/
 export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   const device=deviceId(api),flow=createOwnerPath({api,project:project.id,device});
   const moneyFlow=createOpeningMoney({api,project:project.id,device}),stockFlow=createOpeningStock({api,project:project.id,device});
-  let reportState=createReportState(),debtData=null;
+  let reportState=createReportState(),debtData=null,deviceInfo=null;
   let state=null,page='cashier',busy=false,closed=false,selectedPartner=null,moneyState=null,stockState=null,stockSelected=new Set(),returnTo='cashier';
   const alive=()=>!closed&&app.isConnected;
   const say=text=>notice?.(text);
   function showError(text){const node=app.querySelector('[data-error]');if(node){node.textContent=text;node.hidden=false;node.scrollIntoView({block:'nearest'});}else say(text);}
   function loading(on){document.body.classList.toggle('op-loading',on);}
+  // Device control (same model as the app): only the controlling device may write. A new device asks
+  // for control; the current device approves; takeover only after the old device is away 24 hours.
+  const DEVICE_NAME='متصفح SharikX2';
+  const deviceRpc=(name,extra={})=>api.rpc(name,{p_project_id:project.id,p_device_id:device,...extra});
+  async function guardedLoad(){
+    deviceInfo=await deviceRpc('claim_sharikx2_device_control_v1',{p_device_name:DEVICE_NAME});
+    if(!deviceInfo?.is_active)throw new Error('DEVICE_CONTROL_REQUIRED');
+    return flow.load();
+  }
+  const deviceError=error=>/DEVICE_CONTROL_REQUIRED|DEVICE_CONTROL_CHANGED|DEVICE_NOT_ACTIVE/.test(String(error?.message||error));
   async function run(work,done){
     if(busy||!alive())return;busy=true;loading(true);app.querySelectorAll('button,input,select').forEach(b=>b.disabled=true);
     try{const value=await work();if(!alive())return;busy=false;loading(false);await done?.(value);}
-    catch(error){if(!alive())return;busy=false;loading(false);try{state=flow.snapshot();}catch{try{state=flow.cached();}catch{}}render();showError(friendly(error));}
+    catch(error){if(!alive())return;busy=false;loading(false);if(deviceError(error)){page='device';closeSheet();render();return;}try{state=flow.snapshot();}catch{try{state=flow.cached();}catch{}}render();showError(friendly(error));}
     finally{if(busy){busy=false;loading(false);}}
   }
-  const reload=target=>{page=target;closeSheet();run(flow.load,value=>{state=value;render();});};
+  const reload=target=>{page=target;closeSheet();run(guardedLoad,value=>{state=value;render();});};
   const go=target=>{page=target;closeSheet();render();window.scrollTo(0,0);};
   const post=(action,values,target)=>run(()=>flow.command(action,values),()=>{say('تم الحفظ');reload(target);});
 
@@ -105,7 +115,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
         <button class="op-check ${s.lock_ready?'':'off'}" data-open="${s.lock_ready?'review':''}"><span class="op-mark" aria-hidden="true">🔒</span><span><b>تثبيت أرقام البداية</b><small>${s.lock_ready?'جاهز للمراجعة والتثبيت':'يتاح بعد اكتمال الأقسام'}</small></span></button></div>`;
     }
     const held=flow.heldSales().length;
-    frame(`${checklist}
+    frame(`${approvalBanner()}${checklist}
       <button class="op-hero" data-go="sale"><span><b>مبيعة جديدة</b><small>امسح باركود أو اختر صنف رصيده مؤكد ومتاح</small></span><span aria-hidden="true">▥</span></button>
       <div class="op-tiles"><button data-debts="customers"><span aria-hidden="true">👤</span>ديون الزبائن</button><button data-debts="suppliers"><span aria-hidden="true">🚚</span>حسابات الموردين</button><button data-go="purchase"><span aria-hidden="true">🧾</span>فاتورة شراء</button><button data-expense><span aria-hidden="true">💸</span>مصروف جديد</button><button data-go="history" class="wide"><span aria-hidden="true">🕘</span>سجل العمليات</button></div>
       ${s.opening_locked?'':ui.checklist_hidden?'<button class="ghost" data-show>إظهار قائمة تجهيز محلك</button>':''}
@@ -117,6 +127,8 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-hide]',()=>{flow.draft('ui',{checklist_hidden:true});render();});
     on('[data-show]',()=>{flow.draft('ui',{checklist_hidden:false});render();});
     on('[data-held-list]',heldSales);
+    on('[data-approve-device]',()=>{if(!confirm('نقل التحكم للجهاز الجديد؟ هذا المتصفح يتوقف عن تسجيل العمليات.'))return;
+      run(()=>deviceRpc('approve_sharikx2_device_transfer_v1'),()=>{say('تم نقل التحكم للجهاز الجديد');deviceInfo={...deviceInfo,is_active:false,requested_device_id:''};page='device';render();});});
   }
 
   // ---------- money (Figma 04) ----------
@@ -385,7 +397,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-scan]',()=>openBarcodeScanner({onDetected:value=>{if(alive()&&page==='sale')find(value);},isCurrent:()=>alive()&&page==='sale'}));
     const customer=app.querySelector('[name=customer]');if(customer)customer.onchange=()=>flow.draft('payment',{...flow.draft('payment'),customer_id:customer.value});
     const discount=app.querySelector('[name=discount]');discount.oninput=()=>{flow.draft('payment',{...flow.draft('payment'),discount:discount.value});app.querySelector('[data-total]').textContent=m(subtotal-dec(discount.value));};
-    on('[data-refresh]',()=>run(flow.load,v=>{state=v;const fresh=cart().map(line=>{const row=product(line.product_id);return row?{...line,source_token:row.source_token}:null;});
+    on('[data-refresh]',()=>run(guardedLoad,v=>{state=v;const fresh=cart().map(line=>{const row=product(line.product_id);return row?{...line,source_token:row.source_token}:null;});
       if(fresh.some(x=>!x))return render(),showError('صنف في السلة لم يعد متاحاً. احذفه أولاً.');saveCart(fresh);render();say('تم تحديث البضاعة');}));
     on('[data-finish]',()=>{
       const frozen=cart();if(!frozen.length)return showError('أضف صنفاً للسلة أولاً');
@@ -627,8 +639,28 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       .catch(error=>showError(friendly(error)));
   }
 
+  function deviceScreen(){
+    const d=deviceInfo||{},mine=d.requested_device_id===device,seen=v=>{try{return new Date(v).toLocaleString('ar-PS-u-nu-latn',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Hebron'});}catch{return '';}};
+    app.innerHTML=`<section class="op-app"><header class="op-head"><div class="op-id"><b>${e(project.name||'محلي')}</b></div></header><main class="op-body"><p class="op-error" data-error hidden></p>
+      <h2>المحل مفتوح على جهاز آخر</h2><p class="muted">حتى تحمي الحسابات، جهاز واحد فقط يسجّل العمليات. الجهاز الحالي: <b>${e(d.active_device_name||'جهاز آخر')}</b>${d.last_seen_at?` · آخر ظهور ${e(seen(d.last_seen_at))}`:''}.</p>
+      ${mine?'<div class="op-banner warn"><b>طلبك وصل للجهاز الحالي</b><small>افتح المحل على الجهاز الحالي واضغط «موافقة»، ثم اضغط «تحقق الآن» هنا.</small></div>':'<p>اطلب نقل التحكم لهذا الجهاز، ووافق عليه من الجهاز الحالي.</p>'}
+      </main><footer class="op-foot">${mine?'<button class="primary" data-check>تحقق الآن</button>':'<button class="primary" data-request>طلب نقل التحكم لهذا الجهاز</button>'}
+      <button class="outline" data-takeover>الجهاز القديم ضاع أو تعطّل</button><button class="ghost" data-exit>تسجيل الخروج</button></footer></section>`;
+    const go=()=>{page='cashier';run(guardedLoad,value=>{state=value;render();});};
+    on('[data-check]',go);
+    on('[data-request]',()=>run(()=>deviceRpc('request_sharikx2_device_transfer_v1',{p_device_name:DEVICE_NAME}),v=>{deviceInfo=v;if(v?.is_active)go();else{page='device';render();say('تم إرسال الطلب');}}));
+    on('[data-takeover]',()=>{if(!confirm('أخذ التحكم ممكن فقط إذا ما ظهر الجهاز القديم آخر 24 ساعة. متابعة؟'))return;
+      run(()=>deviceRpc('takeover_sharikx2_device_control_v1',{p_device_name:DEVICE_NAME}),()=>go()).catch(()=>{});});
+    on('[data-exit]',()=>onExit());
+    const node=app.querySelector('[data-error]');void node;
+  }
+  function approvalBanner(){
+    const d=deviceInfo;if(!d?.is_active||!d.requested_device_id)return '';
+    return `<div class="op-banner warn"><b>جهاز آخر يطلب التحكم بالمحل</b><small>${e(d.requested_device_name||'جهاز جديد')}. إذا وافقت، هذا الجهاز يصير للمشاهدة فقط.</small><div class="op-row"><button class="outline small" data-approve-device>موافقة</button></div></div>`;
+  }
   function render(){
     if(!alive())return;
+    if(page==='device')return deviceScreen();
     if(page==='money')return money();
     if(page==='goods')return goods();
     if(!state)return frame('<p>تعذر تحميل بيانات المحل</p>','<button class="primary" data-retry>إعادة المحاولة</button>'),on('[data-retry]',()=>reload(page));
@@ -636,7 +668,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     ({debts,partners:()=>partners(false),capital:()=>partners(true),retained,review,sale,purchase,profits:()=>profits(null),statement:()=>profits(selectedPartner),accounts:accountsPage,history,customers:()=>debtsPage('customers'),suppliers:()=>debtsPage('suppliers'),reports:reportsPage}[page]||cashier)();
   }
   app.innerHTML='<section class="op-app"><p class="op-lead">جارٍ تحميل بيانات المحل…</p></section>';
-  run(flow.load,value=>{state=value;
+  run(guardedLoad,value=>{state=value;
     // A brand-new shop starts with money, as in the app (Figma 04 after creation).
     const money=state.sections?.money;if(!state.opening_locked&&money&&money.status==='not_started')openMoney('cashier');else render();});
   return ()=>{closed=true;closeSheet();loading(false);};
