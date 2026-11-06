@@ -24,6 +24,9 @@ import {openOwnerSaleReturn} from './owner-sale-return-ui.js';
 import {renderOwnerPurchase} from './owner-purchase-ui.js';
 import {openPurchaseProductChoice} from './purchase-product-choice-ui.js';
 import {productListContent} from './product-list-ui.js';
+import {renderOwnerSuppliers} from './owner-suppliers-ui.js';
+import {openOwnerSupplierPayment} from './owner-supplier-payment-ui.js';
+import {normalizeDebtSnapshot} from './debt-model.js';
 
 const m=v=>v===null||v===undefined||v===''?'—':fmt(v,2);
 const e=escape;
@@ -39,6 +42,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   const device=deviceId(api),flow=createOwnerPath({api,project:project.id,device});
   const moneyFlow=createOpeningMoney({api,project:project.id,device}),stockFlow=createOpeningStock({api,project:project.id,device});
   let reportState=createReportState(),debtData=null,deviceInfo=null;
+  const supplierView={query:'',archived:false,limit:20};
   let state=null,page='cashier',busy=false,closed=false,selectedPartner=null,moneyState=null,stockState=null,stockSelected=new Set(),returnTo='cashier';
   const alive=()=>!closed&&app.isConnected;
   const say=text=>notice?.(text);
@@ -157,8 +161,8 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     if(p.preview&&p.action==='prepare_finance')return financeReview(p.preview);
     frame('<p class="op-lead">تحقق من نتيجة الطلب السابق قبل إرسال طلب جديد. بياناتك المحفوظة باقية.</p>',
       '<button class="primary" data-check>تحقق الآن</button><button class="outline" data-retry>إعادة إرسال الطلب نفسه</button><button class="ghost" data-cancel>إلغاء الطلب غير المؤكد</button>');
-    on('[data-check]',()=>run(flow.status,result=>reload(result?.status==='confirmed'&&p.action==='purchase'?'sale':page)));
-    on('[data-retry]',()=>run(flow.retry,result=>{if(result?.action==='sale')doneSale(result,p.payload?.values);else reload(result?.action==='purchase'?'sale':page);}));
+    on('[data-check]',()=>run(flow.status,result=>{if(result?.status==='confirmed'&&p.action==='supplier_payment')return openDebts('suppliers');reload(result?.status==='confirmed'&&p.action==='purchase'?'sale':page);}));
+    on('[data-retry]',()=>run(flow.retry,result=>{if(result?.action==='sale')doneSale(result,p.payload?.values);else if(result?.action==='supplier_payment')openDebts('suppliers');else reload(result?.action==='purchase'?'sale':page);}));
     on('[data-cancel]',()=>run(async()=>{await flow.cancel();return flow.load();},value=>{state=value;render();}));
   }
 
@@ -619,6 +623,11 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   }
   function openDebts(kind){page=kind;run(async()=>{const [debts,fresh]=await Promise.all([api.rpc('get_sharikx2_debt_balances_v2',{p_project_id:project.id}),flow.load()]);state=fresh;return debts;},v=>{debtData=v;render();});}
   function debtsPage(kind){
+    if(kind==='suppliers'){
+      frame('<section class="owner-suppliers" data-owner-suppliers></section>','<button class="outline" data-new>+ إضافة مورد</button>');
+      renderOwnerSuppliers({container:app.querySelector('[data-owner-suppliers]'),api,projectId:project.id,snapshot:debtData,view:supplierView,isCurrent:()=>alive()&&page==='suppliers'&&!busy,onPay:Number(state.supplier_payment_bridge)===1?paySupplier:undefined});
+      on('[data-new]',()=>newContact('supplier',()=>openDebts('suppliers')));return;
+    }
     const customer=kind==='customers',rows=(debtData?.[kind]||[]),total=debtData?.[customer?'customer_debt':'supplier_debt'];
     const phone=v=>v&&!String(v).startsWith('manual-')?`<small class="muted" dir="ltr">${e(v)}</small>`:'';
     frame(`<div class="op-note"><small>${customer?'مجموع ديون الزبائن':'مجموع ما عليك للموردين'}</small><p class="op-big">${m(total??0)}</p></div>
@@ -635,11 +644,12 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
         operating('collect_customer','collection_bridge',{customer_id:row.id,account_id:d.querySelector('[name=account]').value,amount,note:d.querySelector('[name=note]').value},()=>openDebts('customers'));}],['رجوع',closeSheet]]);
   }
   function paySupplier(row){
-    sheet(`دفعة لـ ${row.name}`,`<p class="muted">عليك له: <b>${m(row.calculated_debt)}</b>. اكتب المبلغ المدفوع من كل حساب.</p>${accounts().map(a=>field(`src-${a.id}`,a.name,'','₪')).join('')}${field('note','ملاحظة (اختياري)','')}`,
-      [['تسجيل الدفعة',d=>{const sources=[];
-        try{for(const a of accounts()){const raw=d.querySelector(`[name="src-${CSS.escape(a.id)}"]`).value;if(!raw.trim())continue;const v=number(raw,2,'1000000000000');if(dec(v)>0)sources.push({account_id:a.id,amount:Number(v)});}}catch{return sheetError(d,'راجع المبالغ');}
-        const sum=sum2(sources.map(x=>x.amount));if(!sources.length)return sheetError(d,'اكتب المبلغ المدفوع');if(sum>dec(row.calculated_debt))return sheetError(d,'المجموع أكبر من الدين الحالي');
-        operating('supplier_payment','supplier_payment_bridge',{supplier_id:row.id,sources,note:d.querySelector('[name=note]').value},()=>openDebts('suppliers'));}],['رجوع',closeSheet]]);
+    run(async()=>{
+      const [balances,fresh]=await Promise.all([api.rpc('get_sharikx2_debt_balances_v2',{p_project_id:project.id}),flow.load()]);state=fresh;
+      const person=normalizeDebtSnapshot(balances,'suppliers').rows.find(person=>person.id===row.id);
+      if(!person)throw Error('المورد غير متاح الآن');debtData=balances;return person;
+    },person=>openOwnerSupplierPayment({person,accounts:accounts(),projectId:project.id,sheet,sheetError,isCurrent:()=>alive()&&page==='suppliers',
+      onSubmit:values=>operating('supplier_payment','supplier_payment_bridge',values,()=>openDebts('suppliers'))}));
   }
   function newContact(kind,created){
     const customer=kind==='customer';

@@ -1,4 +1,4 @@
-const CACHE='sharikx2-shell-v178';
+const CACHE='sharikx2-shell-v179';
 // Explicit audit-zone parsing is shared across the complete financial UI.
 // New model uses the same static-only cache boundary as legacy screens.
 const SHELL=['./','./index.html','./styles.css','./app.js','./project-session.js','./owner-path-store.js','./owner-path-ui.js','./owner-path.css','./owner-path-icons.js','./owner-path-privacy.js','./api.js','./pagination.js','./product-contract.js','./ui.js','./reports.js','./report-ui.js','./subscription.js','./operations.js','./expense.js','./expense-mutation.js','./sale.js','./customer.js','./activity.js','./transfer.js','./purchase.js','./payment.js','./collection.js','./return.js','./return-ui.js','./financial.js','./statement.js','./accounts-ui.js','./inventory.js','./inventory-ui.js','./inventory-mutation.js','./onboarding.js','./icons.js','./icon.svg','./manifest.webmanifest','./assets/cairo_regular.ttf','./assets/cairo_semibold.ttf','./assets/cairo_bold.ttf','./assets/icon_cashier_colorful.png','./assets/icon_customer_debt_colorful.png','./assets/icon_supplier_debt_colorful.png','./assets/icon_expense_colorful.png','./assets/icon_purchase_colorful.png'];
@@ -7,6 +7,7 @@ SHELL.push('./owner-path-money.js','./owner-path-storage.js');
 SHELL.push('./owner-sale-return.js','./owner-sale-return-ui.js');
 SHELL.push('./owner-purchase.js','./owner-purchase-ui.js');
 SHELL.push('./owner-purchase-review-ui.js','./product-list-ui.js','./toast-ui.js');
+SHELL.push('./owner-suppliers-ui.js','./owner-supplier-payment.js','./owner-supplier-payment-ui.js');
 SHELL.push('./owner-accounts-ui.js','./owner-approval-history.js','./owner-approval-workbook.js','./owner-approval-ui.js');
 SHELL.push('./owner-operation-history.js','./owner-operation-details-ui.js','./owner-operation-history-ui.js');
 SHELL.push('./barcode-reader.js','./vendor/zxing.min.js','./pwa-install.js','./assets/pwa-192.png','./assets/pwa-512.png','./assets/apple-touch-icon.png');

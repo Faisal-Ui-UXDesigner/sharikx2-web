@@ -15,7 +15,7 @@ import {openPurchaseReturn} from './purchase-return-ui.js';
 import {mountReceiptAction} from './receipt-ui.js';
 import {openReceiptUpload,receiptUploadAction} from './receipt-upload-ui.js';
 
-export async function openSupplierAccount({api,container,projectId,person,mode,storage,isCurrent=()=>true,onSaved,onCollect}){
+export async function openSupplierAccount({api,container,projectId,person,mode,storage,mutationPolicy='legacy',isCurrent=()=>true,onSaved,onCollect}){
  if(!isCurrent()||!container?.isConnected)return;
  if(!person?.id||!projectId||person.project_id!==undefined&&person.project_id!==projectId)throw new Error('بيانات المورد غير صالحة');
  if(container.querySelector('.supplier-account-page'))return;
@@ -39,9 +39,10 @@ export async function openSupplierAccount({api,container,projectId,person,mode,s
   const view=supplierHistoryView(history,projectId,captured.id);
   const fresh=Object.freeze({...captured,...history.supplier,calculated_debt:view.identity.debt,available_supplier_credit:view.identity.credit});
   const contact=dialog.querySelector('[data-supplier-call]');contact.replaceChildren();appendContactAction(contact,{phone:fresh.phone,isCurrent:current});
-  dialog.querySelector('.details').innerHTML=supplierAccountMarkup(view);loaded=true;
+  dialog.querySelector('.details').innerHTML=supplierAccountMarkup(view,{precise:mutationPolicy==='owner-path'});loaded=true;
   view.rows.forEach((row,index)=>mountReceiptAction(dialog.querySelector(`[data-supplier-receipt="${index}"]`),{api,projectId,kind:row.kind,path:row.receiptPath,container:dialog,isCurrent:current}));
   view.rows.forEach((row,index)=>{
+   if(mutationPolicy!=='legacy')return;
    const record=({purchase:history.purchases,payment:history.payments,old_debt:history.old_debts})[row.kind][Number(row.key.split(':')[1])];
    const eligible=!(row.kind==='payment'&&record.payment_kind==='discount'||row.kind==='purchase'&&['draft','cancelled'].includes(record.status));
    const target={projectId,kind:row.kind,recordId:record.id},label=receiptUploadAction({mode,storage,existingValue:row.kind==='payment'?record.reference:record.receipt_path,target,eligible});if(!label)return;
@@ -49,8 +50,16 @@ export async function openSupplierAccount({api,container,projectId,person,mode,s
    button.onclick=()=>launch(saved=>openReceiptUpload({api,target,mode,storage,owner:dialog,isCurrent:current,onLinked:saved}));
   });
   mountSupplierRefundHistory({api,container:dialog.querySelector('[data-supplier-refund-history]'),projectId,supplierId:captured.id,isCurrent:current});
-  dialog.querySelectorAll('[data-invoice-details]').forEach(button=>{button.onclick=()=>launch(()=>openSupplierInvoiceDetails({invoice:view.rows[Number(button.dataset.invoiceDetails)].invoice,container:dialog,isCurrent:current}));});
-  if(mode==='owner'){
+  dialog.querySelectorAll('[data-invoice-details]').forEach(button=>{button.onclick=()=>launch(()=>openSupplierInvoiceDetails({invoice:view.rows[Number(button.dataset.invoiceDetails)].invoice,container:dialog,precise:mutationPolicy==='owner-path',isCurrent:current}));});
+  if(mode==='owner'&&mutationPolicy==='owner-path'){
+   const host=dialog.querySelector('[data-supplier-actions]');
+   host.innerHTML='<p class="muted small">إجراءات الخصم ومرتجع الشراء واسترداد الرصيد غير متاحة لهذا المحل حاليًا.</p>';
+   if(view.identity.active&&view.identity.debt>.009){
+    const collect=document.createElement('button');collect.type='button';collect.className='primary';collect.dataset.detailsCollect='';collect.textContent=onCollect?'مراجعة دفعة للمورد':'السداد غير متاح حاليًا';collect.disabled=!onCollect;host.prepend(collect);
+    collect.onclick=()=>{if(current()&&!busy&&onCollect){close();onCollect(fresh);}};
+   }
+  }
+  if(mode==='owner'&&mutationPolicy==='legacy'){
    view.rows.forEach((row,index)=>{
     if(row.kind!=='purchase')return;const purchase=history.purchases[Number(row.key.split(':')[1])],action=purchaseReturnAction(storage,projectId,purchase);if(!action.visible)return;
     const button=document.createElement('button');button.type='button';button.dataset.purchaseReturn=String(index);button.className='outline danger-text';button.textContent=action.retry?'التحقق من إرجاع سابق':'إرجاع أصناف من الفاتورة';
@@ -82,7 +91,7 @@ export async function openSupplierAccount({api,container,projectId,person,mode,s
    }
   }
  }catch(error){
-  if(current()&&!loaded){const details=dialog.querySelector('.details');details.innerHTML='<p role="alert"></p><button type="button" data-retry-details>إعادة المحاولة</button>';details.querySelector('[role=alert]').textContent=error.message;details.querySelector('button').onclick=()=>{if(current()){close();openSupplierAccount({api,container,projectId,person:captured,mode,storage,isCurrent,onSaved,onCollect});}};}
+  if(current()&&!loaded){const details=dialog.querySelector('.details');details.innerHTML='<p role="alert"></p><button type="button" data-retry-details>إعادة المحاولة</button>';details.querySelector('[role=alert]').textContent=error.message;details.querySelector('button').onclick=()=>{if(current()){close();openSupplierAccount({api,container,projectId,person:captured,mode,storage,mutationPolicy,isCurrent,onSaved,onCollect});}};}
  }
  return dialog;
 }
