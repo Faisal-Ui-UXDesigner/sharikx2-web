@@ -8,18 +8,18 @@ function fixture(value){
  const storage={getItem:()=>value,setItem:(key,value)=>writes.push([key,value])};
  return {document,storage,values,writes};
 }
-test('theme palettes retain exact immutable Android RGB tokens',()=>{
- const expected={dark:[[8,11,23],[17,22,42],[24,31,55],[247,248,252],[155,164,188],[67,211,137],[244,201,93],[255,107,120],[40,48,76],[13,18,36],[244,201,93],[24,28,48],[74,222,128]],light:[[239,242,246],[255,255,255],[244,246,249],[22,28,45],[91,101,122],[16,138,92],[194,142,29],[201,53,70],[216,222,232],[248,249,251],[31,39,72],[255,255,255],[21,128,61]]};
+test('theme palettes retain current Android AppThemePalette immutable RGB tokens (2026-11-03)',()=>{
+ const expected={dark:['0f0f11','1a1a1d','232327','ffffff','a1a1aa','34c77b','ff8a65','ff8a80','2e2e33','232327','ffffff','111111','34c77b'],light:['f8f8f9','ffffff','f2f2f4','111111','5f6368','0f6e3a','b8400f','b3261e','e4e4e8','f2f2f4','111111','ffffff','0f6e3a']};
  for(const mode of ['dark','light']){
-  assert.deepEqual(Object.values(THEME_PALETTES[mode]),expected[mode].map(rgb=>'#'+rgb.map(n=>n.toString(16).padStart(2,'0')).join('')));
+  assert.deepEqual(Object.values(THEME_PALETTES[mode]).map(value=>value.toLowerCase()),expected[mode].map(rgb=>'#'+rgb));
   assert.equal(Object.isFrozen(THEME_PALETTES[mode]),true);
  }
  assert.equal(Object.isFrozen(THEME_PALETTES),true);
 });
-test('theme defaults to Android dark mode, not OS preference or malformed storage',()=>{
- for(const value of [undefined,null,'','DARK','LIGHT','system',true,{},'<img>'])assert.equal(themeMode(value),'dark');
+test('theme defaults to current Android light mode, not OS preference or malformed storage',()=>{
+ for(const value of [undefined,null,'','DARK','LIGHT','system',true,{},'<img>'])assert.equal(themeMode(value),'light');
  assert.equal(themeMode('light'),'light');assert.equal(readTheme(fixture('light').storage),'light');
- assert.equal(readTheme({getItem(){throw new Error('blocked');}}),'dark');assert.equal(readTheme(null),'dark');
+ assert.equal(themeMode('dark'),'dark');assert.equal(readTheme({getItem(){throw new Error('blocked');}}),'light');assert.equal(readTheme(null),'light');
 });
 test('theme save writes only a scoped preference and rejects invalid modes before storage',()=>{
  const f=fixture();assert.equal(saveTheme(f.storage,'light'),true);assert.deepEqual(f.writes,[[THEME_STORAGE_KEY,'light']]);
@@ -43,9 +43,13 @@ test('controller switches both modes, rejects invalid writes and preserves local
 test('theme controller works without optional browser theme-color metadata',()=>{
  const f=fixture();f.document.querySelector=()=>null;assert.doesNotThrow(()=>createThemeController(f));
 });
-test('CSS default tokens match Android dark palette and all variable references are defined',async()=>{
+test('CSS effective defaults match current Android light palette and all variable references are defined',async()=>{
  const css=await readFile(new URL('../styles.css',import.meta.url),'utf8');
- for(const [key,value] of Object.entries(THEME_PALETTES.dark))assert.ok(css.includes(`--${key}:${value}`),key);
+ const defaults=[...css.matchAll(/:root\s*\{([^}]*)\}/g)].reduce((values,match)=>{
+  for(const entry of match[1].split(';')){const index=entry.indexOf(':');if(index>0)values.set(entry.slice(0,index).trim(),entry.slice(index+1).trim());}return values;
+ },new Map());
+ for(const [key,value] of Object.entries(THEME_PALETTES.light))assert.equal(defaults.get('--'+key)?.toLowerCase(),value.toLowerCase(),key);
+ assert.equal(defaults.get('color-scheme'),'light');
  for(const match of css.matchAll(/var\((--[\w-]+)\)/g))assert.ok(css.includes(`${match[1]}:`),match[1]);
- assert.equal(/#[a-f0-9]{6}\b/i.test(css.slice(css.indexOf('}')+1)),false,'shared UI colors must use tokens');
+ assert.equal(/#[a-f0-9]{6}\b/i.test(css.replace(/:root\s*\{[^}]*\}/g,'')),false,'shared UI colors must use tokens outside palette declarations');
 });

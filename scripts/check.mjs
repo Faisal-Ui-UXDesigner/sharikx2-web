@@ -19,6 +19,7 @@ run(['tests/owner-path-safety-browser-smoke.mjs']);
 run(['tests/owner-accounts-browser-smoke.mjs']);
 run(['tests/owner-history-browser-smoke.mjs']);
 run(['tests/owner-return-browser-smoke.mjs']);
+run(['tests/owner-purchase-browser-smoke.mjs']);
 run(['tests/subscription-details-browser-smoke.mjs']);
 run(['tests/subscription-requests-browser-smoke.mjs']);
 run(['tests/owner-password-browser-smoke.mjs']);

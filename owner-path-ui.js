@@ -21,6 +21,7 @@ import {renderOwnerAccounts} from './owner-accounts-ui.js';
 import {openOwnerApprovals} from './owner-approval-ui.js';
 import {renderOwnerHistory} from './owner-operation-history-ui.js';
 import {openOwnerSaleReturn} from './owner-sale-return-ui.js';
+import {renderOwnerPurchase} from './owner-purchase-ui.js';
 
 const m=v=>v===null||v===undefined||v===''?'—':fmt(v,2);
 const e=escape;
@@ -154,8 +155,8 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     if(p.preview&&p.action==='prepare_finance')return financeReview(p.preview);
     frame('<p class="op-lead">تحقق من نتيجة الطلب السابق قبل إرسال طلب جديد. بياناتك المحفوظة باقية.</p>',
       '<button class="primary" data-check>تحقق الآن</button><button class="outline" data-retry>إعادة إرسال الطلب نفسه</button><button class="ghost" data-cancel>إلغاء الطلب غير المؤكد</button>');
-    on('[data-check]',()=>run(flow.status,()=>reload(page)));
-    on('[data-retry]',()=>run(flow.retry,result=>{if(result?.action==='sale')doneSale(result,p.payload?.values);else reload(page);}));
+    on('[data-check]',()=>run(flow.status,result=>reload(result?.status==='confirmed'&&p.action==='purchase'?'sale':page)));
+    on('[data-retry]',()=>run(flow.retry,result=>{if(result?.action==='sale')doneSale(result,p.payload?.values);else reload(result?.action==='purchase'?'sale':page);}));
     on('[data-cancel]',()=>run(async()=>{await flow.cancel();return flow.load();},value=>{state=value;render();}));
   }
 
@@ -519,25 +520,11 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
 
   // ---------- purchase ----------
   function purchase(){
-    const d=flow.draft('purchase'),list=products(),cash=accounts().find(a=>a.type==='cash')||accounts()[0];
-    frame(`<p class="muted">البضاعة التي اشتريتها من مورد تدخل كفاتورة شراء، ولا تغيّر أرقام البداية.</p>
-      <label class="op-field">الصنف<select name="product">${options(list.map(r=>({id:r.product.id,name:r.product.name})),d.product_id,list.length?'':'لا توجد أصناف')}</select></label><button class="ghost" data-new>+ صنف جديد</button>
-      ${field('qty','الكمية',d.quantity||'','#')}${field('cost','سعر شراء الوحدة',d.unit_cost||'','₪')}
-      <label class="op-field">المورد<select name="supplier">${options(suppliers(),d.supplier_id,'بدون مورد — دفع كامل')}</select></label>
-      <label class="op-field">الحساب الذي دفعت منه<select name="account">${options(accounts(),d.account_id||cash?.id)}</select></label>
-      ${field('paid','المبلغ المدفوع',d.paid??'','₪')}<p class="muted small">إذا دفعت جزءاً فقط، اختر المورد ليسجّل الباقي عليك.</p>`,
-      '<button class="primary" data-save>تسجيل فاتورة شراء</button>');
-    const v=n=>app.querySelector(`[name=${n}]`).value;
-    const keep=()=>flow.draft('purchase',{product_id:v('product'),supplier_id:v('supplier'),account_id:v('account'),quantity:v('qty'),unit_cost:v('cost'),paid:v('paid')});
-    app.querySelectorAll('input,select').forEach(i=>{i.addEventListener('input',keep);i.addEventListener('change',keep);});
-    on('[data-new]',()=>newProduct(''));
-    on('[data-save]',()=>{
-      const row=product(v('product'));let count,cost,paid;
-      try{if(!row)throw new Error();count=number(v('qty'),3,'100000000000');cost=number(v('cost'),4,'10000000000');paid=number(v('paid')||'0',2,'1000000000000');if(dec(count)<=0)throw new Error();}
-      catch{return showError('اختر الصنف وراجع الكمية والتكلفة والمبلغ المدفوع');}
-      const payments=dec(paid)>0?[{account_id:v('account'),amount:paid}]:[];
-      post('purchase',{items:[{product_id:row.product.id,quantity_pieces:count,unit_cost:cost,source_token:row.source_token}],payments,supplier_id:v('supplier')},'cashier');
-    });
+    frame('<section class="owner-purchase" data-owner-purchase></section>','<div data-owner-purchase-actions></div>');
+    renderOwnerPurchase({container:app.querySelector('[data-owner-purchase]'),actions:app.querySelector('[data-owner-purchase-actions]'),projectId:project.id,products:products(),suppliers:suppliers(),accounts:accounts(),draft:flow.draft('purchase'),
+      saveDraft:value=>flow.draft('purchase',value),isCurrent:()=>alive()&&page==='purchase'&&!busy,
+      onNewProduct:()=>newProduct(''),onNewSupplier:()=>newContact('supplier',id=>flow.draft('purchase',{...flow.draft('purchase'),supplier_id:id})),
+      onSubmit:values=>post('purchase',values,'sale')});
   }
   function newProduct(barcode){
     const d=flow.draft('new_product'),id=d.id||crypto.randomUUID();

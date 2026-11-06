@@ -17,5 +17,7 @@ test('install icons have real PNG dimensions and Apple metadata uses the local i
  const apple=await readFile(new URL('../assets/apple-touch-icon.png',import.meta.url));
  assert.equal(apple.readUInt32BE(16),180);assert.equal(apple.readUInt32BE(20),180);
  assert.match(await readFile(new URL('../index.html',import.meta.url),'utf8'),/rel="apple-touch-icon"/);
- assert.equal(manifest.theme_color,'#080b17');
+ // Matches current Android's default light background, not the retired navy theme.
+ assert.equal(manifest.theme_color.toLowerCase(),'#f8f8f9');
+ assert.equal(manifest.background_color.toLowerCase(),'#f8f8f9');
 });
