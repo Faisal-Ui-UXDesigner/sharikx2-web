@@ -22,6 +22,13 @@ export function savedProject(storage) {
   } catch { return null; }
 }
 
+/** 2 for a new-model shop, otherwise null (legacy or unknown: the legacy screens stay the safe default). */
+export async function projectAccountingVersion(api,projectId,role){
+  if(role!=='owner')return null;
+  try{const mode=await api.rpc('sharikx2_project_accounting_mode_v1',{p_project:projectId});return Number(mode?.accounting_version)===2?2:null;}
+  catch(error){console.debug('[SharikX2] accounting mode unavailable',String(error?.message||error).slice(0,80));return null;}
+}
+
 /** Throws a user-facing message for new-model shops. Server errors (old server, owner on a second
  *  device before the server fix) do not block legacy shops: only an explicit version 2 does. */
 export async function assertWebSupportedProject(api, projectId, role) {

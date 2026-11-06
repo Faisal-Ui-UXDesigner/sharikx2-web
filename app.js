@@ -36,7 +36,8 @@ import {openSubscriptionStatus,renderSubscriptionPlans} from './subscription-ui.
 import {renderOwnerPasswordAction} from './owner-password-ui.js';
 import {bindProjectNotificationBell} from './project-notification-bell.js';
 import {createNotificationReadState} from './project-notification-state.js';
-import {rememberProject,forgetProject,savedProject,assertWebSupportedProject,registerFirstDevice,loadProjectNumber} from './project-session.js';
+import {rememberProject,forgetProject,savedProject,projectAccountingVersion,registerFirstDevice,loadProjectNumber} from './project-session.js';
+import {mountOwnerPath} from './owner-path-ui.js';
 let sessionStore=null;try{sessionStore=window.sessionStorage;}catch{}
 let identityStore=null;try{identityStore=window.localStorage;}catch{}
 // Configuration is deliberately not cached. Offline shell startup must not crash
@@ -46,10 +47,11 @@ let project=null,mode='owner',screen='cashier',epoch=0,accountPeriod='month';
 let reportState=createReportState();
 let inventoryViewStore=createInventoryViewStore();
 let releaseShellLayout=()=>{};
-let releaseNotificationBell=()=>{},notificationReadState=createNotificationReadState();
+let releaseNotificationBell=()=>{},notificationReadState=createNotificationReadState(),releaseOwnerPath=()=>{};
 bindPwaInstall({root:document.querySelector('#install-action')});
 function notice(message){document.querySelector('#notice').textContent=message;}
 function entry(){
+ releaseOwnerPath();releaseOwnerPath=()=>{};
  releaseShellLayout();releaseShellLayout=()=>{};
  releaseNotificationBell();releaseNotificationBell=()=>{};
  notificationReadState=createNotificationReadState();
@@ -58,8 +60,15 @@ function entry(){
  openOnboarding({app,api,storage:sessionStore,onOpen:(opened,role)=>{void openProject(opened,role);}});
 }
 async function openProject(opened,role){
- try{await assertWebSupportedProject(api,opened.id,role);}
- catch(error){api.clearSession();entry();notice(error.message);return;}
+ // New-model shops (accounting_version 2) open the new owner path, like the Android app.
+ const version=opened.accounting_version===2?2:await projectAccountingVersion(api,opened.id,role);
+ if(version===2){
+  releaseOwnerPath();releaseShellLayout();releaseShellLayout=()=>{};releaseNotificationBell();releaseNotificationBell=()=>{};
+  epoch++;api.clearDeviceContext();project={...opened,accounting_version:2};mode=role;rememberProject(sessionStore,project,role);setCurrency(opened.currency);
+  releaseOwnerPath=mountOwnerPath({app,api,project,notice,theme:{mode:()=>themeController.get(),toggle:()=>themeController.set(themeController.get()==='dark'?'light':'dark')},
+   onExit:()=>{api.clearSession();forgetProject(sessionStore);entry();}});
+  return;
+ }
  notificationReadState=createNotificationReadState();project=opened;mode=role;rememberProject(sessionStore,opened,role);
  setCurrency(project.currency);screen='cashier';shell();
  void promptOpeningDistribution({api,storage:sessionStore,projectId:opened.id,mode:role,isCurrent:()=>project?.id===opened.id&&mode===role,onComplete:shell})
