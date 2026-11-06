@@ -429,7 +429,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     saveCart(items);render();
   }
   function doneSale(receipt,sent){
-    const how=(receipt.as_debt??sent?.as_debt)?'على الحساب':accountName(receipt.account_id||sent?.account_id);
+    const how=(receipt.payments||sent?.payments)?'دفع مقسّم':(receipt.as_debt??sent?.as_debt)?'على الحساب':accountName(receipt.account_id||sent?.account_id);
     page='done';app.innerHTML=`<section class="op-app op-done"><div class="op-ok" aria-hidden="true">✓</div><h2>تم تسجيل المبيعة</h2><p class="op-big">${m(receipt.total)}${how?` · ${e(how)}`:''}</p>
       ${receipt.paid_amount!==undefined?`<p>المدفوع: ${m(receipt.paid_amount)}</p>`:''}${receipt.debt_amount!==undefined?`<p>المتبقي على الزبون: ${m(receipt.debt_amount)}</p>`:''}
       <p class="muted small">رقم العملية ${e(receipt.sale_number||'')}</p><div class="op-foot"><button class="primary" data-a="cashier">الرجوع للكاشير</button><button class="outline" data-a="sale">مبيعة جديدة</button><button class="ghost" data-a="profits">ربح كل شريك</button></div></section>`;
