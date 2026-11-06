@@ -205,14 +205,8 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     const s=moneyState;if(!s)return frame('<p>جارٍ التحميل…</p>');
     const confirmed=new Map((s.confirmed||[]).map(c=>[c.account_id,c])),draftValues=new Map((s.draft?.values_json||[]).map(v=>[v.account_id,v.counted_amount]));
     const order=['cash','bank'],accounts=[...s.accounts].sort((a,b)=>(order.indexOf(a.type)+1||9)-(order.indexOf(b.type)+1||9));
-    if(s.pending?.preview){
-      const lines=s.pending.preview.accounts||[];
-      return frame(`<h2>راجع الفلوس قبل التأكيد</h2><p class="muted">هذه أرصدة البداية كما حسبها الخادم. لا نسجّل بيعاً أو شراء.</p><div class="op-card">${lines.map(l=>`<div class="op-row"><span>${e(l.name)}</span><b>${m(l.opening_amount??l.counted_amount)}</b></div>`).join('')}</div>`,
-        '<button class="primary" data-commit>تأكيد الأرصدة</button><button class="outline" data-cancel>رجوع للتعديل</button>'),
-        on('[data-commit]',()=>run(()=>moneyFlow.commit(s.pending.preview.review_token),()=>{say('تم تأكيد الأرصدة');openMoney(returnTo);})),
-        on('[data-cancel]',()=>run(async()=>{await moneyFlow.cancel();return moneyFlow.load();},v=>{moneyState=v;render();}));
-    }
-    if(s.pending)return frame('<p class="op-lead">عندك مراجعة سابقة لم تكتمل.</p>','<button class="primary" data-check>تحقق منها</button><button class="outline" data-cancel>إلغاء المراجعة</button>'),
+    const preview=s.pending?.preview;
+    if(s.pending&&!preview)return frame('<p class="op-lead">عندك مراجعة سابقة لم تكتمل.</p>','<button class="primary" data-check>تحقق منها</button><button class="outline" data-cancel>إلغاء المراجعة</button>'),
       on('[data-check]',()=>run(moneyFlow.prepare,v=>v.status==='confirmed'?openMoney(returnTo):run(moneyFlow.load,x=>{moneyState=x;render();}))),
       on('[data-cancel]',()=>run(async()=>{await moneyFlow.cancel();return moneyFlow.load();},v=>{moneyState=v;render();}));
     const open=accounts.filter(a=>!confirmed.has(a.id));
@@ -227,8 +221,18 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       try{for(const a of open){const raw=app.querySelector(`[name="acc-${CSS.escape(a.id)}"]`)?.value??'';if(!raw.trim())continue;values.push({account_id:a.id,counted_amount:Number(number(raw,2,'1000000000000'))}); /* the server requires a JSON number (≤2 decimals: exact) */}}
       catch{return showError('اكتب مبلغاً صحيحاً، بحد أقصى منزلتين عشريتين');}
       if(!values.length)return showError('اكتب المبلغ لكل حساب، أو اختر «لا يوجد»');
-      run(async()=>{await moneyFlow.save(values);return moneyFlow.prepare();},v=>{if(v.status==='confirmed')openMoney(returnTo);else run(moneyFlow.load,x=>{moneyState=x;render();});});
+      run(async()=>{await moneyFlow.save(values);return moneyFlow.prepare();},v=>{if(v.status==='confirmed'){say('تم تأكيد أرصدة الفلوس');reload(returnTo);}else run(moneyFlow.load,x=>{moneyState=x;render();});});
     });
+    // Same as the Android app: the server review is a popup over the entry page; confirming returns straight to where you came from.
+    if(preview){
+      let acted=false;
+      const cancelReview=()=>run(async()=>{await moneyFlow.cancel();return moneyFlow.load();},v=>{moneyState=v;render();});
+      const lines=preview.accounts||[];
+      const d=sheet('مراجعة أرصدة الفلوس',`<p class="muted">راجع أرصدة الفلوس قبل التأكيد. الحفظ وحده لا يؤكد الأرصدة.</p>${lines.map(l=>`<div class="op-row"><span>${e(l.name)}</span><b>${m(l.opening_amount??l.counted_amount)}</b></div>`).join('')}`,
+        [['تأكيد الأرصدة',()=>{acted=true;closeSheet();run(()=>moneyFlow.commit(preview.review_token),()=>{say('تم تأكيد أرصدة الفلوس');reload(returnTo);});}],
+         ['رجوع للتعديل',()=>{acted=true;closeSheet();cancelReview();}]]);
+      d.addEventListener('close',()=>{if(!acted){acted=true;cancelReview();}});
+    }
   }
 
   // ---------- goods (Figma 07–10) ----------
