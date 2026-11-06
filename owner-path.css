@@ -62,7 +62,7 @@
 .op-cart-name{flex:1;display:flex;flex-direction:column;align-items:flex-start;border:0;background:transparent;color:var(--text);font:inherit;text-align:right;cursor:pointer}.op-cart-name small{color:var(--muted)}
 .op-stepper{display:flex;align-items:center;gap:6px}.op-stepper button{width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:18px;cursor:pointer}.op-stepper b{min-width:28px;text-align:center}
 .op-empty{text-align:center;font-size:18px;font-weight:700;padding:24px 0}.op-empty small{font-weight:400;color:var(--muted);font-size:14px}
-.op-nav{position:sticky;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:0 12px 14px;padding:8px;border-radius:30px;background:var(--panel);border:1px solid var(--border);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.op-nav{position:sticky;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin:0 12px 14px;padding:8px;border-radius:30px;background:var(--panel);border:1px solid var(--border);box-shadow:0 6px 18px rgba(0,0,0,.08)}
 .op-nav button{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;border:0;border-radius:22px;background:transparent;color:var(--muted);font:inherit;font-size:11px;cursor:pointer}
 .op-nav button span{font-size:18px}.op-nav button.on{background:var(--surface);color:var(--text);font-weight:700}
 .op-sheet{border:0;padding:0;width:min(560px,100%);max-width:100%;max-height:90dvh;margin:auto auto 0;border-radius:20px 20px 0 0;background:var(--panel);color:var(--text)}
@@ -78,3 +78,4 @@
 body.op-loading::after{content:"";position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.15);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 body.op-loading::before{content:"";position:fixed;z-index:51;left:50%;top:50%;width:96px;height:80px;margin:-40px 0 0 -48px;background:url(./icon.svg) center/contain no-repeat;animation:op-pulse 1s ease-in-out infinite}
 @keyframes op-pulse{50%{opacity:.45}}
+.op-tiles button.wide{grid-column:1/-1}

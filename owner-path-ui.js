@@ -3,6 +3,8 @@
 // display only; confirmed numbers always come from the server.
 import {escape,money as fmt} from './ui.js';
 import {createOwnerPath,createOpeningMoney,createOpeningStock,deviceId,number,FREE_PRODUCTS} from './owner-path-store.js';
+import {renderReports,createReportState} from './report-ui.js';
+import {openBarcodeScanner} from './barcode-scanner.js';
 
 const m=v=>v===null||v===undefined||v===''?'—':fmt(v,2);
 const e=escape;
@@ -16,6 +18,7 @@ const sum2=values=>Math.round(values.reduce((a,v)=>a+Math.round(dec(v)*100),0))/
 export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   const device=deviceId(api),flow=createOwnerPath({api,project:project.id,device});
   const moneyFlow=createOpeningMoney({api,project:project.id,device}),stockFlow=createOpeningStock({api,project:project.id,device});
+  let reportState=createReportState(),debtData=null;
   let state=null,page='cashier',busy=false,closed=false,selectedPartner=null,moneyState=null,stockState=null,stockSelected=new Set(),returnTo='cashier';
   const alive=()=>!closed&&app.isConnected;
   const say=text=>notice?.(text);
@@ -32,14 +35,14 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   const post=(action,values,target)=>run(()=>flow.command(action,values),()=>{say('تم الحفظ');reload(target);});
 
   // ---------- shared pieces ----------
-  const title=()=>({money:'الفلوس',goods:'البضاعة الموجودة',debts:'ديون قديمة',partners:'جهّز محلك',capital:'جهّز محلك',retained:'جهّز محلك',review:'مراجعة محلك',sale:'مبيعة جديدة',profits:'الشركاء',statement:'تفاصيل الحساب',accounts:'الحسابات',history:'سجل العمليات',purchase:'تسجيل فاتورة شراء'}[page]||'الكاشير');
-  const home=()=>['cashier','profits','accounts','statement'].includes(page);
+  const title=()=>({money:'الفلوس',goods:'البضاعة الموجودة',debts:'ديون قديمة',partners:'جهّز محلك',capital:'جهّز محلك',retained:'جهّز محلك',review:'مراجعة محلك',sale:'مبيعة جديدة',profits:'الشركاء',statement:'تفاصيل الحساب',accounts:'الحسابات',history:'سجل العمليات',purchase:'تسجيل فاتورة شراء',customers:'ديون الزبائن',suppliers:'حسابات الموردين',reports:'التقارير'}[page]||'الكاشير');
+  const home=()=>['cashier','profits','accounts','statement','reports'].includes(page);
   function header(){
     if(home())return `<header class="op-head"><div class="op-id"><b>${e(project.name||'محلي')}</b>${project.owner_phone?`<small dir="ltr">${e(project.owner_phone)}</small>`:''}${project.project_number?`<small>رقم المحل ${e(project.project_number)}</small>`:''}</div><button class="op-icon" data-menu aria-label="الإعدادات">☰</button></header>`;
     return `<header class="op-head"><button class="op-icon" data-back aria-label="رجوع">→</button><b class="op-title">${e(title())}</b>${page==='sale'?'<button class="op-icon" data-new-sale aria-label="مبيعة جديدة وتعليق الحالية">＋</button><button class="op-icon" data-held aria-label="المبيعات المعلقة">⏸</button>':''}</header>`;
   }
   function nav(){
-    const items=[['accounts','الحسابات','▤'],['goods','البضاعة','▦'],['cashier','الكاشير','⌂'],['profits','الشركاء','👥']];
+    const items=[['accounts','الحسابات','▤'],['goods','البضاعة','▦'],['cashier','الكاشير','⌂'],['profits','الشركاء','👥'],['reports','التقارير','📊']];
     return `<nav class="op-nav">${items.map(([id,label,icon])=>`<button data-nav="${id}" class="${page===id||(id==='profits'&&page==='statement')?'on':''}"><span aria-hidden="true">${icon}</span>${label}</button>`).join('')}</nav>`;
   }
   const choice=(id,titleText,helper,on)=>`<button class="op-choice ${on?'on':''}" data-choice="${id}"><span class="op-radio" aria-hidden="true"></span><span><b>${e(titleText)}</b><small>${e(helper)}</small></span></button>`;
@@ -52,12 +55,12 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     app.querySelector('[data-menu]')?.addEventListener('click',menu);
     app.querySelector('[data-new-sale]')?.addEventListener('click',anotherSale);
     app.querySelector('[data-held]')?.addEventListener('click',heldSales);
-    app.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{const t=b.dataset.nav;if(t==='goods')openGoods('cashier');else reload(t);});
+    app.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{const t=b.dataset.nav;if(t==='goods')openGoods('cashier');else if(t==='reports')go('reports');else reload(t);});
   }
   const planRow=()=>`<div class="op-plan"><span>${state?.stock?.paid?'الخطة المدفوعة':`الخطة المجانية · حتى ${state?.stock?.free_limit||FREE_PRODUCTS} صنفاً`}</span></div>`;
   const on=(selector,handler)=>app.querySelectorAll(selector).forEach(node=>node.addEventListener('click',event=>{if(!busy)handler(node,event);}));
   function back(){if(busy)return say('انتظر حتى ينتهي الطلب الحالي');
-    ({statement:()=>go('profits'),capital:()=>go('partners'),retained:()=>go('capital'),sale:()=>go('cashier'),purchase:()=>go('cashier'),history:()=>go('cashier'),money:()=>reload(returnTo),goods:()=>reload(returnTo),review:()=>go('cashier'),debts:()=>go('cashier'),partners:()=>go('cashier')}[page]||(()=>go('cashier')))();}
+    ({statement:()=>go('profits'),capital:()=>go('partners'),retained:()=>go('capital'),sale:()=>go('cashier'),purchase:()=>go('cashier'),history:()=>go('cashier'),customers:()=>go('cashier'),suppliers:()=>go('cashier'),money:()=>reload(returnTo),goods:()=>reload(returnTo),review:()=>go('cashier'),debts:()=>go('cashier'),partners:()=>go('cashier')}[page]||(()=>go('cashier')))();}
 
   // ---------- dialogs ----------
   let dialog=null;
@@ -104,11 +107,13 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     const held=flow.heldSales().length;
     frame(`${checklist}
       <button class="op-hero" data-go="sale"><span><b>مبيعة جديدة</b><small>امسح باركود أو اختر صنف رصيده مؤكد ومتاح</small></span><span aria-hidden="true">▥</span></button>
-      <div class="op-tiles"><button data-go="purchase"><span aria-hidden="true">🧾</span>فاتورة شراء</button><button data-go="history"><span aria-hidden="true">🕘</span>سجل العمليات</button></div>
+      <div class="op-tiles"><button data-debts="customers"><span aria-hidden="true">👤</span>ديون الزبائن</button><button data-debts="suppliers"><span aria-hidden="true">🚚</span>حسابات الموردين</button><button data-go="purchase"><span aria-hidden="true">🧾</span>فاتورة شراء</button><button data-expense><span aria-hidden="true">💸</span>مصروف جديد</button><button data-go="history" class="wide"><span aria-hidden="true">🕘</span>سجل العمليات</button></div>
       ${s.opening_locked?'':ui.checklist_hidden?'<button class="ghost" data-show>إظهار قائمة تجهيز محلك</button>':''}
       ${held?`<button class="ghost" data-held-list>المبيعات المعلقة (${held})</button>`:''}`);
     on('[data-open]',node=>{const t=node.dataset.open;if(!t)return;if(t==='money')openMoney('cashier');else if(t==='goods')openGoods('cashier');else go(t);});
     on('[data-go]',node=>go(node.dataset.go));
+    on('[data-debts]',node=>openDebts(node.dataset.debts));
+    on('[data-expense]',expense);
     on('[data-hide]',()=>{flow.draft('ui',{checklist_hidden:true});render();});
     on('[data-show]',()=>{flow.draft('ui',{checklist_hidden:false});render();});
     on('[data-held-list]',heldSales);
@@ -190,10 +195,12 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       <p class="muted small">أدخل تكلفة شراء الوحدة من البضاعة الموجودة، وليس سعر بيعها.</p>
       ${field('price','سعر البيع',d?.sale_price||p?.default_sale_price||'','₪')}<p class="muted small">لا يدخل في قيمة البضاعة، فقط للبيع</p>
       <p class="op-row"><span>قيمة هذا الصنف بسعر الشراء</span><b data-value>—</b></p>
-      <details><summary>تفاصيل إضافية اختيارية</summary>${field('barcode','الباركود',d?.barcode?.startsWith('manual-')?'':(d?.barcode||p?.barcode||barcode),'',`dir="ltr" ${p?'readonly':''}`)}${field('category','التصنيف',d?.category||'')}${field('low','تنبيه نقص المخزون',d?.low_stock_level||'','#')}${field('notes','ملاحظات',d?.notes||'')}</details>`,
+      <details><summary>تفاصيل إضافية اختيارية</summary>${field('barcode','الباركود',d?.barcode?.startsWith('manual-')?'':(d?.barcode||p?.barcode||barcode),'',`dir="ltr" ${p?'readonly':''}`)}${p?'':'<button type="button" class="ghost small" data-scan-code>📷 مسح باركود</button>'}${field('category','التصنيف',d?.category||'')}${field('low','تنبيه نقص المخزون',d?.low_stock_level||'','#')}${field('notes','ملاحظات',d?.notes||'')}</details>`,
       [['تأكيد الرصيد',d=>saveStock(d,true)],['حفظ بدون تأكيد',d=>saveStock(d,false)]]);
     const value=()=>{const q=dec(dlg.querySelector('[name=qty]').value),c=dec(dlg.querySelector('[name=cost]').value);dlg.querySelector('[data-value]').textContent=q&&c?m(Math.round(q*c*100)/100):'—';};
     dlg.querySelectorAll('[name=qty],[name=cost]').forEach(i=>i.oninput=value);value();
+    const scanCode=dlg.querySelector('[data-scan-code]');
+    if(scanCode)scanCode.onclick=()=>{closeSheet();openBarcodeScanner({onDetected:code=>{if(alive())stockEditor(row,code);},isCurrent:alive}).catch(()=>{});};
     function saveStock(dlg,confirm){
       const v=name=>dlg.querySelector(`[name=${name}]`).value;let values;
       try{values={product_id:id,name:v('name').trim(),unit:v('unit').trim(),barcode:v('barcode').trim()||`manual-${id}`,
@@ -355,13 +362,15 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   const options=(rows,chosen,empty)=>`${empty?`<option value="">${e(empty)}</option>`:''}${rows.map(r=>`<option value="${e(r.id)}" ${r.id===chosen?'selected':''}>${e(r.name)}</option>`).join('')}`;
   function sale(){
     const items=cart(),pay=flow.draft('payment'),cash=accounts().find(a=>a.type==='cash')||accounts()[0];
-    const chosen=pay.account_id||cash?.id||'',asDebt=!!pay.as_debt;
+    const chosen=pay.account_id||cash?.id||'',asDebt=!!pay.as_debt&&!pay.composed,composed=!!pay.composed;
     const subtotal=sum2(items.map(i=>Math.round(dec(i.quantity)*dec(i.unit_sale_price)*100)/100));
-    frame(`<form class="op-search" data-search><input name="q" placeholder="امسح باركود أو ابحث عن صنف" autocomplete="off" aria-label="امسح باركود أو ابحث عن صنف"><button class="op-icon" aria-label="بحث">⌕</button></form>
+    frame(`<form class="op-search" data-search><input name="q" placeholder="امسح باركود أو ابحث عن صنف" autocomplete="off" aria-label="امسح باركود أو ابحث عن صنف"><button class="op-icon" aria-label="بحث">⌕</button><button type="button" class="op-icon" data-scan aria-label="مسح باركود بالكاميرا">📷</button></form>
       ${products().length?`<p class="muted small">أصناف سريعة</p><div class="op-chips scroll">${products().map(r=>`<button class="op-chip ${r.confirmation||r.purchased?'':'dim'}" data-item="${e(r.product.id)}">${e(r.product.name)}</button>`).join('')}</div>`:''}
       ${items.map((i,n)=>`<div class="op-cart"><button class="op-cart-name" data-edit="${n}"><b>${e(i.name)}</b><small>${m(i.unit_sale_price)}</small></button><span class="op-stepper" dir="ltr"><button data-minus="${n}" aria-label="إنقاص">−</button><b>${e(i.quantity)}</b><button data-plus="${n}" aria-label="زيادة">+</button></span></div>`).join('')||'<p class="muted">السلة فارغة. امسح باركود أو اختر صنفاً.</p>'}
-      <p class="muted small">طريقة الدفع</p><div class="op-chips">${accounts().map(a=>`<button class="op-chip ${!asDebt&&a.id===chosen?'on':''}" data-pay="${e(a.id)}">${e(a.name)}</button>`).join('')}<button class="op-chip ${asDebt?'on':''}" data-debt>على الحساب</button></div>
-      ${asDebt?`<label class="op-field">الزبون<select name="customer">${options(customers(),pay.customer_id,'اختر الزبون')}</select></label>`:''}
+      <p class="muted small">طريقة الدفع</p><div class="op-chips">${accounts().map(a=>`<button class="op-chip ${!asDebt&&!composed&&a.id===chosen?'on':''}" data-pay="${e(a.id)}">${e(a.name)}</button>`).join('')}<button class="op-chip ${asDebt?'on':''}" data-debt>على الحساب</button></div>
+      ${Number(state.payment_composition_bridge)===1?`<button class="ghost" data-split>${composed?'مراجعة الدفع الجزئي أو المقسّم':'دفع جزئي أو مقسّم'}</button>`:''}
+      ${composed?`<div class="op-card">${(pay.payments||[]).map(x=>`<div class="op-row"><span>${e(accountName(x.account_id))}</span><b>${m(x.amount)}</b></div>`).join('')}${pay.customer_id?`<div class="op-row"><span>الباقي على</span><b>${e(customers().find(c=>c.id===pay.customer_id)?.name||'')}</b></div>`:''}</div>`:''}
+      ${asDebt?`<label class="op-field">الزبون<select name="customer">${options(customers(),pay.customer_id,'اختر الزبون')}</select></label><button class="ghost" data-new-customer>+ إضافة زبون</button>`:''}
       ${field('discount','الخصم',pay.discount||'0','₪')}`,
       `<div class="op-row"><span class="muted">المجموع</span><b class="op-big" data-total>${m(subtotal-dec(pay.discount))}</b></div><button class="primary" data-finish ${items.length?'':'disabled'}>إتمام البيع</button><button class="ghost" data-refresh>راجع التغييرات في البضاعة</button>`);
     app.querySelector('[data-search]').onsubmit=ev=>{ev.preventDefault();find(ev.target.q.value);};
@@ -369,8 +378,11 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-edit]',node=>saleItem(items[node.dataset.edit].product_id,Number(node.dataset.edit)));
     on('[data-plus]',node=>changeQty(Number(node.dataset.plus),1));
     on('[data-minus]',node=>changeQty(Number(node.dataset.minus),-1));
-    on('[data-pay]',node=>{flow.draft('payment',{...pay,account_id:node.dataset.pay,as_debt:false});render();});
-    on('[data-debt]',()=>{flow.draft('payment',{...pay,as_debt:true});render();});
+    on('[data-pay]',node=>{flow.draft('payment',{...pay,account_id:node.dataset.pay,as_debt:false,composed:false});render();});
+    on('[data-debt]',()=>{flow.draft('payment',{...pay,as_debt:true,composed:false});render();});
+    on('[data-split]',()=>splitPayment(subtotal));
+    on('[data-new-customer]',()=>newContact('customer',id=>{flow.draft('payment',{...flow.draft('payment'),customer_id:id});}));
+    on('[data-scan]',()=>openBarcodeScanner({onDetected:value=>{if(alive()&&page==='sale')find(value);},isCurrent:()=>alive()&&page==='sale'}));
     const customer=app.querySelector('[name=customer]');if(customer)customer.onchange=()=>flow.draft('payment',{...flow.draft('payment'),customer_id:customer.value});
     const discount=app.querySelector('[name=discount]');discount.oninput=()=>{flow.draft('payment',{...flow.draft('payment'),discount:discount.value});app.querySelector('[data-total]').textContent=m(subtotal-dec(discount.value));};
     on('[data-refresh]',()=>run(flow.load,v=>{state=v;const fresh=cart().map(line=>{const row=product(line.product_id);return row?{...line,source_token:row.source_token}:null;});
@@ -378,7 +390,11 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-finish]',()=>{
       const frozen=cart();if(!frozen.length)return showError('أضف صنفاً للسلة أولاً');
       let values;try{values={items:frozen,discount:number(discount.value||'0',2,'1000000000000'),as_debt:asDebt};}catch{return showError('راجع الخصم');}
-      if(asDebt){const id=customer?.value||'';if(!id)return showError('اختر الزبون للمبيعة على الحساب');values.customer_id=id;}
+      if(composed){const total=Math.round((subtotal-dec(values.discount))*100)/100,paid=sum2((pay.payments||[]).map(x=>x.amount));
+        if(paid>total)return showError('المبالغ المدفوعة أكثر من مجموع المبيعة. راجع الدفع المقسّم.');
+        if(paid<total&&!pay.customer_id)return showError('اختر الزبون لتسجيل الباقي عليه.');
+        values.payments=pay.payments||[];if(paid<total)values.customer_id=pay.customer_id;values.as_debt=false;}
+      else if(asDebt){const id=customer?.value||'';if(!id)return showError('اختر الزبون للمبيعة على الحساب');values.customer_id=id;}
       else{if(!chosen)return showError('اختر طريقة الدفع');values.account_id=chosen;}
       run(()=>flow.command('sale',values),receipt=>{saveCart([]);flow.draft('payment',{account_id:chosen});doneSale(receipt,values);});
     });
@@ -471,6 +487,11 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       body+=`<div class="op-card">${partnerId?`<h2>حساب ${e(r.name)}</h2><small class="muted">ربح ${e(r.share)}%</small>`:`<div class="op-row"><b>${e(r.name)}</b>${pill(`ربح ${r.share}%`)}</div>`}
         <small class="muted">حسابه اليوم</small><p class="op-big">${r.total===null||r.total===undefined?'بانتظار اكتمال المراجعة':m(r.total)}</p>
         ${partnerId?parts.map(([l,k])=>`<div class="op-row"><span>${l}</span><b>${r[k]===null||r[k]===undefined?'غير محسوب':m(r[k])}</b></div>`).join(''):`<div class="op-row"><button class="ghost small" data-statement="${e(r.id)}">تفاصيل الحساب</button>${bridge?`<button class="ghost small" data-move="${e(r.id)}">تسجيل حركة</button>`:''}</div>`}</div>`;}
+    if(!partnerId&&bridge){
+      body+='<button class="ghost" data-shares>تغيير نسب الربح باتفاق جديد</button>';
+      for(const x of profit.exit_balances||[])body+=`<div class="op-card"><b>رصيد شريك خرج · ${e(rows.find(r=>r.id===x.partner_id)?.name||(state.partners||[]).find(r=>r.id===x.partner_id)?.name||'')}</b><p class="op-big">${m(Math.round((dec(x.entitlement)-dec(x.paid))*100)/100)}</p><button class="ghost small" data-exit-pay="${e(x.partner_id)}">تسجيل دفعة فعلية</button></div>`;
+    }
+    if(partnerId&&bridge)body+=`<button class="ghost" data-exit="${e(partnerId)}">مراجعة خروج الشريك</button>`;
     if(!partnerId){
       body+=`<div class="op-card"><b>حصة المحل من الأرباح</b><div class="op-row"><span>النسبة</span><b>${e(state.retained_rate??0)}%</b></div><div class="op-row"><span>السقف</span><b>${m(state.retained_cap??0)}</b></div><small class="muted">عندما يصل المتجمّع إلى السقف يتوقف الاقتطاع</small></div>`;
       if(!rows.length)body+='<p class="muted">أكمل الشركاء من قائمة تجهيز محلك.</p>';
@@ -480,6 +501,9 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-backp]',()=>go('profits'));
     on('[data-approve]',()=>prepareFinance({},'approve'));
     on('[data-move]',node=>partnerMovement(node.dataset.move));
+    on('[data-shares]',()=>shareAgreement(null));
+    on('[data-exit]',node=>shareAgreement(node.dataset.exit));
+    on('[data-exit-pay]',node=>exitPayment(node.dataset.exitPay));
   }
   const financeLabel=k=>({capital_increase:'زيادة رأس مال',partner_loan:'قرض من الشريك للمحل',profit_withdrawal:'سحب ربح معتمد',capital_return:'رد رأس مال',cash_borrowing:'مبلغ يأخذه الشريك كدين',loan_repayment:'رد قرض للشريك',debt_repayment:'تحصيل دين من الشريك',exit:'اعتماد خروج الشريك',exit_payment:'دفعة من رصيد الخروج',approve:'اعتماد حسابات الفترة'}[k]||'اتفاق نسب الربح');
   function prepareFinance(values,kind){run(()=>flow.command('prepare_finance',{...values,kind}),()=>{closeSheet();state=flow.snapshot();render();});}
@@ -496,7 +520,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     let body=`<h2>مراجعة الحسابات قبل التأكيد</h2><p class="muted small">${e(financeLabel(kind))}</p>`;
     if(kind==='approve'){body+=`<div class="op-card"><b>ملخص الفترة</b>${[['ربح العمليات غير المعتمد','gross_profit'],['المتاح للتوزيع','distribution_basis'],['تغير حصة المحل','retained_change'],['ربح محجوز يحتفظ بتخصيصه الأصلي','reserved_profit']].map(([l,k])=>`<div class="op-row"><span>${l}</span><b>${m(plan[k])}</b></div>`).join('')}</div>`
       +(plan.partners||[]).map(p=>`<div class="op-card"><b>${e(name(p.id))}</b><div class="op-row"><span>ربح معتمد</span><b>${m(p.prior_profit)}</b></div><div class="op-row"><span>رأس المال</span><b>${m(p.capital)}</b></div><div class="op-row"><span>دين خسارة</span><b>${m(p.loss_debt)}</b></div></div>`).join('');}
-    else body+=`<div class="op-card">${values.amount!==undefined?`<div class="op-row"><span>المبلغ</span><b>${m(values.amount)}</b></div>`:''}${values.partner_id?`<div class="op-row"><span>الشريك</span><b>${e(name(values.partner_id))}</b></div>`:''}</div>`;
+    else body+=`${(values.shares||[]).map(p=>`<p>${e(name(p.id))}: ${e(p.share)}%</p>`).join('')}${kind==='exit'?`<p class="op-warn">اعتماد الاستحقاق لا يسجّل دفعاً. يجب اعتماد كل العمليات أولاً وتطابق الحسابات.</p>${preview.exit_entitlement!==undefined?`<p class="op-big">استحقاق الخروج: ${m(preview.exit_entitlement)}</p>`:''}`:''}<div class="op-card">${values.amount!==undefined?`<div class="op-row"><span>المبلغ</span><b>${m(values.amount)}</b></div>`:''}${values.partner_id?`<div class="op-row"><span>الشريك</span><b>${e(name(values.partner_id))}</b></div>`:''}</div>`;
     frame(body,'<button class="primary" data-commit>تأكيد بعد المراجعة</button><button class="ghost" data-cancel>إلغاء المراجعة</button>');
     on('[data-commit]',()=>run(flow.commitFinance,()=>{say('تم تسجيل العملية مرة واحدة');reload('profits');}));
     on('[data-cancel]',()=>run(async()=>{await flow.cancel();return flow.load();},v=>{state=v;page='profits';render();}));
@@ -510,8 +534,97 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   }
   function history(){
     const ops=state.operations||[],when=v=>{try{return new Date(v).toLocaleString('ar-PS-u-nu-latn',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Hebron'});}catch{return v||'';}};
-    frame(ops.map(o=>`<div class="op-card"><b>${o.kind==='sale'?'مبيعة':'فاتورة شراء'} · ${m(o.total)}</b><small class="muted">${e(when(o.occurred_at))}</small></div>`).join('')||'<p class="muted">لا توجد عمليات مسجّلة بعد</p>','<button class="primary" data-goto>الرجوع للكاشير</button>');
+    const label=v=>({paid:'مكتملة',credit:'دين',partially_returned:'مرتجع جزئي',returned:'مرتجعة'}[v]||'');
+    frame(ops.map(o=>`<div class="op-card"><b>${o.kind==='sale'?'مبيعة':'فاتورة شراء'} · ${m(o.total)}</b><small class="muted">${e(when(o.occurred_at))}${label(o.status)?' · '+label(o.status):''}</small>${o.kind==='sale'&&o.status!=='returned'&&Number(state.return_bridge)===1?`<button class="ghost small" data-return="${e(o.id)}">تسجيل مرتجع</button>`:''}</div>`).join('')||'<p class="muted">لا توجد عمليات مسجّلة بعد</p>','<button class="primary" data-goto>الرجوع للكاشير</button>');
     on('[data-goto]',()=>go('cashier'));
+    on('[data-return]',node=>saleReturn(node.dataset.return));
+  }
+  // ---------- operating actions after the start (Android OpeningCollectionFlow.execute) ----------
+  function operating(action,capability,values,done){
+    if(Number(state?.[capability])!==1)return showError('هذه العملية تحتاج تحديث السيرفر. لم تتغير البيانات.');
+    run(async()=>{const fresh=await flow.load();state=fresh;if(fresh.pending)throw new Error('تحقق من نتيجة الطلب السابق أولاً');return flow.command(action,values);},
+      async receipt=>{say('تم الحفظ');closeSheet();await done?.(receipt);});
+  }
+  const defaultAccount=()=>accounts().find(a=>a.type==='cash')||accounts()[0];
+  function expense(){
+    const d=sheet('مصروف جديد',`<div class="op-chips">${[['مصروفات','مصروف'],['يوميات','يوميات']].map(([v,l],i)=>`<button type="button" class="op-chip ${i===0?'on':''}" data-type="${v}">${l}</button>`).join('')}</div>
+      ${field('amount','المبلغ','','₪')}${field('description','الوصف','','','placeholder="مثال: كهرباء، أجرة، مواصلات"')}<label class="op-field">دفعت من<select name="account">${options(accounts(),defaultAccount()?.id)}</select></label>`,
+      [['حفظ المصروف',d=>{let amount;try{amount=number(d.querySelector('[name=amount]').value,2,'1000000000000');if(dec(amount)<=0)throw new Error();}catch{return sheetError(d,'اكتب مبلغ المصروف');}
+        const category=d.querySelector('.op-chip.on').dataset.type,description=d.querySelector('[name=description]').value.trim()||(category==='يوميات'?'يوميات':'مصروف');
+        operating('expense','expense_bridge',{category,description,account_id:d.querySelector('[name=account]').value,amount},()=>reload('cashier'));}],['رجوع',closeSheet]]);
+    d.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{d.querySelectorAll('[data-type]').forEach(x=>x.classList.toggle('on',x===b));});
+  }
+  function openDebts(kind){page=kind;run(async()=>{const [debts,fresh]=await Promise.all([api.rpc('get_sharikx2_debt_balances_v2',{p_project_id:project.id}),flow.load()]);state=fresh;return debts;},v=>{debtData=v;render();});}
+  function debtsPage(kind){
+    const customer=kind==='customers',rows=(debtData?.[kind]||[]),total=debtData?.[customer?'customer_debt':'supplier_debt'];
+    const phone=v=>v&&!String(v).startsWith('manual-')?`<small class="muted" dir="ltr">${e(v)}</small>`:'';
+    frame(`<div class="op-note"><small>${customer?'مجموع ديون الزبائن':'مجموع ما عليك للموردين'}</small><p class="op-big">${m(total??0)}</p></div>
+      ${rows.map(r=>`<div class="op-card"><div class="op-row"><span><b>${e(r.name)}</b><br>${phone(r.phone)}</span><b>${m(r.calculated_debt)}</b></div>
+        ${dec(r.calculated_debt)>0?`<button class="outline small" data-${customer?'collect':'pay'}="${e(r.id)}">${customer?'تحصيل دفعة':'دفعة للمورد'}</button>`:pill('لا يوجد دين','ok')}</div>`).join('')||`<p class="muted">${customer?'لا يوجد زبائن بعد':'لا يوجد موردين بعد'}</p>`}`,
+      `<button class="outline" data-new>${customer?'+ إضافة زبون':'+ إضافة مورد'}</button>`);
+    on('[data-new]',()=>newContact(customer?'customer':'supplier',()=>openDebts(kind)));
+    on('[data-collect]',node=>collect(rows.find(r=>r.id===node.dataset.collect)));
+    on('[data-pay]',node=>paySupplier(rows.find(r=>r.id===node.dataset.pay)));
+  }
+  function collect(row){
+    sheet(`تحصيل من ${row.name}`,`<p class="muted">الدين الحالي: <b>${m(row.calculated_debt)}</b></p>${field('amount','المبلغ المستلم','','₪')}<label class="op-field">استلمته في<select name="account">${options(accounts(),defaultAccount()?.id)}</select></label>${field('note','ملاحظة (اختياري)','')}`,
+      [['تسجيل الدفعة',d=>{let amount;try{amount=number(d.querySelector('[name=amount]').value,2,'1000000000000');if(dec(amount)<=0||dec(amount)>dec(row.calculated_debt))throw new Error();}catch{return sheetError(d,'اكتب مبلغاً لا يزيد عن الدين الحالي');}
+        operating('collect_customer','collection_bridge',{customer_id:row.id,account_id:d.querySelector('[name=account]').value,amount,note:d.querySelector('[name=note]').value},()=>openDebts('customers'));}],['رجوع',closeSheet]]);
+  }
+  function paySupplier(row){
+    sheet(`دفعة لـ ${row.name}`,`<p class="muted">عليك له: <b>${m(row.calculated_debt)}</b>. اكتب المبلغ المدفوع من كل حساب.</p>${accounts().map(a=>field(`src-${a.id}`,a.name,'','₪')).join('')}${field('note','ملاحظة (اختياري)','')}`,
+      [['تسجيل الدفعة',d=>{const sources=[];
+        try{for(const a of accounts()){const raw=d.querySelector(`[name="src-${CSS.escape(a.id)}"]`).value;if(!raw.trim())continue;const v=number(raw,2,'1000000000000');if(dec(v)>0)sources.push({account_id:a.id,amount:Number(v)});}}catch{return sheetError(d,'راجع المبالغ');}
+        const sum=sum2(sources.map(x=>x.amount));if(!sources.length)return sheetError(d,'اكتب المبلغ المدفوع');if(sum>dec(row.calculated_debt))return sheetError(d,'المجموع أكبر من الدين الحالي');
+        operating('supplier_payment','supplier_payment_bridge',{supplier_id:row.id,sources,note:d.querySelector('[name=note]').value},()=>openDebts('suppliers'));}],['رجوع',closeSheet]]);
+  }
+  function newContact(kind,created){
+    const customer=kind==='customer';
+    sheet(customer?'زبون جديد':'مورد جديد',`${field('name','الاسم','')}${field('phone','رقم الجوال','','','dir="ltr" inputmode="tel" placeholder="05xxxxxxxx"')}`,
+      [['حفظ',d=>{const id=crypto.randomUUID(),value={id,name:d.querySelector('[name=name]').value,phone:d.querySelector('[name=phone]').value};
+        run(()=>customer?api.createCustomer(project.id,value):api.createSupplier(project.id,value),async()=>{closeSheet();say('تم الحفظ');state=await flow.load();await created?.(id);if(page==='sale'||page==='purchase')render();});}],['رجوع',closeSheet]]);
+  }
+  function splitPayment(subtotal){
+    const pay=flow.draft('payment'),old=new Map((pay.payments||[]).map(x=>[x.account_id,x.amount])),total=Math.round((subtotal-dec(pay.discount))*100)/100;
+    sheet('تفاصيل الدفع',`<p class="muted">مجموع المبيعة ${m(total)}. اكتب المبلغ المدفوع من كل حساب. إذا بقي مبلغ، اختر الزبون لتسجيل الباقي عليه.</p>${accounts().map(a=>field(`src-${a.id}`,a.name,old.get(a.id)??'','₪')).join('')}
+      <label class="op-field">الزبون (للباقي)<select name="customer">${options(customers(),pay.customer_id,'بدون — الدفع كامل')}</select></label>`,
+      [['حفظ طريقة الدفع',d=>{const payments=[];
+        try{for(const a of accounts()){const raw=d.querySelector(`[name="src-${CSS.escape(a.id)}"]`).value;if(!raw.trim())continue;const v=number(raw,2,'1000000000000');if(dec(v)>0)payments.push({account_id:a.id,amount:v});}}catch{return sheetError(d,'راجع المبالغ');}
+        const paid=sum2(payments.map(x=>x.amount)),cust=d.querySelector('[name=customer]').value;
+        if(paid>total)return sheetError(d,'المبالغ أكثر من مجموع المبيعة');if(paid<total&&!cust)return sheetError(d,'اختر الزبون لتسجيل الباقي عليه');
+        flow.draft('payment',{...pay,payments,customer_id:cust,composed:true,as_debt:false});closeSheet();render();}],['رجوع',closeSheet]]);
+  }
+  function saleReturn(saleId){
+    run(()=>api.sale(project.id,saleId),sale=>{
+      if(!sale)return showError('تعذر تحميل المبيعة');
+      const returned=new Map();for(const r of sale.returns||[])for(const x of r.items||[])returned.set(x.sale_item_id,(returned.get(x.sale_item_id)||0)+dec(x.quantity));
+      const items=(sale.items||[]).map(x=>({...x,left:Math.round((dec(x.quantity)-(returned.get(x.id)||0))*1000)/1000})).filter(x=>x.left>0);
+      const nameOf=x=>x.product_name||x.name||product(x.product_id)?.product?.name||'صنف';
+      sheet(`مرتجع من المبيعة ${sale.sale_number??''}`,`${items.map(x=>`${field(`ret-${x.id}`,`${nameOf(x)} · المتاح للإرجاع ${x.left}`,'','#')}`).join('')||'<p class="muted">لا يوجد أصناف متاحة للإرجاع</p>'}
+        <label class="op-field">ترجع الفلوس من<select name="account">${options(accounts(),sale.payment_account_id||defaultAccount()?.id)}</select></label>${field('reason','السبب (اختياري)','')}`,
+        [['تسجيل المرتجع',d=>{const rows=[];
+          try{for(const x of items){const raw=d.querySelector(`[name="ret-${CSS.escape(x.id)}"]`).value;if(!raw.trim())continue;const q=number(raw,3,'100000000000');if(dec(q)<=0)continue;if(dec(q)>x.left)throw new Error();rows.push({sale_item_id:x.id,quantity:q});}}
+          catch{return sheetError(d,'الكمية أكثر من المتاح للإرجاع');}
+          if(!rows.length)return sheetError(d,'اكتب كمية صنف واحد على الأقل');
+          operating('sale_return','return_bridge',{sale_id:sale.id,items:rows,account_id:d.querySelector('[name=account]').value,reason:d.querySelector('[name=reason]').value},()=>reload('history'));}],['رجوع',closeSheet]]);
+    });
+  }
+  function shareAgreement(exiting){
+    const people=(state.profit?.partners||[]).filter(p=>p.id!==exiting);
+    sheet(exiting?'نسب الباقين بعد خروج الشريك':'اتفاق نسب الربح',`<p class="muted">أدخل النسب المتفق عليها بنفسك. لا نغير رأس المال ولا أرباح العمليات السابقة.</p>${people.map(p=>field(`share-${p.id}`,p.name,'','%')).join('')}`,
+      [['مراجعة',d=>{let shares;try{shares=people.map(p=>({id:p.id,share:number(d.querySelector(`[name="share-${CSS.escape(p.id)}"]`).value,4,'101')}));if(Math.abs(sum2(shares.map(x=>x.share))-100)>0.0001)throw new Error();}
+        catch{return sheetError(d,'أكمل النسب لكل الشركاء الباقين، ومجموعها 100%');}
+        const v={shares};if(exiting)v.partner_id=exiting;prepareFinance(v,exiting?'exit':'shares');}],['رجوع',closeSheet]]);
+  }
+  function exitPayment(partnerId){
+    sheet('دفعة رصيد الخروج',`<p class="muted">تُسجّل دفعة فعلية فقط. الرصيد السالب يعني تحصيلاً من الشريك.</p><label class="op-field">الحساب<select name="account">${options(accounts(),defaultAccount()?.id)}</select></label>${field('amount','المبلغ','','₪')}`,
+      [['مراجعة',d=>{let amount;try{amount=number(d.querySelector('[name=amount]').value,2,'1000000000000');}catch{return sheetError(d,'أدخل مبلغاً صحيحاً');}
+        prepareFinance({partner_id:partnerId,account_id:d.querySelector('[name=account]').value,amount},'exit_payment');}],['رجوع',closeSheet]]);
+  }
+  function reportsPage(){
+    frame('<div data-reports></div>');
+    renderReports({api,project,container:app.querySelector('[data-reports]'),state:reportState,isCurrent:()=>alive()&&page==='reports',onAccounts:()=>reload('accounts'),onPlans:()=>say('الاشتراك متاح من تطبيق SharikX2')})
+      .catch(error=>showError(friendly(error)));
   }
 
   function render(){
@@ -520,7 +633,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     if(page==='goods')return goods();
     if(!state)return frame('<p>تعذر تحميل بيانات المحل</p>','<button class="primary" data-retry>إعادة المحاولة</button>'),on('[data-retry]',()=>reload(page));
     if(state.pending)return pending();
-    ({debts,partners:()=>partners(false),capital:()=>partners(true),retained,review,sale,purchase,profits:()=>profits(null),statement:()=>profits(selectedPartner),accounts:accountsPage,history}[page]||cashier)();
+    ({debts,partners:()=>partners(false),capital:()=>partners(true),retained,review,sale,purchase,profits:()=>profits(null),statement:()=>profits(selectedPartner),accounts:accountsPage,history,customers:()=>debtsPage('customers'),suppliers:()=>debtsPage('suppliers'),reports:reportsPage}[page]||cashier)();
   }
   app.innerHTML='<section class="op-app"><p class="op-lead">جارٍ تحميل بيانات المحل…</p></section>';
   run(flow.load,value=>{state=value;
