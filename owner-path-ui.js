@@ -127,6 +127,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-hide]',()=>{flow.draft('ui',{checklist_hidden:true});render();});
     on('[data-show]',()=>{flow.draft('ui',{checklist_hidden:false});render();});
     on('[data-held-list]',heldSales);
+    on('[data-ignore-device]',()=>{try{localStorage.setItem(ignoredKey(),`${deviceInfo.requested_device_id}|${deviceInfo.requested_at}`);}catch{}render();say('تم إخفاء الطلب. التحكم باقٍ على هذا الجهاز.');});
     on('[data-approve-device]',()=>{if(!confirm('نقل التحكم للجهاز الجديد؟ هذا المتصفح يتوقف عن تسجيل العمليات.'))return;
       run(()=>deviceRpc('approve_sharikx2_device_transfer_v1'),()=>{say('تم نقل التحكم للجهاز الجديد');deviceInfo={...deviceInfo,is_active:false,requested_device_id:''};page='device';render();});});
   }
@@ -654,9 +655,12 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-exit]',()=>onExit());
     const node=app.querySelector('[data-error]');void node;
   }
+  const ignoredKey=()=>`sharikx2-ignored-device-request:${project.id}`;
   function approvalBanner(){
     const d=deviceInfo;if(!d?.is_active||!d.requested_device_id)return '';
-    return `<div class="op-banner warn"><b>جهاز آخر يطلب التحكم بالمحل</b><small>${e(d.requested_device_name||'جهاز جديد')}. إذا وافقت، هذا الجهاز يصير للمشاهدة فقط.</small><div class="op-row"><button class="outline small" data-approve-device>موافقة</button></div></div>`;
+    // The server has no reject yet: «تجاهل» hides THIS request on this browser until a new one arrives.
+    try{if(localStorage.getItem(ignoredKey())===`${d.requested_device_id}|${d.requested_at}`)return '';}catch{}
+    return `<div class="op-banner warn"><b>جهاز آخر يطلب التحكم بالمحل</b><small>${e(d.requested_device_name||'جهاز جديد')}. إذا وافقت، هذا الجهاز يصير للمشاهدة فقط.</small><div class="op-row"><button class="outline small" data-approve-device>موافقة</button><button class="ghost small" data-ignore-device>تجاهل</button></div></div>`;
   }
   function render(){
     if(!alive())return;
