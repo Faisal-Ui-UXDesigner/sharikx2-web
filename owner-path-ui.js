@@ -139,7 +139,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-back2]',back);
     on('[data-save]',()=>{
       const values=[];
-      try{for(const a of open){const raw=app.querySelector(`[name="acc-${CSS.escape(a.id)}"]`)?.value??'';if(!raw.trim())continue;values.push({account_id:a.id,counted_amount:number(raw,2,'1000000000000')});}}
+      try{for(const a of open){const raw=app.querySelector(`[name="acc-${CSS.escape(a.id)}"]`)?.value??'';if(!raw.trim())continue;values.push({account_id:a.id,counted_amount:Number(number(raw,2,'1000000000000'))}); /* the server requires a JSON number (≤2 decimals: exact) */}}
       catch{return showError('اكتب مبلغاً صحيحاً، بحد أقصى منزلتين عشريتين');}
       if(!values.length)return showError('اكتب المبلغ لكل حساب، أو اختر «لا يوجد»');
       run(async()=>{await moneyFlow.save(values);return moneyFlow.prepare();},v=>{if(v.status==='confirmed')openMoney(returnTo);else run(moneyFlow.load,x=>{moneyState=x;render();});});
