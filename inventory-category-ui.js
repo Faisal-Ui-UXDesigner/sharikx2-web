@@ -3,7 +3,7 @@ import {saveCategorySettings} from './inventory-category.js';
 import {categoryDraft,categoryDraftRows,changeCategoryDraft} from './inventory-category-draft.js';
 const dialogs=new WeakMap();
 
-export async function openInventoryCategorySettings({api,projectId,container,isCurrent,inventoryCategories=[],onSaved,mode='owner'}){
+export async function openInventoryCategorySettings({api,projectId,container,isCurrent,inventoryCategories=[],onSaved,mode='owner',preferences}){
  if(mode!=='owner')throw new Error('إعدادات التصنيفات متاحة للمالك فقط');
  if(!isCurrent()||!container.isConnected)return null;
  const existing=dialogs.get(container);if(existing?.isConnected){existing.focus();return existing;}
@@ -11,7 +11,7 @@ export async function openInventoryCategorySettings({api,projectId,container,isC
  const dialog=document.createElement('dialog');dialog.dataset.categorySettings='true';
  dialog.innerHTML='<h2>إعدادات تصنيفات البضاعة</h2><p class="muted">يمكنك إخفاء التصنيفات غير المناسبة. الأصناف المخفية تبقى محفوظة وتظهر ضمن الكل.</p><form data-category-add class="input-pair"><label>تصنيف جديد<input name="name" maxlength="60" required></label><button class="outline">إضافة</button></form><p role="alert"></p><div data-category-rows></div><div class="actions"><button data-save class="primary">حفظ</button><button data-close class="outline">إلغاء</button></div>';
  container.append(dialog);dialogs.set(container,dialog);dialog.showModal();
- let draft=null,saving=false,loading=false,child=null;
+ let draft=null,revision=null,saving=false,loading=false,child=null;
  const current=()=>isCurrent()&&container.isConnected&&dialog.isConnected&&api.generation===generation&&api.deviceEpoch===epoch;
  const canEdit=()=>current()&&!saving&&!loading&&!child?.isConnected&&draft!==null;
  const alert=dialog.querySelector('[role=alert]'),form=dialog.querySelector('[data-category-add]'),rows=dialog.querySelector('[data-category-rows]');
@@ -52,7 +52,8 @@ export async function openInventoryCategorySettings({api,projectId,container,isC
   if(!canEdit())return;
   const captured=draft.settings;saving=true;lock();alert.textContent='';
   try{
-   await saveCategorySettings(api,projectId,captured,{isCurrent:current});
+   if(preferences)await preferences.save(captured,revision);
+   else await saveCategorySettings(api,projectId,captured,{isCurrent:current});
   }catch(error){
    saving=false;if(current()){alert.textContent=error.message;lock();}return;
   }
@@ -64,7 +65,8 @@ export async function openInventoryCategorySettings({api,projectId,container,isC
   if(loading||!current())return;
   loading=true;lock();alert.textContent='';rows.innerHTML='<div class="skeleton"></div>';
   try{
-   const snapshot=await api.financeState(projectId);if(!current())return;
+   const snapshot=await (preferences?preferences.load():api.financeState(projectId));if(!current())return;
+   revision=snapshot.revision;
    draft=categoryDraft(snapshot,inventoryCategories);draw();
   }catch(error){
    if(!current())return;alert.textContent=error.message;rows.innerHTML='<button type="button" data-category-retry class="outline">إعادة المحاولة</button>';

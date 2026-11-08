@@ -41,6 +41,7 @@ try{for(const engine of ['edge','webkit']){
   await page.evaluate(()=>failMode=false);await page.locator('[data-retry-mode]').click();
   await page.locator('[data-go=sale]').waitFor();await page.locator('[data-go=sale]').click();
   assert.match(await page.locator('[data-total]').innerText(),/1\.01/);
+  await page.locator('[data-sale-payment]').click();
   await page.locator('[name=discount]').fill('0.10');assert.match(await page.locator('[data-total]').innerText(),/0\.91/);
   await page.locator('[name=discount]').fill('2');assert.match(await page.locator('[data-total]').innerText(),/راجع الخصم/);
   await page.locator('[data-finish]').click();assert.equal(await page.evaluate(()=>calls.filter(c=>c.p.p_action==='sale').length),0);

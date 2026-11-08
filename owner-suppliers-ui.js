@@ -4,7 +4,7 @@ import {openSupplierAccount} from './supplier-account-ui.js';
 
 export function renderOwnerSuppliers({container,api,projectId,snapshot,view,isCurrent,onPay}){
  const current=()=>container.isConnected&&isCurrent();
- container.innerHTML='<div class="op-note" data-summary></div><label class="op-field">ابحث عن المورد<input type="search" data-supplier-search placeholder="الاسم أو رقم الجوال" autocomplete="off"></label><div class="op-two"><button type="button" class="outline" data-supplier-archive="false">الحسابات العالقة</button><button type="button" class="outline" data-supplier-archive="true">أرشيف السداد</button></div><div data-supplier-list></div><button type="button" class="outline" data-supplier-more>تحميل المزيد</button>';
+ container.innerHTML='<div class="op-two"><button type="button" class="outline" data-supplier-archive="false">الحسابات العالقة</button><button type="button" class="outline" data-supplier-archive="true">أرشيف السداد</button></div><div class="op-search debt-search"><input type="search" data-supplier-search aria-label="ابحث باسم المورد أو رقم الجوال" placeholder="بحث بالاسم أو رقم الجوال" autocomplete="off"></div><div class="op-note" data-summary></div><div data-supplier-list></div><button type="button" class="outline" data-supplier-more>تحميل المزيد</button>';
  const search=container.querySelector('[data-supplier-search]');search.value=view.query;
  const fail=error=>{container.querySelector('[data-summary]').replaceChildren();container.querySelector('[data-supplier-list]').innerHTML='<p role="alert"></p>';container.querySelector('[role=alert]').textContent=error.message;container.querySelector('[data-supplier-more]').hidden=true;};
  function draw(){if(!current())return;try{

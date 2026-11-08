@@ -1,5 +1,6 @@
 import {Api} from './api.js';
 import {appShellMarkup} from './app-shell-ui.js';
+import {cashierActions} from './primary-page-ui.js';
 import {bindAppShellLayout} from './app-shell-layout.js';
 import {escape,money,timestamp,status,setCurrency} from './ui.js';
 import {openExpense,renderExpenses} from './expense.js';
@@ -105,9 +106,9 @@ function shell(){
  api.setDeviceContext({projectId:project.id,mode,identityStorage:identityStore});
  app.innerHTML=appShellMarkup({project,mode,screen});
  releaseShellLayout=bindAppShellLayout(app.querySelector('.native-app'));
- app.querySelector('[data-menu]').onclick=()=>{const dialog=document.createElement('dialog');dialog.innerHTML=`<h2>القائمة</h2><div class="menu-list"><button data-go="settings">الإعدادات</button><button data-go="accounts">الحسابات</button><button data-go="cashier">الكاشير</button><button data-go="products">البضاعة</button><button data-go="partners">الشركاء</button><button data-go="reports">التقارير</button><button data-logout>تسجيل الخروج</button></div><button data-close class="outline">إغلاق</button>`;app.append(dialog);dialog.showModal();dialog.querySelector('[data-close]').onclick=()=>dialog.remove();dialog.querySelector('[data-logout]').onclick=()=>{api.clearSession();dialog.remove();entry();};dialog.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{screen=b.dataset.go;dialog.remove();shell();});};
+ app.querySelector('[data-menu]')?.addEventListener('click',()=>{const dialog=document.createElement('dialog');dialog.innerHTML=`<h2>القائمة</h2><div class="menu-list"><button data-go="settings">الإعدادات</button><button data-logout>تسجيل الخروج</button></div><button data-close class="outline">إغلاق</button>`;app.append(dialog);dialog.showModal();dialog.addEventListener('close',()=>dialog.remove());dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.querySelector('[data-logout]').onclick=()=>{api.clearSession();dialog.remove();entry();};dialog.querySelector('[data-go]').onclick=()=>{screen='settings';dialog.remove();shell();};});
  releaseNotificationBell=bindProjectNotificationBell({button:app.querySelector('[data-notifications]'),api,project,mode,readState:notificationReadState,owner:app,isCurrent:()=>revision===epoch});
- app.querySelector('[data-plan]').onclick=()=>openSubscriptionStatus({container:app,project,mode,isCurrent:()=>revision===epoch,onPlans:()=>{screen='plans';shell();}});
+ app.querySelector('[data-plan]')?.addEventListener('click',()=>openSubscriptionStatus({container:app,project,mode,isCurrent:()=>revision===epoch,onPlans:()=>{screen='plans';shell();}}));
  app.querySelector('[data-subscribe]')?.addEventListener('click',()=>{screen='plans';shell();});
  app.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{screen=b.dataset.page;shell();});
  const content=app.querySelector('#content');content.innerHTML='<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';window.scrollTo({top:0,behavior:'instant'});load(content,revision);
@@ -139,7 +140,7 @@ async function load(content,revision){try{
    onArchive:async person=>{if(window.confirm('هل تريد أرشفة المورد؟')){await api.archiveSupplier(projectId,person.id);if(current())shell();}}
   });
  }else if(screen==='cashier'){
-  content.innerHTML=`<section class="cashier-intro"><h2>الكاشير</h2><p class="muted">سجّل المبيعات والديون والمصروفات من مكان واحد</p></section><div class="cashier-grid"><button data-sale><span class="action-icon"><img src="./assets/icon_cashier_colorful.png" alt=""></span><b>مبيعة جديدة</b></button><button data-customers><span class="action-icon"><img src="./assets/icon_customer_debt_colorful.png" alt=""></span><b>ديون الزبائن</b></button><button data-suppliers><span class="action-icon"><img src="./assets/icon_supplier_debt_colorful.png" alt=""></span><b>حسابات الموردين</b></button><button data-expense><span class="action-icon"><img src="./assets/icon_expense_colorful.png" alt=""></span><b>مصروف جديد</b></button></div><button class="purchase-action" data-purchase><img src="./assets/icon_purchase_colorful.png" alt=""><span>تسجيل فاتورة شراء</span></button><section data-activity></section>`;
+  content.innerHTML=`${cashierActions()}<section data-activity></section>`;
   content.querySelector('[data-customers]').onclick=()=>{screen='customers';shell();};content.querySelector('[data-suppliers]').onclick=()=>{screen='suppliers';shell();};
   if(mode==='owner'){content.querySelector('[data-sale]').onclick=()=>openSale({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});content.querySelector('[data-expense]').onclick=()=>openExpense({api,projectId:project.id,mode,container:app,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});content.querySelector('[data-purchase]').onclick=()=>openPurchase({api,projectId:project.id,mode,storage:sessionStore,isCurrent:()=>revision===epoch,onSaved:shell});}else{content.querySelectorAll('[data-sale],[data-expense],[data-purchase]').forEach(b=>{b.disabled=true;b.title='المشروع للمشاهدة فقط';});}
   await renderActivity({api,projectId:project.id,container:content.querySelector('[data-activity]'),isCurrent:()=>revision===epoch,mode,onSaved:shell,storage:sessionStore,allowMutations:window.SHARIKX2_CONFIG.expenseMutations===true,onSale:saleDetails});
@@ -150,7 +151,7 @@ async function load(content,revision){try{
  }else if(screen==='partners'){
   await renderPartners({api,projectId:project.id,project,storage:sessionStore,container:content,mode,isCurrent:()=>revision===epoch,onSaved:shell,onPlans:()=>{screen='plans';shell();}});
  }else if(screen==='products'){
-  await renderInventory({api,projectId:project.id,project,container:content,isCurrent:()=>revision===epoch,mode,onSaved:shell,onPlans:()=>{screen='plans';shell();},viewStore:inventoryViewStore});
+  await renderInventory({api,projectId:project.id,project,container:content,headingActions:app.querySelector('[data-heading-actions]'),isCurrent:()=>revision===epoch,mode,onSaved:shell,onPlans:()=>{screen='plans';shell();},viewStore:inventoryViewStore});
  }else{
   const table=screen==='cashier'?'sales':'products';const select=table==='sales'?'*,customer:sharikx2_customers(name,phone)':'*';let rows=await api.rows(table,project.id,select,0,table==='products'?{active:'eq.true'}:{});if(revision!==epoch)return;let offset=rows.length,hasMore=rows.length===20;
   content.innerHTML=`<h2>${table==='sales'?'سجل المبيعات':'البضاعة'}</h2><p class="muted small">عرض للقراءة فقط — عمليات الإضافة والتعديل قيد التنفيذ.</p><label>بحث في السجلات المحملة<input id="search" type="search" placeholder="ابحث بالاسم أو الرقم"></label><div id="rows"></div><p id="list-error" role="alert"></p><button id="more" class="outline">تحميل المزيد</button>`;

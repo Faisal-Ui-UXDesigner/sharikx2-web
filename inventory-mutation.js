@@ -41,7 +41,7 @@ export function productEditorValues(product){
  };
 }
 
-export function openProductEditor({api,projectId,mode,product=null,rows=[],onSaved,isCurrent=()=>true,categoryOptions=[],categoryLabels={},container=null,entryMode='manual',initialBarcode='',authorizeCreate=()=>true}){
+export function openProductEditor({api,projectId,mode,product=null,rows=[],onSaved,isCurrent=()=>true,categoryOptions=[],categoryLabels={},container=null,entryMode='manual',initialBarcode='',authorizeCreate=()=>true,metadataOnly=false}){
  if(mode!=='owner')throw new Error('المشروع للمشاهدة فقط');
  container??=document.body;
  if(!isCurrent()||!container.isConnected)return null;
@@ -57,6 +57,12 @@ export function openProductEditor({api,projectId,mode,product=null,rows=[],onSav
  const normalized=productEditorValues(product);
  for(const key of ['name','barcode','category','unit','piecesPerUnit','salePrice','lowStock','notes'])if(normalized[key]!=null)f.elements[key].value=normalized[key];
  f.elements.barcode.value=entry.barcode;f.elements.barcode.readOnly=!entry.barcodeEditable;f.elements.barcode.required=!entry.barcodeOptional;
+ if(metadataOnly){
+  f.elements.barcode.readOnly=true;
+  d.querySelector('[data-camera-scan]').hidden=true;
+  d.querySelector('[data-choose-unit]').disabled=true;
+  f.elements.unit.readOnly=true;
+ }
  f.elements.barcode.placeholder=entry.barcodeOptional?'رقم الباركود (اختياري)':'رقم الباركود';
  f.elements.piecesPerUnit.value=entry.piecesPerUnit;
  let unit=inventoryUnitChoice(normalized.unit);const unitSelect=f.elements.unitChoice;
@@ -97,7 +103,10 @@ export function openProductEditor({api,projectId,mode,product=null,rows=[],onSav
    saving=true;
    f.querySelector('fieldset').disabled=true;
    button.disabled=true;d.querySelector('[data-close]').disabled=true;
-   if(product)await api.updateProduct(product.id,payload);
+   if(product&&metadataOnly){
+    const {name,category,notes,default_sale_price,low_stock_level}=payload;
+    await api.updateProduct(product.id,{name,category,notes,default_sale_price,low_stock_level},{activeOnly:true,projectId});
+   }else if(product)await api.updateProduct(product.id,payload);
    else await api.createProduct({...payload,id:creationId});
   }catch(e){
    if(current())error.textContent=e.message||'تعذر حفظ الصنف';

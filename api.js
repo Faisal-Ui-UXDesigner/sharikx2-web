@@ -254,9 +254,9 @@ export class Api {
       throw new Error('يوجد تعارض في بيانات الصنف أو الباركود؛ أعد تحميل البضاعة قبل الحفظ');
     }
   }
-  async updateProduct(id,changes) {
-    const scope=this.deviceContext?`&project_id=eq.${encodeURIComponent(this.deviceContext.projectId)}`:'';
-    const rows=await this.request(`/rest/v1/sharikx2_products?id=eq.${encodeURIComponent(id)}${scope}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(changes)});
+  async updateProduct(id,changes,{activeOnly=false,projectId=this.deviceContext?.projectId}={}) {
+    const scope=projectId?`&project_id=eq.${encodeURIComponent(projectId)}`:'';
+    const rows=await this.request(`/rest/v1/sharikx2_products?id=eq.${encodeURIComponent(id)}${scope}${activeOnly?'&active=eq.true':''}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(changes)});
     return requireProductResult(rows,id);
   }
   async archiveProduct(id) {

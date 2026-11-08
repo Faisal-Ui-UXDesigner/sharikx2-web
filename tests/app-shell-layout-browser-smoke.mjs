@@ -21,7 +21,7 @@ try{
  let state=await bounds();assert.ok(Math.abs(state.headerTop)<1);assert.ok(Math.abs(state.controlsTop-state.headerBottom)<2);assert.ok(state.navBottom<874);
  await page.locator('[data-row="30"]').click();assert.ok(await page.locator('[data-row="30"]').evaluate(el=>{const rect=el.getBoundingClientRect(),header=document.querySelector('.app-header').getBoundingClientRect(),controls=document.querySelector('.inventory-sticky-controls').getBoundingClientRect();return rect.top>=Math.max(header.bottom,controls.bottom)-1;}));
  await mkdir('tests/screenshots/native-v123',{recursive:true});await page.screenshot({path:'tests/screenshots/native-v123/inventory-scroll.png'});
- await page.evaluate(()=>{document.querySelector('.project-heading h1').firstChild.textContent='اسم مشروع طويل جداً لفحص التفاف النص وتغيير حجم الهيدر';});
+ await page.evaluate(()=>{document.querySelector('.primary-page-title').textContent='عنوان صفحة طويل جداً لفحص التفاف النص وتغيير حجم الهيدر';});
  await page.waitForFunction(()=>Math.abs(parseFloat(root.style.getPropertyValue('--native-header-height'))-Math.ceil(root.querySelector('.app-header').getBoundingClientRect().height))<1);
  state=await bounds();assert.ok(Math.abs(state.controlsTop-state.headerBottom)<2);
  await page.setViewportSize({width:320,height:650});await page.waitForFunction(()=>Math.abs(parseFloat(root.style.getPropertyValue('--native-header-height'))-Math.ceil(root.querySelector('.app-header').getBoundingClientRect().height))<1);

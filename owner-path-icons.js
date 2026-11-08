@@ -1,5 +1,7 @@
 // Icons converted from the Android app vector drawables (same shapes), colour = currentColor.
+import {icon as sharedIcon} from './icons.js';
 export const ICONS=Object.freeze({
+search:sharedIcon('search'),
 "bell": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M18,8a6,6 0,0 0,-12 0c0,7 -3,7 -3,9h18c0,-2 -3,-2 -3,-9\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M13.73,21a2,2 0,0 1,-3.46 0\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",
 "menu": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M4,6h16M4,12h16M4,18h16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"miter\"/></svg>",
 "accounts": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M6,3h12a2,2 0,0 1,2 2v14a2,2 0,0 1,-2 2H6a2,2 0,0 1,-2 -2V5a2,2 0,0 1,2 -2M7,7h10v3H7zM8,14h0.01M12,14h0.01M16,14h0.01M8,18h0.01M12,18h0.01M16,18h0.01\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",

@@ -3,6 +3,7 @@ import {icon} from './icons.js';
 import {appendContactAction} from './contact-ui.js';
 import {debtDirectory} from './debt-directory.js';
 import {DEBT_SETTLED_THRESHOLD as threshold} from './debt-model.js';
+import {listSkeleton} from './primary-page-ui.js';
 const tokens=new WeakMap();
 
 function controls(kind,owner){
@@ -57,7 +58,7 @@ export async function renderDebtDirectory({container,kind,mode,loadSnapshot,isCu
  async function load(){
   if(!current())return;
   const request=++generation;source=null;summary.hidden=true;more.hidden=true;retry.hidden=true;error.textContent='';
-  list.innerHTML='<div class="skeleton" role="status" aria-label="جاري تحميل الحسابات"></div><div class="skeleton"></div>';list.setAttribute('aria-busy','true');
+  list.innerHTML=listSkeleton('جارٍ تحميل الحسابات');list.setAttribute('aria-busy','true');
   try{
    const snapshot=structuredClone(await loadSnapshot());if(!current()||request!==generation)return;
    debtDirectory(snapshot,kind);source=snapshot;draw();

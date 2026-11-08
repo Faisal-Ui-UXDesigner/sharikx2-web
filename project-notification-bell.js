@@ -4,6 +4,7 @@ import {openProjectNotifications} from './project-notifications-ui.js';
 // One mounted shell owns its reads. The small read-state object survives only
 // navigation within the same opened project, never a new login or restoration.
 export function bindProjectNotificationBell({button,api,project,mode,readState,owner,isCurrent=()=>true}){
+ if(!button)return ()=>{};
  let ended=false,pending=null,rows=null;
  const current=()=>!ended&&button.isConnected&&owner.isConnected&&isCurrent();
  function draw(state){

@@ -1,4 +1,4 @@
-const reads=new Set(['get_sharikx2_finance_state_v1','get_sharikx2_financial_summary_v2','get_sharikx2_financial_activity_v2','get_sharikx2_debt_balances_v2','get_sharikx2_supplier_history_v1']);
+const reads=new Set(['get_sharikx2_finance_state_v1','get_sharikx2_financial_summary_v2','get_sharikx2_financial_activity_v2','get_sharikx2_debt_balances_v2','get_sharikx2_supplier_history_v1','get_sharikx2_inventory_preferences_v2']);
 const devices=new Set(['claim_sharikx2_device_control_v1','request_sharikx2_device_transfer_v1']);
 function body(value){try{const parsed=JSON.parse(value);if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))return parsed;}catch{}throw new Error('تعذر تحديد نطاق طلب الكتابة');}
 function equality(query,key){const values=query.getAll(key);if(values.length!==1||!values[0].startsWith('eq.')||!values[0].slice(3))throw new Error('طلب الكتابة لا يحدد مشروعًا واحدًا');return values[0].slice(3);}
@@ -11,8 +11,10 @@ export function deviceRequestScope(path,options={}){
  if(rpc){
   if(method!=='POST')throw new Error('طريقة طلب الخدمة غير صالحة');
   if(reads.has(rpc))return {kind:'read'};
-  const data=body(options.body);if(typeof data.p_project_id!=='string'||!data.p_project_id.trim())throw new Error('طلب الكتابة لا يحدد مشروعًا واحدًا');
-  return {kind:devices.has(rpc)?'device':'write',projectId:data.p_project_id};
+  const data=body(options.body);
+  const projectId=rpc==='save_sharikx2_inventory_preferences_v2'?data.p_project:data.p_project_id;
+  if(typeof projectId!=='string'||!projectId.trim())throw new Error('طلب الكتابة لا يحدد مشروعًا واحدًا');
+  return {kind:devices.has(rpc)?'device':'write',projectId};
  }
  if(!['POST','PATCH','DELETE'].includes(method))throw new Error('طريقة الكتابة غير مدعومة');
  const projectId=method==='POST'?body(options.body).project_id:equality(url.searchParams,url.pathname==='/rest/v1/sharikx2_projects'?'id':'project_id');

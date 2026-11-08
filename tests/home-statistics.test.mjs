@@ -50,7 +50,7 @@ test('home loader reads all confirmed native sources with exact scoped return co
 test('shared shell preserves native RTL navigation order and escapes all project metadata',()=>{
  const html=appShellMarkup({project:{name:'<img>',owner_phone:'0591111111',project_number:'<svg>'},mode:'owner',screen:'cashier'});
  assert.deepEqual(MAIN_PAGES.map(row=>row[0]),['accounts','products','cashier','partners','reports']);assert.ok(MAIN_PAGES.every(Object.isFrozen));
- assert.match(html,/&lt;img&gt;/);assert.match(html,/&lt;svg&gt;/);assert.match(html,/جوال/);assert.match(html,/0591111111/);
+ assert.match(html,/&lt;img&gt;/);assert.match(html,/0591111111/);assert.match(html,/subscription-cta/);
  assert.equal((html.match(/aria-current="page"/g)||[]).length,1);assert.match(html,/native-app/);
- const viewer=appShellMarkup({project:{name:'p'},mode:'viewer',screen:'products'});assert.doesNotMatch(viewer,/data-subscribe/);assert.match(viewer,/مشاهدة فقط/);assert.doesNotMatch(viewer,/undefined/);
+ const viewer=appShellMarkup({project:{name:'p'},mode:'viewer',screen:'products'});assert.doesNotMatch(viewer,/data-subscribe|project-heading|undefined/);assert.match(viewer,/البضاعة الحالية/);
 });

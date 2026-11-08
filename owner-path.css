@@ -1,6 +1,6 @@
 /* New owner path (accounting_version 2) — Figma 04–36, soft neutral, black primary. */
 .op-app{max-width:560px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);color:var(--text)}
-.op-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:10px 12px 6px;background:var(--bg)}
+.op-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 16px 6px;background:var(--bg)}
 .op-id{flex:1;display:flex;flex-direction:column}.op-id b{font-size:20px}.op-id small{color:var(--muted);font-size:12px;text-align:right}
 .op-title{flex:1;font-size:16px}
 .op-icon{min-width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--text);font-size:20px;cursor:pointer}
@@ -92,6 +92,48 @@ body.op-loading::before{content:"";position:fixed;z-index:51;left:50%;top:50%;wi
 .op-plan button{min-height:40px!important}
 .op-nav button svg{width:22px;height:22px}
 .op-nav button.on{color:var(--text)}
+.op-nav{bottom:max(12px,env(safe-area-inset-bottom));margin-inline:14px}
+.op-nav button[data-nav=cashier]{justify-self:center;justify-content:center;align-self:center;width:54px;min-height:54px!important;height:54px;border-radius:50%;background:var(--primary);color:var(--onPrimary)}
+.op-nav button[data-nav=cashier] span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.op-head.cashier-heading>.op-icon{border:1px solid var(--border);background:var(--panel)}
+.op-head.primary-heading{min-height:calc(64px + env(safe-area-inset-top))}
+.op-app .inventory-sticky-controls{top:calc(64px + env(safe-area-inset-top))}
+.op-app .inventory-search-wrap{position:relative}
+.op-app .inventory-search-wrap>svg{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.op-app [data-inventory-search]{padding-inline:46px 12px;margin:0;min-height:52px}
+.op-app .inventory-category-bar button{border-radius:999px;min-height:38px}
+.op-app .inventory-category-bar .primary{background:var(--surface);color:var(--text);border:1px solid var(--text)}
+.op-app .inventory-category-add{min-width:42px}
+.op-app[data-screen=sale]>.op-foot{background:var(--panel);border-radius:24px 24px 0 0;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+.sale-barcode-panel{gap:10px}
+.sale-barcode-panel>h2{margin:0;font-size:17px}
+.sale-camera-action{display:flex;align-items:center;justify-content:center;gap:8px}
+.sale-camera-action svg{width:22px;height:22px}
+.sale-camera-stage{display:grid;place-items:center;position:relative;min-height:clamp(156px,28vh,270px);border-radius:12px;overflow:hidden;background:var(--surface)}
+.sale-camera-stage:has([data-barcode-scanner])>.sale-camera-action{display:none}
+.sale-camera-stage [data-barcode-scanner]{position:absolute;inset:0;display:grid;place-items:center;background:#141416;color:white}
+.sale-camera-stage video{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.sale-scan-guide{position:absolute;inset:12% 8%;border:1px solid #ffffff70;box-shadow:0 0 0 200px #0003}
+.sale-scan-guide::after{content:"";position:absolute;inset:50% 0 auto;border-top:1px solid #e65549}
+.sale-camera-stage video[hidden]+.sale-scan-guide{display:none}
+.sale-camera-stage [data-scanner-status]{z-index:1;align-self:end;text-align:center;padding:4px 8px;background:#141416bb;border-radius:6px;font-size:13px}
+.sale-camera-stage [data-close]{position:absolute;inset:6px auto auto 6px;min-height:40px;width:40px;padding:0;color:white;background:#141416bb}
+.sale-manual-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:12px}
+.sale-manual-entry input{min-width:0;margin:0}
+.op-app .sale-manual-entry button{font-size:13px;padding-inline:10px}
+.op-app[data-screen=cashier] .cashier-actions+.ghost{text-decoration:none}
+.debt-search{margin-block:12px 2px;padding-inline:12px}
+.debt-search svg{width:22px;height:22px;flex:none;color:var(--muted)}
+[data-customer-rows],.owner-suppliers{display:grid;gap:8px}
+.sale-picker-table th:last-child{width:102px}
+.sale-picker-stepper{display:grid;grid-template-columns:32px minmax(0,1fr) 32px;align-items:center}
+.sale-picker-stepper button[data-step]{font-size:22px;text-align:center;min-height:44px}
+.sale-picker-stepper button[data-step="1"]{border-radius:50%;background:var(--surface);width:30px;height:30px;min-height:44px;background:radial-gradient(circle at center,var(--surface) 0 14px,transparent 15px)}
+.sale-picker-stepper input{min-height:40px;min-width:0;width:100%;padding:0;margin:0;border:0;background:transparent;text-align:center;font-size:13px}
+.sale-picker-stepper input.is-empty{color:transparent}
+.sale-picker-stepper button.is-empty{visibility:hidden}
+.op-app .subscription-cta svg{width:16px;height:16px}
+[data-payment-fields]:not([hidden]){display:grid;gap:10px}
 .op-tiles button i{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--surface);flex:none}
 .op-tiles button i svg{width:20px;height:20px}
 .op-hero svg{width:26px;height:26px}

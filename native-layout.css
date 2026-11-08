@@ -143,6 +143,42 @@
 .debt-directory #more,.debt-directory [data-debt-retry]{width:100%;margin-top:10px}
 .native-app{max-width:420px;padding:25px 14px 105px;line-height:1.6}
 .native-app .app-header{position:sticky;top:0;z-index:30;background:var(--bg);min-height:104px;gap:12px;margin-bottom:12px;align-items:flex-start;max-height:45dvh;overflow-y:auto;padding-top:env(safe-area-inset-top);box-shadow:0 -32px 0 32px var(--bg)}
+.native-app .app-header.primary-heading{min-height:calc(52px + env(safe-area-inset-top));align-items:center;overflow:visible}
+.primary-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.primary-page-title,.cashier-heading h1{margin:0;font-size:22px;font-weight:700;line-height:1.35;text-align:start}
+.primary-heading-actions{display:flex;align-items:center;gap:8px}
+.primary-heading-actions:empty{display:none}
+.primary-heading-actions button,.cashier-heading .header-tools button{width:44px;min-height:44px;padding:8px;display:grid;place-items:center;border:1px solid var(--border);border-radius:14px;background:var(--panel)}
+.native-app .app-header.cashier-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;min-height:0;gap:12px;margin-block-end:16px}
+.cashier-heading .header-tools{gap:6px;padding:0}
+.cashier-heading .plan-line{grid-column:1/-1;justify-content:space-between;margin:0}
+.cashier-heading .plan-info{font-size:12px}
+.subscription-cta{position:relative;overflow:hidden;isolation:isolate;display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:0 10px;border:0;border-radius:999px;background:var(--primary);color:var(--onPrimary);font-size:12px;font-weight:700;white-space:nowrap}
+.subscription-cta svg{flex:none;width:16px;height:16px}
+.subscription-cta::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 30%,color-mix(in srgb,var(--onPrimary) 22%,transparent) 50%,transparent 70%);transform:translateX(-110%);animation:subscription-shine 3.2s ease-in-out infinite}
+@keyframes subscription-shine{35%,100%{transform:translateX(110%)}}
+.cashier-actions{display:grid;gap:8px}
+.cashier-actions .op-hero{width:100%}
+.cashier-actions .op-hero>svg{width:25px;height:25px;flex:none}
+.cashier-actions .op-tiles button{min-width:0;text-align:start;font-size:14px}
+.list-loading{display:grid;gap:8px}
+.list-loading-card{min-height:72px;display:grid;align-content:center;justify-items:start;gap:9px;border-radius:18px;padding-inline:16px;background:var(--panel)}
+.list-loading-card span{display:flex;gap:8px;width:100%}
+.list-loading-card i{display:block;border-radius:6px;height:10px;width:min(27%,96px);background:linear-gradient(95deg,var(--surface) 35%,var(--panel) 50%,var(--surface) 65%) 100% 0/260% 100%;animation:list-shine 1.6s linear infinite}
+.list-loading-card>i{width:min(45%,160px);height:14px}
+.list-loading-card span i+i{width:min(18%,64px)}
+@keyframes list-shine{to{background-position:-60% 0}}
+@media(prefers-reduced-motion:reduce){.subscription-cta::after,.list-loading-card i{animation:none}.list-loading-card i{background:var(--surface)}}
+.inventory-product-table{width:100%;table-layout:fixed;border:1px solid var(--border);border-spacing:0;border-radius:14px;overflow:hidden;background:var(--panel);font-size:13px;text-align:start}
+.inventory-product-table th,.inventory-product-table td{padding:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:start}
+.inventory-product-table thead th{background:var(--surface);font-weight:600;color:var(--muted)}
+.inventory-product-table :is(th,td):last-child:has([data-edit-product]),.inventory-product-table th[aria-label=تعديل]{width:44px}
+.inventory-product-table tbody tr+tr>*{border-top:1px solid var(--border)}
+.inventory-product-table tbody button{display:block;width:100%;min-width:0;min-height:40px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0;background:transparent;border:0;text-align:inherit}
+.inventory-product-table button[data-edit-product]{display:grid;place-items:center}
+.inventory-product-table tbody :is(th,td):has(button){padding-block:0}
+.inventory-category-add{width:42px;min-width:42px;padding:0!important;display:grid;place-items:center}
+.op-app[data-screen=reports] [data-screen-heading],.native-app[data-screen=reports] [data-screen-heading]{display:none}
 .native-app #content :is(button,input,select,summary,[tabindex]){scroll-margin-top:calc(var(--native-header-height,104px) + 12px);scroll-margin-bottom:calc(var(--native-navigation-height,71px) + 28px)}
 .native-app .inventory-sticky-controls{top:var(--native-header-height,104px);z-index:10}
 .native-app [data-inventory-list] :is(button,[tabindex]){scroll-margin-top:calc(var(--native-header-height,104px) + var(--native-controls-height,200px) + 12px)}
