@@ -231,3 +231,33 @@ body.op-loading::before{content:"";position:fixed;z-index:51;left:50%;top:50%;wi
 .owner-settings .op-body>h2{font-size:20px;margin-top:8px}
 .op-app .theme-settings h2{font-size:14px;margin:0 0 8px}
 .op-app .theme-switch button.primary{border-color:var(--primary);background:var(--surface);color:var(--text)}
+
+.owner-accounts button.owner-liquidity-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border:0;border-top:1px solid var(--border);border-radius:0;background:transparent;color:var(--text);text-align:right;padding:14px 0;width:100%}
+.owner-liquidity-row span{font-size:13px;color:var(--muted)}
+.owner-retained .op-row{padding-block:8px}
+.owner-statement-dialog{width:min(100% - 24px,640px);max-height:calc(100dvh - 32px);padding:20px;color:var(--text);background:var(--panel);border:1px solid var(--border);border-radius:24px;box-sizing:border-box}
+.owner-statement-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.owner-statement-heading h2{font-size:20px;margin:0}
+.owner-statement-heading button{width:44px;min-height:44px;padding:0;font-size:24px}
+.owner-statement-dialog .op-chips{margin-block:12px}
+.owner-statement-row,.owner-statement-movement{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 12px;background:var(--surface);border-radius:12px;margin-bottom:8px;font-size:14px}
+.owner-statement-movement>span{min-width:0;overflow-wrap:anywhere}
+.owner-statement-movement small{display:block;margin-top:4px;font-size:12px}
+.owner-statement-movement b{white-space:nowrap;flex:none}
+.owner-statement-dialog [data-statement-content]{margin-block:16px}
+.owner-statement-dialog h3{font-size:16px}
+.owner-statement-dialog .positive{color:var(--green)}.owner-statement-dialog .negative{color:var(--red)}
+.owner-statement-actions{display:flex;flex-wrap:wrap;gap:8px;padding-top:12px;padding-bottom:env(safe-area-inset-bottom)}
+.owner-statement-actions button{flex:1;min-height:48px;min-width:110px;font-size:13px}
+.owner-statement-limit{font-size:12px;line-height:1.8;padding:12px;border-radius:12px;background:var(--owner-warning-soft);color:var(--owner-warning-text)}
+.owner-statement-dialog [role=alert]:empty,.owner-statement-dialog [role=status]:empty{display:none}
+
+.owner-accounts .owner-statement-dialog button{width:auto}.owner-accounts .owner-statement-dialog .op-chip{min-width:72px;padding:8px 12px}.owner-accounts .owner-statement-dialog [data-statement-more]{width:100%}
+
+.owner-statement-dialog[open]{display:flex;flex-direction:column;height:min(90dvh,900px);overflow:hidden;font-family:Cairo,Tahoma,sans-serif}
+.owner-statement-dialog .owner-statement-heading{flex-shrink:0}
+.owner-accounts .owner-statement-heading button{width:44px;flex:0 0 44px;padding:0}
+.owner-statement-dialog [data-statement-content]{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.owner-statement-dialog>.op-field,.owner-statement-dialog>.op-chips{flex-shrink:0}
+.owner-statement-dialog .owner-statement-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));flex-shrink:0;padding-top:8px}
+.owner-statement-dialog .owner-statement-actions button{min-width:0;padding:8px;font-size:12px}
