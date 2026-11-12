@@ -11,6 +11,6 @@ export function approvalFixture({operational=true}={}){
   expenses:[],purchases:[],sale_items:[],purchase_items:[],sale_returns:[],movements:[],partner_events:[]};
  return event;
 }
-export function ownerState(){return {project_id:projectId,accounting_version:2,revision:1,opening_locked:true,finance_bridge:1,sections:{money:{status:'done'}},stock:{products:[]},
+export function ownerState(){return {project_id:projectId,accounting_version:2,revision:1,opening_locked:true,finance_bridge:1,approval_available:true,sections:{money:{status:'done'}},stock:{products:[]},
  profit:{summary:{net_project_value:'1051.50',liquidity:'1011.50',inventory_cost:'20',customer_debt:'26',supplier_debt:'6',accounts:[{id:'cash',name:'كاش',balance:'1011.50'}]}},
  partners:[{id:'p',name:'اسم اليوم لا يدخل التقرير'}],locked_snapshot:{partners:[{id:'p',name:'اسم البداية'}]},finance_events:[approvalFixture()]};}

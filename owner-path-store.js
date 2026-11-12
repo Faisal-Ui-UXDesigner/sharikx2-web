@@ -3,6 +3,7 @@
 // Every financial value shown as a result comes from the server. A request identity is written to
 // localStorage BEFORE it is sent, so a lost reply is checked (status) instead of being sent twice.
 import {readDeviceIdentity} from './device-control.js';
+import {projectPhone} from './project-phone.js';
 import {readOwnerJournal as local,writeOwnerJournal as persist,removeOwnerJournal} from './owner-path-storage.js';
 
 const uuid=()=>globalThis.crypto.randomUUID();
@@ -225,8 +226,8 @@ export function createOpeningProject({api,storage=window.localStorage}){
     pending:()=>{const p=read();return p?{name:p.name,phone:p.phone}:null;},
     forget:()=>removeOwnerJournal(storage,key),
     async create(name,phone,pin){
-      name=String(name||'').trim();phone=String(phone||'').replace(/[^0-9]/g,'');
-      if(name.length<2||!/^[0-9]{9,15}$/.test(phone)||!/^[0-9]{4}$/.test(pin||''))throw new Error('اكتب اسم المحل ورقم الجوال ورقماً سرياً من 4 أرقام');
+      name=String(name||'').trim();phone=projectPhone(phone);
+      if(name.length<2||!/^[0-9]{4}$/.test(pin||''))throw new Error('اكتب اسم المحل ورقم الجوال ورقماً سرياً من 4 أرقام');
       let pending=read();
       if(!pending){pending={request_id:uuid(),name,phone,device_id:device};persist(storage,key,pending);} // PIN is never stored
       else if(pending.name!==name||pending.phone!==phone)throw new Error(`عندك طلب إنشاء سابق باسم «${pending.name}». أكمله بنفس الاسم والرقم أولاً.`);

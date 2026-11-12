@@ -146,6 +146,30 @@ body.op-loading::before{content:"";position:fixed;z-index:51;left:50%;top:50%;wi
 .owner-approvals-dialog{font-family:Cairo,Tahoma,sans-serif;width:min(100% - 16px,560px);max-height:90dvh;padding:0;border-radius:24px}.owner-approvals-dialog>header{position:sticky;top:0;background:var(--panel);z-index:1;margin:0;padding:12px 16px;gap:8px}.owner-approvals-dialog h2{font-size:20px;margin:0}.owner-approvals-dialog h3{font-size:17px;margin:0}.owner-approvals-dialog [data-close]{min-width:48px;min-height:48px;padding:0}.owner-approvals-dialog [data-approval-body]{padding:12px 16px;display:flex;flex-direction:column;gap:12px;overflow-wrap:anywhere}.owner-approvals-dialog .op-row{flex-wrap:wrap}.owner-approvals-dialog [role=alert]{padding-inline:16px}.owner-approvals-dialog>footer{position:sticky;bottom:0;display:flex;flex-direction:column;gap:8px;padding:12px 16px max(12px,env(safe-area-inset-bottom));background:var(--panel)}.owner-approvals-dialog>footer:empty{display:none}.owner-approval-entry{width:100%;min-height:52px;text-align:right}
 @media(max-width:350px){.owner-account-grid{gap:8px}.owner-account-tile{padding:14px 10px}.owner-account-tile strong{font-size:20px}.owner-account-tile small{font-size:12px}}
 .owner-account-tile strong.owner-amount-compact{font-size:12px}.owner-value strong.owner-value-compact{font-size:20px}.owner-accounts .op-row span{min-width:0;overflow-wrap:anywhere}.owner-accounts .op-row b{max-width:100%;overflow-wrap:anywhere}
+.owner-accounts button.owner-account-tile{text-align:start;padding:14px 16px}
+.owner-liquidity-row{display:flex;flex-direction:column;gap:4px;padding:12px 0;border-top:1px solid var(--border)}
+.owner-liquidity-row span{font-size:13px;color:var(--muted)}
+.owner-accounts [data-owner-month],.owner-approval-section{display:grid;gap:10px}
+.owner-approval-section button{margin:0}
+.owner-partner-card h2,.op-card>h2{font-size:16px;margin:0}
+.partner-account-total{font-size:28px;line-height:1.6;overflow-wrap:anywhere}
+.partner-card-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.partner-card-actions button{min-width:0;padding:8px;font-size:13px}
+.partner-detail-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0}
+.partner-detail-row>span{min-width:0;display:flex;flex-direction:column}
+.partner-detail-row small{font-size:12px}
+.partner-detail-row>b{flex:none;max-width:55%;overflow-wrap:anywhere;text-align:end;font-size:14px}
+.partner-detail-row .negative{color:var(--red)}
+.partner-detail-row .positive{color:var(--green)}
+.partner-share{display:inline-block;padding:6px 12px;border-radius:12px;background:var(--surface)}
+.partner-accounts-sum{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-radius:16px;background:var(--panel)}
+.partner-accounts-sum>span{display:flex;flex-direction:column}
+.partner-accounts-sum small{font-size:12px}
+.partner-accounts-sum.balanced{background:color-mix(in srgb,var(--green) 10%,var(--panel))}
+.partner-accounts-sum.balanced small,.partner-accounts-sum.balanced strong{color:var(--green)}
+[data-partner-history],[data-partner-events]{display:grid;gap:10px;min-width:0}
+[data-partner-history]>.op-chips{flex-wrap:nowrap}
+[data-partner-history] .op-chip.on{background:var(--surface);border-width:1px}
 .owner-operation-card{width:100%;text-align:right;font:inherit;color:var(--text);margin-block:10px;gap:6px;overflow-wrap:anywhere}.owner-operation-card>.op-row{flex-wrap:wrap}.owner-operation-card strong{font-size:18px;white-space:nowrap}.owner-operation-card .op-pill{font-size:12px}[data-owner-history] [data-owner-history-more],[data-owner-inline-history] [data-owner-history-more]{width:100%;min-height:48px}
 .owner-operation-dialog{font-family:Cairo,Tahoma,sans-serif;width:min(100% - 16px,560px);max-height:90dvh;border-radius:24px;padding:0;overflow-wrap:anywhere}.owner-operation-dialog>header{position:sticky;top:0;background:var(--panel);margin:0;padding:12px 16px;z-index:1}.owner-operation-dialog>header h2{margin:0;font-size:20px}.owner-operation-dialog [data-close]{min-width:48px;min-height:48px;padding:0}.owner-operation-dialog [data-operation-body]{padding:12px 16px;display:flex;flex-direction:column;gap:12px}.owner-operation-dialog .op-row{flex-wrap:wrap}.owner-operation-dialog h3{font-size:17px;margin:0}.owner-operation-dialog footer{position:sticky;bottom:0;background:var(--panel);padding:12px 16px max(12px,env(safe-area-inset-bottom))}.owner-operation-dialog footer button{width:100%;min-height:52px}.owner-operation-dialog footer:has(button[hidden]){display:none}
 /* Text-safe warning tokens from current Android AppThemePalette, not orange accent. */

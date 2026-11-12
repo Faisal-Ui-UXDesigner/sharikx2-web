@@ -18,6 +18,7 @@ import {subscriptionNotice,notificationSignature} from './project-notifications.
 import {ownerSaleSubtotal,ownerSaleTotal} from './owner-path-money.js';
 import {decimalSum} from './decimal-sum.js';
 import {renderOwnerAccounts} from './owner-accounts-ui.js';
+import {ownerPartnersMarkup,renderOwnerPartnerHistory} from './owner-partners-ui.js';
 import {openOwnerApprovals} from './owner-approval-ui.js';
 import {renderOwnerHistory} from './owner-operation-history-ui.js';
 import {openOwnerSaleReturn} from './owner-sale-return-ui.js';
@@ -49,6 +50,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   const supplierView={query:'',archived:false,limit:20};
   const customerView={query:'',archived:false,limit:20};
   const inventoryView=createInventoryViewStore();
+  let partnerHistoryFilter='all';
   let state=null,page='cashier',busy=false,closed=false,selectedPartner=null,moneyState=null,stockState=null,stockSelected=new Set(),returnTo='cashier';
   const alive=()=>!closed&&app.isConnected;
   const say=text=>notice?.(text);
@@ -580,36 +582,35 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
 
   // ---------- partners profit, accounts, history (Figma 34–36) ----------
   function profits(partnerId){
-    const profit=state.profit||{partners:[]},rows=profit.partners||[],bridge=Number(state.finance_bridge)===1&&state.opening_locked;
-    let body='';
-    if(!partnerId)body+='<p class="muted small">حساب كل شريك = رأس ماله + أرباحه غير المسحوبة + حصته من المتروك − ديونه</p>';
-    body+='<p class="op-warn small">ربح الفترة تقديري حتى الاعتماد. سحب الربح يكون من الرصيد المعتمد فقط.</p>';
-    if(profit.allocation_complete===false)body+='<p class="op-warn small">توجد عمليات قبل تحديد نسب الشركاء أو تحتاج توزيعاً. لا نوزّعها بالنسب الحالية تلقائياً.</p>';
-    const parts=[['رأس المال','capital'],['أرباح معتمدة لم يسحبها','prior_profit'],['ربح الفترة الحالية (تقديري)','period_profit'],['حصته من المتروك','retained_share'],['دين خسارة عليه للمحل','debt'],['قرض له على المحل','loan_payable'],['مبلغ أخذه كدين','cash_debt'],['ربح محجوز غير متاح للسحب','reserved_profit']];
-    for(const r of rows){if(partnerId&&r.id!==partnerId)continue;
-      body+=`<div class="op-card">${partnerId?`<h2>حساب ${e(r.name)}</h2><small class="muted">ربح ${e(r.share)}%</small>`:`<div class="op-row"><b>${e(r.name)}</b>${pill(`ربح ${r.share}%`)}</div>`}
-        <small class="muted">حسابه اليوم</small><p class="op-big">${r.total===null||r.total===undefined?'بانتظار اكتمال المراجعة':m(r.total)}</p>
-        ${partnerId?parts.map(([l,k])=>`<div class="op-row"><span>${l}</span><b>${r[k]===null||r[k]===undefined?'غير محسوب':m(r[k])}</b></div>`).join(''):`<div class="op-row"><button class="ghost small" data-statement="${e(r.id)}">تفاصيل الحساب</button>${bridge?`<button class="ghost small" data-move="${e(r.id)}">تسجيل حركة</button>`:''}</div>`}</div>`;}
-    if(!partnerId&&bridge){
-      body+='<button class="ghost" data-shares>تغيير نسب الربح باتفاق جديد</button>';
-      for(const x of profit.exit_balances||[])body+=`<div class="op-card"><b>رصيد شريك خرج · ${e(rows.find(r=>r.id===x.partner_id)?.name||(state.partners||[]).find(r=>r.id===x.partner_id)?.name||'')}</b><p class="op-big">${m(Math.round((dec(x.entitlement)-dec(x.paid))*100)/100)}</p><button class="ghost small" data-exit-pay="${e(x.partner_id)}">تسجيل دفعة فعلية</button></div>`;
-    }
-    if(partnerId&&bridge)body+=`<button class="ghost" data-exit="${e(partnerId)}">مراجعة خروج الشريك</button>`;
-    if(!partnerId){
-      body+=`<div class="op-card"><b>حصة المحل من الأرباح</b><div class="op-row"><span>النسبة</span><b>${e(state.retained_rate??0)}%</b></div><div class="op-row"><span>السقف</span><b>${m(state.retained_cap??0)}</b></div><small class="muted">عندما يصل المتجمّع إلى السقف يتوقف الاقتطاع</small></div>`;
-      if(!rows.length)body+='<p class="muted">أكمل الشركاء من قائمة تجهيز محلك.</p>';
-    }
-    frame(body,partnerId?'<button class="primary" data-backp>الرجوع للشركاء</button>':bridge?'<button class="primary" data-approve>مراجعة واعتماد حسابات الفترة</button>':'');
+    frame(ownerPartnersMarkup(state,partnerId));
+    const history=app.querySelector('[data-partner-history]');
+    if(history)renderOwnerPartnerHistory(history,state,{
+      filter:partnerHistoryFilter,onFilter:value=>{partnerHistoryFilter=value;},
+      onExitPayment:id=>{if(!busy)exitPayment(id);}
+    });
     on('[data-statement]',node=>{selectedPartner=node.dataset.statement;go('statement');});
     on('[data-backp]',()=>go('profits'));
     on('[data-approve]',()=>prepareFinance({},'approve'));
     on('[data-move]',node=>partnerMovement(node.dataset.move));
     on('[data-shares]',()=>shareAgreement(null));
+    on('[data-retained-terms]',retainedTerms);
     on('[data-exit]',node=>shareAgreement(node.dataset.exit));
     on('[data-exit-pay]',node=>exitPayment(node.dataset.exitPay));
   }
-  const financeLabel=k=>({capital_increase:'زيادة رأس مال',partner_loan:'قرض من الشريك للمحل',profit_withdrawal:'سحب ربح معتمد',capital_return:'رد رأس مال',cash_borrowing:'مبلغ يأخذه الشريك كدين',loan_repayment:'رد قرض للشريك',debt_repayment:'تحصيل دين من الشريك',exit:'اعتماد خروج الشريك',exit_payment:'دفعة من رصيد الخروج',approve:'اعتماد حسابات الفترة'}[k]||'اتفاق نسب الربح');
+  const financeLabel=k=>({capital_increase:'زيادة رأس مال',partner_loan:'قرض من الشريك للمحل',profit_withdrawal:'سحب ربح معتمد',capital_return:'رد رأس مال',cash_borrowing:'مبلغ يأخذه الشريك كدين',loan_repayment:'رد قرض للشريك',debt_repayment:'تحصيل دين من الشريك',exit:'اعتماد خروج الشريك',exit_payment:'دفعة من رصيد الخروج',approve:'اعتماد حسابات الفترة',retained_terms:'تعديل حصة المحل والسقف'}[k]||'اتفاق نسب الربح');
   function prepareFinance(values,kind){run(()=>flow.command('prepare_finance',{...values,kind}),()=>{closeSheet();state=flow.snapshot();render();});}
+  function retainedTerms(){
+    sheet('تعديل حصة المحل',`<p class="muted small">تطبّق النسبة الجديدة على العمليات القادمة فقط. إذا عندك عمليات غير معتمدة، اعتمدها أولاً حتى لا تتغير حصتها بأثر رجعي.</p>${field('rate','نسبة حصة المحل',state.retained_rate??'0','%')}${field('cap','السقف',state.retained_cap??'0','₪')}`,
+      [['مراجعة التعديل',dialog=>{
+        let rate,cap;
+        try{
+          rate=number(dialog.querySelector('[name=rate]').value,4,'101');
+          cap=number(dialog.querySelector('[name=cap]').value,2,'1000000000000');
+          if(Number(rate)>100)throw Error();
+        }catch{return sheetError(dialog,'أدخل نسبة من 0 إلى 100 وسقفاً صحيحاً');}
+        prepareFinance({retained_rate:rate,retained_cap:cap},'retained_terms');
+      }],['إلغاء',closeSheet]]);
+  }
   function partnerMovement(id){
     const kinds=['capital_increase','partner_loan','profit_withdrawal','capital_return','cash_borrowing','loan_repayment','cash_debt_repayment','loss_debt_repayment'];
     const label=k=>k==='cash_debt_repayment'?'تحصيل مبلغ أخذه كدين':k==='loss_debt_repayment'?'تحصيل دين خسارة':financeLabel(k);
@@ -621,6 +622,9 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   function financeReview(preview){
     const plan=preview.plan||{},values=preview.values||{},kind=preview.kind,name=pid=>(state.partners||[]).find(p=>p.id===pid)?.name||(state.profit?.partners||[]).find(p=>p.id===pid)?.name||'';
     let body=`<h2>مراجعة الحسابات قبل التأكيد</h2><p class="muted small">${e(financeLabel(kind))}</p>`;
+    if(kind==='retained_terms'){
+      body+=`<section class="op-card"><div class="op-row"><span>نسبة حصة المحل الجديدة</span><b><bdi>${e(values.retained_rate)}%</bdi></b></div><div class="op-row"><span>السقف الجديد</span><b>${m(values.retained_cap)}</b></div></section>`;
+    }
     if(kind==='approve'){body+=`<div class="op-card"><b>ملخص الفترة</b>${[['ربح العمليات غير المعتمد','gross_profit'],['المتاح للتوزيع','distribution_basis'],['تغير حصة المحل','retained_change'],['ربح محجوز يحتفظ بتخصيصه الأصلي','reserved_profit']].map(([l,k])=>`<div class="op-row"><span>${l}</span><b>${m(plan[k])}</b></div>`).join('')}</div>`
       +(plan.partners||[]).map(p=>`<div class="op-card"><b>${e(name(p.id))}</b><div class="op-row"><span>ربح معتمد</span><b>${m(p.prior_profit)}</b></div><div class="op-row"><span>رأس المال</span><b>${m(p.capital)}</b></div><div class="op-row"><span>دين خسارة</span><b>${m(p.loss_debt)}</b></div></div>`).join('');}
     else body+=`${(values.shares||[]).map(p=>`<p>${e(name(p.id))}: ${e(p.share)}%</p>`).join('')}${kind==='exit'?`<p class="op-warn">اعتماد الاستحقاق لا يسجّل دفعاً. يجب اعتماد كل العمليات أولاً وتطابق الحسابات.</p>${preview.exit_entitlement!==undefined?`<p class="op-big">استحقاق الخروج: ${m(preview.exit_entitlement)}</p>`:''}`:''}<div class="op-card">${values.amount!==undefined?`<div class="op-row"><span>المبلغ</span><b>${m(values.amount)}</b></div>`:''}${values.partner_id?`<div class="op-row"><span>الشريك</span><b>${e(name(values.partner_id))}</b></div>`:''}</div>`;

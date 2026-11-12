@@ -17,6 +17,7 @@ for(const file of ['project-notifications.js','project-notifications-ui.js'])awa
 for(const file of ['project-notification-state.js','project-notification-bell.js'])await copyFile(file,`dist/${file}`);
 await copyFile('app-shell-layout.js','dist/app-shell-layout.js');
 for(const file of ['primary-page-ui.js','owner-inventory-preferences.js','owner-sale-picker-ui.js'])await copyFile(file,`dist/${file}`);
+for(const file of ['project-phone.js','owner-partners-ui.js','owner-approval-availability.js'])await copyFile(file,`dist/${file}`);
 await copyFile('shared-report.js','dist/shared-report.js');
 await copyFile('purchase-form-ui.js','dist/purchase-form-ui.js');
 await copyFile('purchase-line-form-ui.js','dist/purchase-line-form-ui.js');

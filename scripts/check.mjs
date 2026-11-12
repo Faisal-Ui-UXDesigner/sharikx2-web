@@ -17,6 +17,7 @@ run(['--test',...unitTests]);
 console.log('Running isolated browser regressions');
 run(['tests/owner-path-safety-browser-smoke.mjs']);
 run(['tests/primary-parity-browser-smoke.mjs']);
+run(['tests/owner-partners-browser-smoke.mjs']);
 run(['tests/owner-accounts-browser-smoke.mjs']);
 run(['tests/owner-history-browser-smoke.mjs']);
 run(['tests/owner-return-browser-smoke.mjs']);
