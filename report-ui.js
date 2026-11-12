@@ -1,5 +1,6 @@
 import {escape, money} from './ui.js';
 import {icon} from './icons.js';
+import {listSkeleton} from './primary-page-ui.js';
 import {REPORT_TYPES, reportPeriod} from './reports.js';
 import {loadSharedReport, reportTimestamp} from './shared-report.js';
 import {hasActiveSubscription} from './subscription.js';
@@ -15,13 +16,13 @@ function dateField(attribute,title,value){
   return `<label>${title}<span class="report-date-value" aria-hidden="true"><bdi dir="ltr">${escape(value)}</bdi>${icon('calendar',21)}</span><input ${attribute} type="date" required value="${escape(value)}"></label>`;
 }
 
-function controlsMarkup(state,premium){
+function controlsMarkup(state,premium,compact){
   const filter=state.range?`<label class="report-filter">نوع الحركة<select data-type>${REPORT_TYPES.map(type=>`<option ${state.type===type?'selected':''}>${escape(type)}</option>`).join('')}</select></label>`:'';
-  return `<h2 data-screen-heading>التقارير</h2>
+  return `${compact?'':'<h2 data-screen-heading>التقارير</h2>'}${compact?'':`
     <div class="tabs report-tabs"><button data-mode="day" class="${state.range?'':'primary'}" aria-pressed="${!state.range}">يوم واحد</button><button data-mode="range" class="${state.range?'primary':''}" aria-pressed="${state.range}">${premium?'فترة':'فترة 🔒'}</button></div>
-    <button class="primary report-accounts" data-accounts>فتح الحسابات المالية</button>
+    <button class="primary report-accounts" data-accounts>فتح الحسابات المالية</button>`}
     <section class="panel report-date-panel"><h3>${state.range?'تقرير الفترة':'تقرير اليوم'}</h3><div class="report-dates">${dateField('data-start',state.range?'من':'التاريخ',state.start)}${state.range?dateField('data-end','إلى',state.end):''}</div>${filter}</section>
-    <div data-summary><div class="skeleton"></div></div><h2 data-report-heading>سجل العمليات</h2><section data-days><div class="skeleton"></div></section>`;
+    <div data-summary>${listSkeleton("جارٍ تحميل التقرير")}</div><h2 data-report-heading hidden>سجل العمليات</h2><section data-days></section>`;
 }
 
 const metric = (title, value, kind = '') => `<div class="report-metric ${kind}"><small>${escape(title)}</small><strong>${value}</strong></div>`;
@@ -36,7 +37,7 @@ function movementMarkup(row) {
   return `<article class="panel report-operation" data-report-operation><h3>${escape(row.title)}</h3><p class="muted small"><bdi dir="ltr">${escape(row.at)}</bdi></p><strong class="${row.amount<0?'negative':''}">${money(row.amount)}</strong></article>`;
 }
 
-export async function renderReports({api, project, container, state, isCurrent = () => true, onAccounts, onPlans}) {
+export async function renderReports({api, project, container, state, isCurrent = () => true, onAccounts, onPlans, headingActions}) {
   const token=Symbol('report');renderTokens.set(container,token);
   const mounted=()=>container.isConnected&&renderTokens.get(container)===token&&isCurrent();
   let generation = 0;
@@ -46,9 +47,12 @@ export async function renderReports({api, project, container, state, isCurrent =
     const premium = hasActiveSubscription(project);
     if (!premium) state.range = false;
     const current = () => mounted() && request === generation;
-    container.innerHTML = controlsMarkup(state,premium);
-    container.querySelector('[data-accounts]').onclick = ()=>{if(current())onAccounts();};
-    container.querySelectorAll('[data-mode]').forEach(button => button.onclick = () => {
+    container.innerHTML = controlsMarkup(state,premium,!!headingActions);
+    if(headingActions){
+      headingActions.innerHTML=`<button type="button" class="report-period-action" data-mode="${state.range?'day':'range'}" aria-label="${premium?(state.range?'العودة إلى تقرير اليوم':'فتح تقارير الفترة'):'تقارير الفترة، متاحة للمشتركين'}" aria-pressed="${state.range}">${icon('calendar',22)}${premium?'':'<small aria-hidden="true">🔒</small>'}</button>`;
+    }
+    container.querySelector('[data-accounts]')?.addEventListener('click', ()=>{if(current())onAccounts();});
+    [...container.querySelectorAll('[data-mode]'),...(headingActions?.querySelectorAll('[data-mode]')||[])].forEach(button => button.onclick = () => {
       if(!current())return;
       const range = button.dataset.mode === 'range';
       if (range && !hasActiveSubscription(project)) {
@@ -81,6 +85,7 @@ export async function renderReports({api, project, container, state, isCurrent =
       const report = await loadSharedReport(api, project.id, period, state.type);
       if (!current()) return;
       summary.innerHTML = '<p class="report-sync-note muted">بيانات مؤكدة من المشروع المشترك<br>آخر تحميل: <bdi dir="ltr">'+escape(reportTimestamp(new Date().toISOString()).slice(0,16))+'</bdi></p>'+summaryMarkup(report);
+      container.querySelector('[data-report-heading]').hidden=false;
       container.querySelector('[data-report-heading]').textContent='سجل العمليات — الأحدث أولًا';
       days.innerHTML='<p class="muted small">الإدخالات اليدوية القديمة محفوظة، ولا تُدمج تلقائيًا مع التقرير المشترك لتجنب التكرار.</p><div data-report-rows></div><button class="outline" data-report-more hidden>عرض المزيد من العمليات</button>';
       const list=days.querySelector('[data-report-rows]'),more=days.querySelector('[data-report-more]');
@@ -95,6 +100,7 @@ export async function renderReports({api, project, container, state, isCurrent =
       more.onclick=next;next();
     } catch (error) {
       if (!current()) return;
+      container.querySelector('[data-report-heading]').hidden=true;
       summary.innerHTML = '<div class="panel"><p role="alert"></p><button class="outline">إعادة المحاولة</button></div>';
       summary.querySelector('[role=alert]').textContent = error?.message||'تعذر تحميل التقرير؛ أعد المحاولة';
       summary.querySelector('button').onclick = draw;

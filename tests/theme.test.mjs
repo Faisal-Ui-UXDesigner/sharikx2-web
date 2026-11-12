@@ -17,13 +17,13 @@ test('theme palettes retain current Android AppThemePalette immutable RGB tokens
  assert.equal(Object.isFrozen(THEME_PALETTES),true);
 });
 test('theme defaults to current Android light mode, not OS preference or malformed storage',()=>{
- for(const value of [undefined,null,'','DARK','LIGHT','system',true,{},'<img>'])assert.equal(themeMode(value),'light');
+ for(const value of [undefined,null,'','DARK','LIGHT',true,{},'<img>'])assert.equal(themeMode(value),'light');
  assert.equal(themeMode('light'),'light');assert.equal(readTheme(fixture('light').storage),'light');
  assert.equal(themeMode('dark'),'dark');assert.equal(readTheme({getItem(){throw new Error('blocked');}}),'light');assert.equal(readTheme(null),'light');
 });
 test('theme save writes only a scoped preference and rejects invalid modes before storage',()=>{
  const f=fixture();assert.equal(saveTheme(f.storage,'light'),true);assert.deepEqual(f.writes,[[THEME_STORAGE_KEY,'light']]);
- for(const mode of ['system','__proto__',undefined,'LIGHT',{toString:()=> 'light'}])assert.throws(()=>saveTheme(f.storage,mode),/غير صالح/);
+ for(const mode of ['__proto__',undefined,'LIGHT',{toString:()=> 'light'}])assert.throws(()=>saveTheme(f.storage,mode),/غير صالح/);
  assert.equal(f.writes.length,1);
 });
 test('unavailable preference storage is nonfatal and does not claim persistence',()=>{
@@ -52,4 +52,14 @@ test('CSS effective defaults match current Android light palette and all variabl
  assert.equal(defaults.get('color-scheme'),'light');
  for(const match of css.matchAll(/var\((--[\w-]+)\)/g))assert.ok(css.includes(`${match[1]}:`),match[1]);
  assert.equal(/#[a-f0-9]{6}\b/i.test(css.replace(/:root\s*\{[^}]*\}/g,'')),false,'shared UI colors must use tokens outside palette declarations');
+});
+
+
+test('explicit automatic appearance follows device changes without replacing the saved preference',()=>{
+ const f=fixture('system'),media={matches:true,addEventListener(name,callback){this.changed=callback;}};
+ const controller=createThemeController({...f,matchMedia:()=>media});
+ assert.equal(controller.preference(),'system');assert.equal(controller.get(),'dark');assert.deepEqual(f.writes,[]);
+ media.matches=false;media.changed();assert.equal(controller.get(),'light');assert.equal(f.document.documentElement.dataset.theme,'light');
+ controller.set('dark');media.changed();assert.equal(controller.get(),'dark');
+ controller.set('system');assert.equal(controller.preference(),'system');assert.equal(controller.get(),'light');assert.deepEqual(f.writes.at(-1),[THEME_STORAGE_KEY,'system']);
 });

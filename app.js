@@ -84,7 +84,7 @@ async function openProject(opened,role){
  if(version===2){
   releaseOwnerPath();releaseShellLayout();releaseShellLayout=()=>{};releaseNotificationBell();releaseNotificationBell=()=>{};
   epoch++;api.clearDeviceContext();project={...opened,accounting_version:2};mode=role;rememberProject(sessionStore,project,role);setCurrency(opened.currency);
-  releaseOwnerPath=mountOwnerPath({app,api,project,notice,theme:{mode:()=>themeController.get(),toggle:()=>themeController.set(themeController.get()==='dark'?'light':'dark')},
+  releaseOwnerPath=mountOwnerPath({app,api,project,notice,theme:{controller:themeController,mode:()=>themeController.get(),toggle:()=>themeController.set(themeController.get()==='dark'?'light':'dark')},
    onExit:()=>{api.clearSession();forgetProject(sessionStore);entry();}});
   return;
  }

@@ -6,23 +6,26 @@ export const THEME_PALETTES=Object.freeze({
  light:Object.freeze({bg:'#F8F8F9',panel:'#FFFFFF',surface:'#F2F2F4',text:'#111111',muted:'#5F6368',green:'#0F6E3A',gold:'#B8400F',red:'#B3261E',border:'#E4E4E8',field:'#F2F2F4',primary:'#111111',onPrimary:'#FFFFFF',profit:'#0F6E3A'})
 });
 // Light is the default, as in the Android app (2026-11-05); a saved choice still wins.
-export function themeMode(value){return value==='dark'?'dark':'light';}
+export function themeMode(value){return value==='system'?'system':value==='dark'?'dark':'light';}
 export function readTheme(storage){try{return themeMode(storage?.getItem(THEME_STORAGE_KEY));}catch{return 'light';}}
 export function saveTheme(storage,mode){
- if(typeof mode!=='string'||!Object.hasOwn(THEME_PALETTES,mode))throw new Error('مظهر التطبيق غير صالح');
+ if(typeof mode!=='string'||!['system','light','dark'].includes(mode))throw new Error('مظهر التطبيق غير صالح');
  try{if(!storage)return false;storage.setItem(THEME_STORAGE_KEY,mode);return true;}catch{return false;}
 }
-export function createThemeController({document,storage}){
- let mode=readTheme(storage);
+export function createThemeController({document,storage,matchMedia=document.defaultView?.matchMedia?.bind(document.defaultView)}){
+ let preference=readTheme(storage);
+ const media=matchMedia?.('(prefers-color-scheme: dark)');
+ const resolved=()=>preference==='system'?(media?.matches?'dark':'light'):preference;
  function apply(){
-  const root=document.documentElement;
+  const mode=resolved(),root=document.documentElement;
   root.dataset.theme=mode;root.style.colorScheme=mode;
   for(const [key,value] of Object.entries(THEME_PALETTES[mode]))root.style.setProperty(`--${key}`,value);
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',THEME_PALETTES[mode].bg);
  }
+ media?.addEventListener?.('change',()=>{if(preference==='system')apply();});
  apply();
- return Object.freeze({get:()=>mode,set(value){
-  if(typeof value!=='string'||!Object.hasOwn(THEME_PALETTES,value))throw new Error('مظهر التطبيق غير صالح');
-  mode=value;apply();return {mode,persisted:saveTheme(storage,mode)};
+ return Object.freeze({get:resolved,preference:()=>preference,set(value){
+  if(typeof value!=='string'||!['system','light','dark'].includes(value))throw new Error('مظهر التطبيق غير صالح');
+  preference=value;apply();return {mode:resolved(),persisted:saveTheme(storage,preference)};
  }});
 }

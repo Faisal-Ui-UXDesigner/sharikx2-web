@@ -81,3 +81,12 @@ dialog[data-barcode-scanner] video[hidden]{display:none}
 .header-tools [data-notifications].has-unread-notices::after{background:var(--red)}
 .product-list-content{display:flex;flex-direction:column;gap:7px;text-align:right;min-width:0;width:100%}.product-list-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.product-list-name{font-size:16px;overflow-wrap:anywhere}.product-list-category{font-size:12px;color:var(--muted);border:1px solid var(--border);border-radius:12px;padding:2px 8px}.product-list-meta{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.product-list-meta span{display:inline}.purchase-choice-product .product-list-heading,.inventory-card-open .product-list-heading{justify-content:flex-start}
 .app-toast{position:fixed;z-index:1000;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:12px 18px;border:1px solid var(--border);border-radius:16px;background:var(--text);color:var(--bg);font:inherit;text-align:center;pointer-events:none;box-shadow:0 4px 20px #0003;overflow-wrap:anywhere}
+
+/* AppearanceSectionView: device-local automatic/light/dark choices. */
+.theme-settings{background:transparent;border:0;padding:16px 0 0;box-shadow:none}
+.theme-settings h2{font-size:14px;margin:0 0 8px}
+.theme-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:8px;border-radius:16px;background:var(--panel)}
+.theme-switch button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:72px;padding:8px 4px;border:1px solid var(--border);border-radius:12px;background:var(--panel);color:var(--muted);font-size:13px}
+.theme-switch button span:first-child{font-size:22px;line-height:24px}
+.theme-switch button.primary{border-color:var(--primary);background:var(--surface);color:var(--text);font-weight:600}
+.theme-settings [data-theme-status]{font-size:12px}

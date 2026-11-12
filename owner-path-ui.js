@@ -3,6 +3,7 @@
 // display only; confirmed numbers always come from the server.
 import {escape,money as fmt,setCurrency} from './ui.js';
 import {createOwnerPath,createOpeningMoney,createOpeningStock,deviceId,number,FREE_PRODUCTS} from './owner-path-store.js';
+import {renderThemeSettings} from './theme-ui.js';
 import {renderReports,createReportState} from './report-ui.js';
 import {openBarcodeScanner} from './barcode-scanner.js';
 import {icon} from './owner-path-icons.js';
@@ -764,7 +765,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   }
   function reportsPage(){
     frame('<div data-reports></div>');
-    renderReports({api,project,container:app.querySelector('[data-reports]'),state:reportState,isCurrent:()=>alive()&&page==='reports',onAccounts:()=>reload('accounts'),onPlans:()=>say('الاشتراك متاح من تطبيق SharikX2')})
+    renderReports({api,project,container:app.querySelector('[data-reports]'),state:reportState,headingActions:app.querySelector('[data-heading-actions]'),isCurrent:()=>alive()&&page==='reports',onAccounts:()=>reload('accounts'),onPlans:plans})
       .catch(error=>showError(friendly(error)));
   }
 
@@ -794,26 +795,28 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   let settingsFrom='cashier',sharing=null;
   const appOnly=()=>say('هذه الخدمة متاحة من تطبيق SharikX2 على الجوال.');
   function settingsShell(heading,body,footer='',backTo='settings'){
-    app.innerHTML=`<section class="op-app"><header class="op-head"><button class="op-icon" data-sback aria-label="رجوع">${icon('back')}</button><b class="op-title">${e(heading)}</b></header><main class="op-body"><p class="op-error" data-error hidden></p>${body}</main>${footer?`<footer class="op-foot">${footer}</footer>`:''}</section>`;
+    app.innerHTML=`<section class="op-app owner-settings"><header class="op-head"><button class="op-icon" data-sback aria-label="رجوع">${icon('back')}</button><b class="op-title">${e(heading)}</b></header><main class="op-body"><p class="op-error" data-error hidden></p>${body}</main>${footer?`<footer class="op-foot">${footer}</footer>`:''}</section>`;
     app.querySelector('[data-sback]').onclick=()=>{if(backTo==='settings')go('settings');else reload(backTo);};
   }
   const srow=(id,title,helper,value,tone='',action=true)=>`<button class="op-srow" ${action?`data-s="${id}"`:'disabled'}><span><span class="${id==='delete'?'danger':''}">${e(title)}</span>${helper?`<small>${e(helper)}</small>`:''}</span>${value?`<em class="${tone}">${e(value)}</em>`:''}${action?`<i class="op-chev">${icon('back')}</i>`:''}</button>`;
   const sgroup=(title,rows)=>`${title?`<p class="op-sgroup-title">${e(title)}</p>`:'<div style="height:12px"></div>'}<div class="op-sgroup">${rows.join('')}</div>`;
   function openSettings(){if(busy)return say('انتظر حتى ينتهي الطلب الحالي');settingsFrom=page;go('settings');}
   function settingsPage(){
-    const controls=!!deviceInfo?.is_active,paid=hasActiveSubscription(project),dark=theme?.mode?.()==='dark';
+    const controls=!!deviceInfo?.is_active,paid=hasActiveSubscription(project);
     settingsShell('الإعدادات',`<h2>${e(project.name||'محلك')}</h2><p class="muted small">${controls?'أنت صاحب المحل · هذا الجهاز يتحكم بالمحل':'أنت صاحب المحل · جهاز آخر يتحكم بالمحل الآن'}</p>
+      <div data-appearance></div>
       ${sgroup('المحل',[srow('name','اسم المحل','',project.name||'','',false),srow('currency','العملة','',({ILS:'شيكل ₪',USD:'دولار $',JOD:'دينار'}[project.currency]||project.currency||'شيكل ₪')),
         srow('accounts','حسابات الدفع','',''),srow('share','مشاركة المحل','الشركاء يشاهدون فقط',sharing?.share_pin?'مفعّلة':'غير مفعّلة',sharing?.share_pin?'ok':'muted'),srow('history','السجل','','')])}
       ${sgroup('الأمان',[srow('pin','رمز الدخول','','تغيير'),srow('google','حماية Google','تستعيد به محلك إذا فقدت جوالك','من التطبيق','muted'),srow('recovery','رمز الاستعادة','','من التطبيق','muted'),
         srow('device','التحكم بالمحل','جهاز واحد فقط يمكنه التسجيل',controls?'هذا الجهاز':'جهاز آخر')])}
       ${sgroup('الاشتراك',[srow('plan','الخطة',paid?'أصناف ومشاركة بلا حد':`الخطة المجانية · حتى ${FREE_PRODUCTS} صنفاً وشريكين`,paid?'الاشتراك الشهري':'مجانية',paid?'ok':'')])}
-      ${sgroup('التطبيق',[srow('theme','المظهر','',dark?'داكن':'فاتح'),srow('faq','الأسئلة الشائعة','',''),srow('support','الدعم الفني','',''),srow('privacy','سياسة الخصوصية','','')])}
+      ${sgroup('التطبيق',[srow('faq','الأسئلة الشائعة','',''),srow('support','الدعم الفني','',''),srow('privacy','سياسة الخصوصية','','')])}
       ${sgroup('',[srow('logout','تسجيل الخروج','',''),srow('delete','حذف المحل والحساب','يحذف كل البيانات نهائياً','')])}`,'',settingsFrom);
+    if(theme?.controller)renderThemeSettings({container:app.querySelector('[data-appearance]'),controller:theme.controller,isCurrent:()=>alive()&&page==='settings'});
     if(!sharing)api.sharingProject(project.id).then(v=>{sharing=v||{};if(alive()&&page==='settings')settingsPage();}).catch(()=>{sharing={};});
     const actions={currency:()=>go('set_currency'),accounts:()=>reload('accounts'),share:()=>go('set_share'),history:()=>reload('history'),
       pin:()=>openOwnerPassword({api,projectId:project.id,mode:'owner',owner:app,isCurrent:alive}),google:appOnly,recovery:appOnly,device:()=>go('set_device'),
-      plan:plans,theme:()=>{theme?.toggle?.();settingsPage();},faq:()=>go('set_faq'),support:()=>go('set_support'),privacy:()=>go('set_privacy'),
+      plan:plans,faq:()=>go('set_faq'),support:()=>go('set_support'),privacy:()=>go('set_privacy'),
       logout:()=>{if(confirm('تسجيل الخروج من المحل على هذا المتصفح؟'))onExit();},delete:appOnly};
     app.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>actions[b.dataset.s]?.());
   }

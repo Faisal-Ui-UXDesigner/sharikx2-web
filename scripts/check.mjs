@@ -148,4 +148,5 @@ run(['tests/partner-settlement-save-browser-smoke.mjs']);
 run(['tests/partner-operating-account-browser-smoke.mjs']);
 run(['tests/project-sharing-browser-smoke.mjs']);
 run(['tests/onboarding-distribution-browser-smoke.mjs']);
+run(['tests/reports-settings-browser-smoke.mjs']);
 console.log('All local checks passed. No live project was modified.');
