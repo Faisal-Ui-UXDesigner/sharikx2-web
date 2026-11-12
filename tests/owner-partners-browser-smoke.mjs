@@ -13,7 +13,7 @@ try{
   try{
    const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'});
    const errors=[];page.on('pageerror',error=>errors.push(error.message));
-   await page.route('**/*',route=>new URL(route.request().url()).origin===preview.origin?route.continue():route.abort());
+   await page.route('**/*',route=>route.request().url()==='https://ipapi.co/country/'?route.fulfill({status:200,contentType:'text/plain',body:'PS'}):new URL(route.request().url()).origin===preview.origin?route.continue():route.abort());
    await page.goto(preview.origin+'/styles.css');
    await page.setContent('<html dir="rtl" lang="ar"><head><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/native-layout.css"><link rel="stylesheet" href="/owner-path.css"></head><body><main id="app"></main></body></html>');
    await page.evaluate(async state=>{

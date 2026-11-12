@@ -4,6 +4,8 @@ if(key.startsWith('sb_secret_'))throw new Error('A secret key must never be incl
 if(key.split('.').length===3){const claims=JSON.parse(Buffer.from(key.split('.')[1],'base64url'));if(claims.role!=='anon')throw new Error('Only a public anon key is allowed');}
 await mkdir('dist',{recursive:true});
 await mkdir('dist/vendor',{recursive:true});
+for(const file of ['libphonenumber-mobile.js','libphonenumber-LICENSE.txt'])await copyFile(`vendor/${file}`,`dist/vendor/${file}`);
+for(const file of ['project-phone-ui.js','project-phone-region.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['zxing.min.js','zxing-LICENSE.txt','ts-custom-error-LICENSE.txt','text-encoding-LICENSE.txt'])await copyFile(`vendor/${file}`,`dist/vendor/${file}`);
 for(const file of ['barcode-reader.js','pwa-install.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['receipt.js','receipt-api.js','receipt-ui.js','expense-details-ui.js'])await copyFile(file,`dist/${file}`);

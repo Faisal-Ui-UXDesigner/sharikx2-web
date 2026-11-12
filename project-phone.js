@@ -1,3 +1,5 @@
+import './vendor/libphonenumber-mobile.js';
+
 /** Owner/project identity. Preserve the leading zero and accept Arabic keyboards. */
 export function normalizeProjectPhone(value){
  return String(value??'').trim()
@@ -6,21 +8,23 @@ export function normalizeProjectPhone(value){
   .replace(/[\s().-]/g,'');
 }
 
-export function projectPhone(value){
- const phone=normalizeProjectPhone(value);
- if(!/^[0-9]{10}$/.test(phone))throw Error('رقم جوال المشروع يجب أن يكون 10 أرقام فقط');
- return phone;
+export const projectPhoneCountries=Object.freeze(globalThis.libphonenumber.getCountries());
+export function phoneCountry(value){
+ const country=String(value||'').trim().toUpperCase();
+ return projectPhoneCountries.includes(country)?country:null;
 }
-
-export function bindProjectPhone(form){
- const input=form?.querySelector('input[name="phone"]');
- if(!input)return;
- input.maxLength=10;input.minLength=10;input.pattern='[0-9]{10}';
- input.inputMode='numeric';input.autocomplete='tel-national';
- input.setAttribute('aria-description','رقم جوال المشروع من 10 أرقام');
- input.addEventListener('input',()=>{
-  input.value=normalizeProjectPhone(input.value);
-  input.setCustomValidity(input.value&&!/^[0-9]{10}$/.test(input.value)
-   ?'رقم جوال المشروع يجب أن يكون 10 أرقام فقط':'');
- });
+export function countryName(country){
+ try{return new Intl.DisplayNames(['ar'],{type:'region'}).of(country)||country;}catch{return country;}
+}
+export function projectPhone(value,country='PS'){
+ const phone=normalizeProjectPhone(value),region=phoneCountry(country);
+ if(!region)throw Error('اختر بلد رقم جوال المشروع');
+ if(region==='PS'){
+  if(!/^[0-9]{10}$/.test(phone))throw Error('رقم جوال المشروع في فلسطين يجب أن يكون 10 أرقام فقط');
+ }else{
+  const parsed=/^[0-9]{1,15}$/.test(phone)?globalThis.libphonenumber.parsePhoneNumberFromString(phone,region):null;
+  if(!parsed?.isPossible()||normalizeProjectPhone(parsed.formatNational()).length!==phone.length)
+   throw Error(`أدخل رقم جوال محليًا بطول صحيح لبلد ${countryName(region)}، دون رمز الدولة`);
+ }
+ return phone;
 }

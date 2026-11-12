@@ -1,3 +1,4 @@
+import {projectPhone} from './project-phone.js';
 import {partnerCashUuid as uuid} from './partner-cash-input.js';
 import {partnerDecimalSum as sum} from './partner-history.js';
 import {partnerSaveResult,partnerSaveMatches} from './partner-shares.js';
@@ -62,7 +63,7 @@ export function createOnboardingCreation({api,storage}){
    current(isCurrent);let request=read(storage,onboardingCreationKey);
    if(request?.phase==='creating')throw new Error('نتيجة إنشاء المشروع غير مؤكدة؛ ادخل ببيانات المالك للتحقق. لن يُعاد طلب الإنشاء');
    if(!request){
-    if(typeof input?.name!=='string'||input.name.trim().length<2||!/^\d{10}$/.test(input.phone)||!/^\d{4}$/.test(input.password))throw new Error('بيانات المشروع أو المالك غير صالحة');
+    if(typeof input?.name!=='string'||input.name.trim().length<2||!projectPhone(input.phone,input.country)||!/^\d{4}$/.test(input.password))throw new Error('بيانات المشروع أو المالك غير صالحة');
     const partners=input.state?.partners;
     if(!Array.isArray(partners)||!partners.length)throw new Error('أضف شريكًا أولًا');
     assertSetupPartnerCapacity(partners.length-1);
@@ -70,7 +71,7 @@ export function createOnboardingCreation({api,storage}){
     const state=initialFinanceState(partners.map((row,index)=>({...row,share:shares[index]})));
     request={version:1,attemptId:crypto.randomUUID(),phase:'creating',project:null,state};
     persist(storage,onboardingCreationKey,request);current(isCurrent);
-    const created=await api.createProject(input.name.trim(),input.phone,input.password);
+    const created=await api.createProject(input.name.trim(),input.phone,input.password,input.country);
     if(!uuid(created?.id))throw new Error('لم تتأكد هوية المشروع الجديد؛ ادخل ببيانات المالك للتحقق دون إعادة الإنشاء');
     request={...request,phase:'seed-ready',project:{id:created.id,name:typeof created.name==='string'?created.name:input.name.trim()}};
     persist(storage,onboardingCreationKey,request);current(isCurrent);

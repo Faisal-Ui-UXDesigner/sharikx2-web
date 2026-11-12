@@ -225,8 +225,8 @@ export function createOpeningProject({api,storage=window.localStorage}){
   return {
     pending:()=>{const p=read();return p?{name:p.name,phone:p.phone}:null;},
     forget:()=>removeOwnerJournal(storage,key),
-    async create(name,phone,pin){
-      name=String(name||'').trim();phone=projectPhone(phone);
+    async create(name,phone,pin,country){
+      name=String(name||'').trim();phone=projectPhone(phone,country);
       if(name.length<2||!/^[0-9]{4}$/.test(pin||''))throw new Error('اكتب اسم المحل ورقم الجوال ورقماً سرياً من 4 أرقام');
       let pending=read();
       if(!pending){pending={request_id:uuid(),name,phone,device_id:device};persist(storage,key,pending);} // PIN is never stored

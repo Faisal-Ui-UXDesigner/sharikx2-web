@@ -124,8 +124,8 @@ export class Api {
     return result;
   }
   rpc(name,body) {return this.request(`/rest/v1/rpc/${name}`,{method:'POST',body:JSON.stringify(body)});}
-  restore(phone,password) {return this.rpc('restore_sharikx2_owner_project_v2',{p_owner_phone:projectPhone(phone),p_owner_password:password});}
-  createProject(name,phone,password) {return this.rpc('create_sharikx2_project_v3',{p_name:name,p_owner_phone:projectPhone(phone),p_owner_password:password,p_wallet_1_name:'بال باي',p_wallet_2_name:'جوال باي'});}
+  restore(phone,password,country) {return this.rpc('restore_sharikx2_owner_project_v2',{p_owner_phone:projectPhone(phone,country),p_owner_password:password});}
+  createProject(name,phone,password,country) {return this.rpc('create_sharikx2_project_v3',{p_name:name,p_owner_phone:projectPhone(phone,country),p_owner_password:password,p_wallet_1_name:'بال باي',p_wallet_2_name:'جوال باي'});}
   saveFinanceState(id,state,revision=0) {return this.rpc('save_sharikx2_finance_state_v1',{p_project_id:id,p_state:state,p_expected_revision:revision});}
   transferOpening(id,from,to,amount) {return this.rpc('transfer_sharikx2_account_v2',{p_project_id:id,p_from_account_id:from,p_to_account_id:to,p_amount:amount,p_note:'توزيع رأس المال الافتتاحي'});}
   join(pin) {return this.rpc('join_sharikx2_project_v1',{p_share_pin:pin});}

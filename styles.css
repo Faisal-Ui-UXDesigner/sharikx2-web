@@ -90,3 +90,5 @@ dialog[data-barcode-scanner] video[hidden]{display:none}
 .theme-switch button span:first-child{font-size:22px;line-height:24px}
 .theme-switch button.primary{border-color:var(--primary);background:var(--surface);color:var(--text);font-weight:600}
 .theme-settings [data-theme-status]{font-size:12px}
+
+.project-phone-country{margin-bottom:16px}.project-phone-country small{display:block;font-size:12px;line-height:1.7;margin-top:6px}.project-phone-country select{font-size:16px}
