@@ -23,6 +23,7 @@ for(const file of ['project-phone.js','owner-partners-ui.js','owner-approval-ava
 for(const file of ['owner-account-statement.js','owner-account-statement-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['owner-account-manager.js','owner-account-manager-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['shop-business-type.js','shop-business-type-ui.js'])await copyFile(file,`dist/${file}`);
+for(const file of ['owner-device-control.js','owner-device-control-ui.js'])await copyFile(file,`dist/${file}`);
 await copyFile('shared-report.js','dist/shared-report.js');
 await copyFile('purchase-form-ui.js','dist/purchase-form-ui.js');
 await copyFile('purchase-line-form-ui.js','dist/purchase-line-form-ui.js');

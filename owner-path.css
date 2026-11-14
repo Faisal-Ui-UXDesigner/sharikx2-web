@@ -283,3 +283,5 @@ body.op-loading::before{content:"";position:fixed;z-index:51;left:50%;top:50%;wi
 .business-type-options{display:grid;gap:8px;margin-top:16px}.business-type-options button{display:flex;align-items:center;justify-content:space-between;min-height:52px;text-align:right;font-size:15px}
 .business-type-options button[aria-pressed=true]{border-color:var(--primary);background:var(--surface)}
 .business-type-dialog [role=alert]{font-size:13px;color:var(--red)}.business-type-dialog [role=alert]:empty{display:none}
+
+.owner-device-current .op-row{gap:12px;flex-wrap:wrap;padding-block:8px}.owner-device-current small{display:block;margin-top:4px}.owner-device-current .op-row>b{font-size:13px}.owner-device-request .op-row{flex-wrap:wrap;gap:8px}.owner-device-request .op-row button{flex:1;min-height:44px;font-size:12px}

@@ -1,3 +1,5 @@
+import {createOwnerDeviceControl} from './owner-device-control.js';
+import {ownerDeviceBanner,ownerDeviceDetails} from './owner-device-control-ui.js';
 import {readBusinessType,browserPreferenceStorage} from './shop-business-type.js';
 import {openBusinessType} from './shop-business-type-ui.js';
 // New SharikX2 owner path on the web (Figma 03–16 setup, 19 cashier, 26–27 sale, 34–36 accounts/partners).
@@ -49,6 +51,7 @@ const saleTotalLabel=(subtotal,raw)=>{try{return m(ownerSaleTotal(subtotal,numbe
 
 export function mountOwnerPath({app,api,project,onExit,notice,theme}){
   const device=deviceId(api),flow=createOwnerPath({api,project:project.id,device});
+  const devices=createOwnerDeviceControl({api,projectId:project.id,deviceId:device,storage:window.localStorage});
   const moneyFlow=createOpeningMoney({api,project:project.id,device}),stockFlow=createOpeningStock({api,project:project.id,device});
   let reportState=createReportState(),debtData=null,deviceInfo=null;
   const supplierView={query:'',archived:false,limit:20};
@@ -210,9 +213,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-hide]',()=>{flow.draft('ui',{checklist_hidden:true});render();});
     on('[data-show]',()=>{flow.draft('ui',{checklist_hidden:false});render();});
     on('[data-held-list]',heldSales);
-    on('[data-ignore-device]',()=>{try{localStorage.setItem(ignoredKey(),`${deviceInfo.requested_device_id}|${deviceInfo.requested_at}`);}catch{}render();say('تم إخفاء الطلب. التحكم باقٍ على هذا الجهاز.');});
-    on('[data-approve-device]',()=>{if(!confirm('نقل التحكم للجهاز الجديد؟ هذا المتصفح يتوقف عن تسجيل العمليات.'))return;
-      run(()=>deviceRpc('approve_sharikx2_device_transfer_v1'),()=>{say('تم نقل التحكم للجهاز الجديد');deviceInfo={...deviceInfo,is_active:false,requested_device_id:''};page='device';render();});});
+    bindDeviceActions();
   }
 
   // ---------- money (Figma 04) ----------
@@ -778,28 +779,33 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       .catch(error=>showError(friendly(error)));
   }
 
+  function deviceRequestPending(){try{return devices.pending();}catch{return true;}}
   function deviceScreen(){
     const d=deviceInfo||{},mine=d.requested_device_id===device,seen=v=>{try{return new Date(v).toLocaleString('ar-PS-u-nu-latn',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Hebron'});}catch{return '';}};
     app.innerHTML=`<section class="op-app"><header class="op-head"><div class="op-id"><b>${e(project.name||'محلي')}</b></div></header><main class="op-body"><p class="op-error" data-error hidden></p>
       <h2>المحل مفتوح على جهاز آخر</h2><p class="muted">حتى تحمي الحسابات، جهاز واحد فقط يسجّل العمليات. الجهاز الحالي: <b>${e(d.active_device_name||'جهاز آخر')}</b>${d.last_seen_at?` · آخر ظهور ${e(seen(d.last_seen_at))}`:''}.</p>
       ${mine?'<div class="op-banner warn"><b>طلبك وصل للجهاز الحالي</b><small>افتح المحل على الجهاز الحالي واضغط «موافقة»، ثم اضغط «تحقق الآن» هنا.</small></div>':'<p>اطلب نقل التحكم لهذا الجهاز، ووافق عليه من الجهاز الحالي.</p>'}
-      </main><footer class="op-foot">${mine?'<button class="primary" data-check>تحقق الآن</button>':'<button class="primary" data-request>طلب نقل التحكم لهذا الجهاز</button>'}
+      </main><footer class="op-foot">${deviceRequestPending()?'<button class="primary" data-request>التحقق من الطلب السابق</button>':mine?'<button class="primary" data-check>تحقق الآن</button>':'<button class="primary" data-request>طلب نقل التحكم لهذا الجهاز</button>'}
       <button class="outline" data-takeover>الجهاز القديم ضاع أو تعطّل</button><button class="ghost" data-exit>تسجيل الخروج</button></footer></section>`;
     const go=()=>{page='cashier';run(guardedLoad,value=>{state=value;render();});};
     on('[data-check]',go);
-    on('[data-request]',()=>run(()=>deviceRpc('request_sharikx2_device_transfer_v1',{p_device_name:DEVICE_NAME}),v=>{deviceInfo=v;if(v?.is_active)go();else{page='device';render();say('تم إرسال الطلب');}}));
+    on('[data-request]',requestDevice);
     on('[data-takeover]',()=>{if(!confirm('أخذ التحكم ممكن فقط إذا ما ظهر الجهاز القديم آخر 24 ساعة. متابعة؟'))return;
       run(()=>deviceRpc('takeover_sharikx2_device_control_v1',{p_device_name:DEVICE_NAME}),()=>go()).catch(()=>{});});
     on('[data-exit]',()=>onExit());
     const node=app.querySelector('[data-error]');void node;
   }
-  const ignoredKey=()=>`sharikx2-ignored-device-request:${project.id}`;
-  function approvalBanner(){
-    const d=deviceInfo;if(!d?.is_active||!d.requested_device_id)return '';
-    // The server has no reject yet: «تجاهل» hides THIS request on this browser until a new one arrives.
-    try{if(localStorage.getItem(ignoredKey())===`${d.requested_device_id}|${d.requested_at}`)return '';}catch{}
-    return `<div class="op-banner warn"><b>جهاز آخر يطلب التحكم بالمحل</b><small>${e(d.requested_device_name||'جهاز جديد')}. إذا وافقت، هذا الجهاز يصير للمشاهدة فقط.</small><div class="op-row"><button class="outline small" data-approve-device>موافقة</button><button class="ghost small" data-ignore-device>تجاهل</button></div></div>`;
+  function approvalBanner(){return ownerDeviceBanner(deviceInfo);}
+  function bindDeviceActions(){
+    on('[data-refresh-device]',()=>run(devices.load,value=>{deviceInfo=value;if(!value.is_active&&page==='cashier')page='device';render();}));
+    on('[data-reject-device]',()=>{const observed=structuredClone(deviceInfo),from=page;run(()=>devices.reject(observed,()=>alive()&&page===from),value=>{deviceInfo=value;render();say('تم رفض طلب نقل التحكم');});});
+    on('[data-approve-device]',()=>{
+      if(!confirm('نقل التحكم للجهاز الجديد؟ هذا المتصفح يتوقف عن تسجيل العمليات.'))return;
+      const observed=structuredClone(deviceInfo),from=page;
+      run(()=>devices.approve(observed,()=>alive()&&page===from),value=>{deviceInfo=value;page='device';render();say('تم نقل التحكم للجهاز الجديد');});
+    });
   }
+  function requestDevice(){const from=page;run(()=>devices.request(()=>alive()&&page===from),value=>{deviceInfo=value;if(value.is_active){page='cashier';run(guardedLoad,next=>{state=next;render();});return;}render();say('تم تأكيد طلب نقل التحكم');});}
   // ---------- settings (Figma 54 main, 55 share, 56 device) — same rows as the Android OwnerSettingsView ----------
   let settingsFrom='cashier',sharing=null;
   const appOnly=()=>say('هذه الخدمة متاحة من تطبيق SharikX2 على الجوال.');
@@ -824,7 +830,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     if(theme?.controller)renderThemeSettings({container:app.querySelector('[data-appearance]'),controller:theme.controller,isCurrent:()=>alive()&&page==='settings'});
     if(!sharing)api.sharingProject(project.id).then(v=>{sharing=v||{};if(alive()&&page==='settings'&&!app.querySelector('dialog[open]'))settingsPage();}).catch(()=>{sharing={};});
     const actions={business:()=>openBusinessType({owner:app,projectId:project.id,isCurrent:()=>alive()&&page==='settings',onSaved:()=>{say('تم حفظ نوع النشاط على هذا الجهاز');settingsPage();}}),currency:()=>go('set_currency'),accounts:manageAccounts,share:()=>go('set_share'),history:()=>reload('history'),
-      pin:()=>openOwnerPassword({api,projectId:project.id,mode:'owner',owner:app,isCurrent:alive}),google:appOnly,recovery:appOnly,device:()=>go('set_device'),
+      pin:()=>openOwnerPassword({api,projectId:project.id,mode:'owner',owner:app,isCurrent:alive}),google:appOnly,recovery:appOnly,device:()=>run(devices.load,value=>{deviceInfo=value;go('set_device');}),
       plan:plans,faq:()=>go('set_faq'),support:()=>go('set_support'),privacy:()=>go('set_privacy'),
       logout:()=>{if(confirm('تسجيل الخروج من المحل على هذا المتصفح؟'))onExit();},delete:appOnly};
     app.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>actions[b.dataset.s]?.());
@@ -844,16 +850,11 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     if(!sharing)api.sharingProject(project.id).then(v=>{sharing=v||{};if(alive()&&page==='set_share')sharePage();}).catch(error=>showError(friendly(error)));
   }
   function devicePage(){
-    const d=deviceInfo||{},controls=!!d.is_active,mine=d.requested_device_id===device;
-    settingsShell('التحكم بالمحل',`<h2>جهاز واحد للتسجيل</h2><p class="muted">حتى لا تتسجل نفس المبيعة مرتين، جهاز واحد فقط يقدر يبيع ويعدّل في نفس الوقت.</p>
-      <div class="op-card"><div class="op-row"><span><b>${controls?'يتحكم الآن':'جهاز آخر يتحكم الآن'}</b><br><small class="muted">${e(d.active_device_name||'')}</small></span><b class="${controls?'ok':'warn'}">${controls?'هذا الجهاز':'ليس هذا الجهاز'}</b></div>
-      <div class="op-row"><span>عمليات تنتظر المزامنة</span><b class="muted">لا يوجد</b></div></div>
-      ${mine?'<div class="op-banner warn"><b>طلبت التحكم بالمحل</b><small>بانتظار موافقة الجهاز الذي يتحكم الآن.</small></div>':controls?'<p class="muted small">إذا أردت التسجيل من جهاز آخر، اطلب التحكم من الجهاز الآخر، ووافق عليه من هنا.</p>':''}
-      ${controls&&d.requested_device_id?approvalBanner():''}`,
-      !controls&&!mine?'<button class="primary" data-request>طلب التحكم بهذا الجهاز</button>':'');
-    app.querySelector('[data-request]')?.addEventListener('click',()=>run(()=>deviceRpc('request_sharikx2_device_transfer_v1',{p_device_name:DEVICE_NAME}),v=>{deviceInfo=v;devicePage();say('تم إرسال الطلب');}));
-    app.querySelector('[data-approve-device]')?.addEventListener('click',()=>{if(!confirm('نقل التحكم للجهاز الجديد؟ هذا المتصفح يتوقف عن تسجيل العمليات.'))return;
-      run(()=>deviceRpc('approve_sharikx2_device_transfer_v1'),()=>{say('تم نقل التحكم للجهاز الجديد');deviceInfo={...deviceInfo,is_active:false,requested_device_id:''};page='device';render();});});
+    const controls=!!deviceInfo?.is_active,mine=deviceInfo?.requested_device_id===device;
+    let pending=null;try{pending=devices.count();}catch{}
+    settingsShell('التحكم بالمحل',ownerDeviceDetails(deviceInfo,device,pending),
+      `${!controls&&deviceRequestPending()?'<button type="button" class="primary" data-request>التحقق من الطلب السابق</button>':!controls&&!mine?'<button type="button" class="primary" data-request>طلب التحكم بهذا الجهاز</button>':''}<button type="button" class="outline" data-refresh-device>تحديث الحالة</button>`);
+    on('[data-request]',requestDevice);bindDeviceActions();
   }
   function currencyPage(){
     settingsShell('العملة','<div data-box></div>');
