@@ -57,7 +57,7 @@ export function renderOwnerPurchase({container,actions,projectId,products,suppli
   input('qty').value=data.entry.quantity;input('cost').value=data.entry.unit_cost;container.querySelector('[data-add-owner-line]').textContent=saved?'حفظ التعديل وإضافة صنف آخر':'إضافة صنف آخر';persist();redraw();input('qty').focus();
  }
  function choose(){if(!editable())return;read();if(!persist())return;
-  child=openPurchaseProductChoice({products:products.map(row=>row.product),projectId,selectedId:data.entry.product_id,mode:'owner',loadSettings:async()=>({}),isCurrent:current,onClose:()=>{child=null;},onSelected:row=>{if(current())select(row.id);}});
+  child=openPurchaseProductChoice({products:products.map(row=>row.product),projectId,selectedId:data.entry.product_id,mode:'owner',loadSettings:async()=>({defaults:[]}),isCurrent:current,onClose:()=>{child=null;},onSelected:row=>{if(current())select(row.id);}});
  }
  function addEntry(){
   read();if(!data.entry.product_id)return;

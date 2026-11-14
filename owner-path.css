@@ -276,3 +276,10 @@ body.op-loading::before{content:"";position:fixed;z-index:51;left:50%;top:50%;wi
 .owner-managed-account{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .owner-managed-account>div{flex:1;min-width:0;overflow-wrap:anywhere}.owner-managed-account b{font-size:16px}.owner-managed-account p{font-size:13px;margin:6px 0 0}
 .owner-managed-account button{display:grid;place-items:center;width:44px;min-height:44px;flex:0 0 44px;padding:9px;border-radius:12px}
+
+.business-type-dialog{font-family:Cairo,Tahoma,sans-serif;width:min(100% - 24px,480px);max-height:90dvh;box-sizing:border-box;overflow-y:auto;border:1px solid var(--border);border-radius:24px;padding:20px;background:var(--panel);color:var(--text)}
+.business-type-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}.business-type-dialog h2{font-size:20px;margin:0}
+.business-type-dialog header button{width:44px;min-height:44px;padding:0;font-size:24px}
+.business-type-options{display:grid;gap:8px;margin-top:16px}.business-type-options button{display:flex;align-items:center;justify-content:space-between;min-height:52px;text-align:right;font-size:15px}
+.business-type-options button[aria-pressed=true]{border-color:var(--primary);background:var(--surface)}
+.business-type-dialog [role=alert]{font-size:13px;color:var(--red)}.business-type-dialog [role=alert]:empty{display:none}

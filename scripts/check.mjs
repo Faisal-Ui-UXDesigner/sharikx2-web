@@ -152,4 +152,5 @@ run(['tests/reports-settings-browser-smoke.mjs']);
 run(['tests/project-phone-region-browser-smoke.mjs']);
 run(['tests/owner-account-statement-browser-smoke.mjs']);
 run(['tests/owner-account-manager-browser-smoke.mjs']);
+run(['tests/shop-business-type-browser-smoke.mjs']);
 console.log('All local checks passed. No live project was modified.');

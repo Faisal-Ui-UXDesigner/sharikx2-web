@@ -1,4 +1,4 @@
-const CACHE='sharikx2-shell-v187';
+const CACHE='sharikx2-shell-v188';
 // Explicit audit-zone parsing is shared across the complete financial UI.
 // New model uses the same static-only cache boundary as legacy screens.
 const SHELL=['./','./index.html','./styles.css','./app.js','./project-session.js','./owner-path-store.js','./owner-path-ui.js','./owner-path.css','./owner-path-icons.js','./owner-path-privacy.js','./api.js','./pagination.js','./product-contract.js','./ui.js','./reports.js','./report-ui.js','./subscription.js','./operations.js','./expense.js','./expense-mutation.js','./sale.js','./customer.js','./activity.js','./transfer.js','./purchase.js','./payment.js','./collection.js','./return.js','./return-ui.js','./financial.js','./statement.js','./accounts-ui.js','./inventory.js','./inventory-ui.js','./inventory-mutation.js','./onboarding.js','./icons.js','./icon.svg','./manifest.webmanifest','./assets/cairo_regular.ttf','./assets/cairo_semibold.ttf','./assets/cairo_bold.ttf','./assets/icon_cashier_colorful.png','./assets/icon_customer_debt_colorful.png','./assets/icon_supplier_debt_colorful.png','./assets/icon_expense_colorful.png','./assets/icon_purchase_colorful.png'];
@@ -123,6 +123,7 @@ SHELL.push('./money-display.js','./sale-details.js','./sale-details-ui.js');
 SHELL.push('./project-phone-ui.js','./project-phone-region.js','./vendor/libphonenumber-mobile.js','./vendor/libphonenumber-LICENSE.txt');
 SHELL.push('./owner-account-statement.js','./owner-account-statement-ui.js');
 SHELL.push('./owner-account-manager.js','./owner-account-manager-ui.js');
+SHELL.push('./shop-business-type.js','./shop-business-type-ui.js');
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))));
 self.addEventListener('message',event=>{if(event.data?.type==='SKIP_WAITING')self.skipWaiting();});
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('sharikx2-shell-')&&k!==CACHE).map(k=>caches.delete(k))))));

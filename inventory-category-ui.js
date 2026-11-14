@@ -3,7 +3,7 @@ import {saveCategorySettings} from './inventory-category.js';
 import {categoryDraft,categoryDraftRows,changeCategoryDraft} from './inventory-category-draft.js';
 const dialogs=new WeakMap();
 
-export async function openInventoryCategorySettings({api,projectId,container,isCurrent,inventoryCategories=[],onSaved,mode='owner',preferences}){
+export async function openInventoryCategorySettings({api,projectId,container,isCurrent,inventoryCategories=[],onSaved,mode='owner',preferences,categoryDefaults}){
  if(mode!=='owner')throw new Error('إعدادات التصنيفات متاحة للمالك فقط');
  if(!isCurrent()||!container.isConnected)return null;
  const existing=dialogs.get(container);if(existing?.isConnected){existing.focus();return existing;}
@@ -67,7 +67,7 @@ export async function openInventoryCategorySettings({api,projectId,container,isC
   try{
    const snapshot=await (preferences?preferences.load():api.financeState(projectId));if(!current())return;
    revision=snapshot.revision;
-   draft=categoryDraft(snapshot,inventoryCategories);draw();
+   draft=categoryDraft(snapshot,inventoryCategories,categoryDefaults);draw();
   }catch(error){
    if(!current())return;alert.textContent=error.message;rows.innerHTML='<button type="button" data-category-retry class="outline">إعادة المحاولة</button>';
    rows.querySelector('[data-category-retry]').onclick=load;

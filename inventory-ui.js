@@ -1,3 +1,4 @@
+import {businessCategoryOptions,readBusinessType,browserPreferenceStorage} from './shop-business-type.js';
 import {normalizeProduct,filterProducts,inventorySummary,visibleInventoryRows} from './inventory.js';
 import {renderInventoryDetails,updateInventoryPopularity} from './inventory-details-ui.js';
 import {openProductEditor,assertProductArchiveAllowed} from './inventory-mutation.js';
@@ -97,16 +98,16 @@ async function renderCurrentInventory({api,projectId,project,container,isCurrent
  if(!isCurrent()||!container.isConnected)return;
  const inventoryCategories=rows.map(row=>String(row.category||'').trim()).filter(Boolean);
  let pinned= new Set(pinnedIds(financeState));
- const categories=visibleCategories({customCategories:settings.customCategories,hiddenCategories:settings.hiddenCategories,inventoryCategories})
-  .filter(category=>!compact||inventoryCategories.includes(category)||settings.customCategories.includes(category));
+ const categories=visibleCategories({customCategories:settings.customCategories,hiddenCategories:settings.hiddenCategories,inventoryCategories,defaults:preferences?[]:undefined})
+  .filter(category=>!compact||inventoryCategories.includes(category));
  container.innerHTML=(compact?'':'<h2>البضاعة</h2>')+'<div data-inventory-summary></div>'+(!compact&&owner?'<button type="button" class="outline inventory-category-settings" data-category-settings>'+icon('filter',20)+'إعدادات البضاعة</button>':'')+'<div class="inventory-sticky-controls" data-inventory-controls><div class="inventory-search-wrap">'+icon('search',23)+'<input data-inventory-search type="search" aria-label="ابحث باسم الصنف أو الباركود" placeholder="ابحث باسم الصنف أو الباركود" enterkeyhint="search"></div>'+(!compact&&owner?'<div class="actions inventory-add-actions"><button type="button" class="primary" data-scan-add-product>'+icon('scan',22)+'<span>مسح باركود</span></button><button type="button" class="outline" data-add-product>'+icon('plus',22)+'<span>إضافة يدوياً</span></button></div>':'')+'<div class="inventory-category-bar" data-inventory-category-bar></div></div><h2 class="inventory-results-title">الأصناف الحالية</h2><div data-inventory-list></div>';
  const summary=container.querySelector('[data-inventory-summary]'),list=container.querySelector('[data-inventory-list]'),search=container.querySelector('[data-inventory-search]'),categoryBar=container.querySelector('[data-inventory-category-bar]');
  search.value=view.getState().query;
  let selectedCategory=view.getState().category;
  const current=()=>isCurrent()&&container.isConnected;
- const editorOptions=product=>({api,projectId,project,mode,product,rows,onSaved,onPlans,container,isCurrent:current,metadataOnly:!!preferences,categoryOptions:visibleCategories({customCategories:settings.customCategories,hiddenCategories:settings.hiddenCategories,inventoryCategories,requiredCategory:product?.category}),categoryLabels:settings.aliases});
+ const editorOptions=product=>({api,projectId,project,mode,product,rows,onSaved,onPlans,container,isCurrent:current,metadataOnly:!!preferences,categoryOptions:preferences?businessCategoryOptions({type:readBusinessType(projectId,browserPreferenceStorage()),products:rows,saved:settings.customCategories,hidden:settings.hiddenCategories,current:product?.category}):visibleCategories({customCategories:settings.customCategories,hiddenCategories:settings.hiddenCategories,inventoryCategories,requiredCategory:product?.category}),categoryLabels:settings.aliases});
  const editProduct=product=>{if(current())return openProductEditor(editorOptions(product));};
- const openSettings=()=>openInventoryCategorySettings({api,projectId,container,isCurrent:current,inventoryCategories,mode,preferences,onSaved:()=>onSaved?.()});
+ const openSettings=()=>openInventoryCategorySettings({api,projectId,container,isCurrent:current,inventoryCategories,mode,preferences,categoryDefaults:preferences?[]:undefined,onSaved:()=>onSaved?.()});
  const openEntry=entryMode=>{
   if(!current())return;
   if(!onCreate)return openInventoryProductEntry({...editorOptions(null),entryMode});

@@ -1,10 +1,10 @@
 import {categorySettingsState,categorySet,ordered,display,isHidden,rename,remember,setHidden,validateCategoryName} from './inventory-category.js';
 const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;};
-export function categoryDraft(snapshot,inventoryCategories=[]){
- return freeze({settings:categorySettingsState(snapshot),inventoryCategories:[...inventoryCategories].map(value=>String(value)),newest:''});
+export function categoryDraft(snapshot,inventoryCategories=[],defaults){
+ return freeze({settings:categorySettingsState(snapshot),inventoryCategories:[...inventoryCategories].map(value=>String(value)),defaults:defaults===undefined?undefined:[...defaults],newest:''});
 }
 export function categoryDraftRows(draft){
- const keys=categorySet({...draft.settings,inventoryCategories:draft.inventoryCategories});
+ const keys=categorySet({...draft.settings,inventoryCategories:draft.inventoryCategories,defaults:draft.defaults});
  return freeze(ordered(keys,draft.settings.aliases,draft.newest).map(key=>({key,label:display(draft.settings.aliases,key),visible:!isHidden(draft.settings.hiddenCategories,key)})));
 }
 export function changeCategoryDraft(draft,action){

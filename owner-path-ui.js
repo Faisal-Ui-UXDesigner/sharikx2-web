@@ -1,3 +1,5 @@
+import {readBusinessType,browserPreferenceStorage} from './shop-business-type.js';
+import {openBusinessType} from './shop-business-type-ui.js';
 // New SharikX2 owner path on the web (Figma 03–16 setup, 19 cashier, 26–27 sale, 34–36 accounts/partners).
 // Same server functions and payloads as the Android OwnerPathScreen. Totals shown before confirming are
 // display only; confirmed numbers always come from the server.
@@ -812,7 +814,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     const controls=!!deviceInfo?.is_active,paid=hasActiveSubscription(project);
     settingsShell('الإعدادات',`<h2>${e(project.name||'محلك')}</h2><p class="muted small">${controls?'أنت صاحب المحل · هذا الجهاز يتحكم بالمحل':'أنت صاحب المحل · جهاز آخر يتحكم بالمحل الآن'}</p>
       <div data-appearance></div>
-      ${sgroup('المحل',[srow('name','اسم المحل','',project.name||'','',false),srow('currency','العملة','',({ILS:'شيكل ₪',USD:'دولار $',JOD:'دينار'}[project.currency]||project.currency||'شيكل ₪')),
+      ${sgroup('المحل',[srow('name','اسم المحل','',project.name||'','',false),srow('business','نوع النشاط','يغيّر اقتراحات التصنيف فقط · على هذا الجهاز',readBusinessType(project.id,browserPreferenceStorage())?.label||'غير محدد'),srow('currency','العملة','',({ILS:'شيكل ₪',USD:'دولار $',JOD:'دينار'}[project.currency]||project.currency||'شيكل ₪')),
         srow('accounts','حسابات الدفع','',''),srow('share','مشاركة المحل','الشركاء يشاهدون فقط',sharing?.share_pin?'مفعّلة':'غير مفعّلة',sharing?.share_pin?'ok':'muted'),srow('history','السجل','','')])}
       ${sgroup('الأمان',[srow('pin','رمز الدخول','','تغيير'),srow('google','حماية Google','تستعيد به محلك إذا فقدت جوالك','من التطبيق','muted'),srow('recovery','رمز الاستعادة','','من التطبيق','muted'),
         srow('device','التحكم بالمحل','جهاز واحد فقط يمكنه التسجيل',controls?'هذا الجهاز':'جهاز آخر')])}
@@ -820,8 +822,8 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       ${sgroup('التطبيق',[srow('faq','الأسئلة الشائعة','',''),srow('support','الدعم الفني','',''),srow('privacy','سياسة الخصوصية','','')])}
       ${sgroup('',[srow('logout','تسجيل الخروج','',''),srow('delete','حذف المحل والحساب','يحذف كل البيانات نهائياً','')])}`,'',settingsFrom);
     if(theme?.controller)renderThemeSettings({container:app.querySelector('[data-appearance]'),controller:theme.controller,isCurrent:()=>alive()&&page==='settings'});
-    if(!sharing)api.sharingProject(project.id).then(v=>{sharing=v||{};if(alive()&&page==='settings')settingsPage();}).catch(()=>{sharing={};});
-    const actions={currency:()=>go('set_currency'),accounts:manageAccounts,share:()=>go('set_share'),history:()=>reload('history'),
+    if(!sharing)api.sharingProject(project.id).then(v=>{sharing=v||{};if(alive()&&page==='settings'&&!app.querySelector('dialog[open]'))settingsPage();}).catch(()=>{sharing={};});
+    const actions={business:()=>openBusinessType({owner:app,projectId:project.id,isCurrent:()=>alive()&&page==='settings',onSaved:()=>{say('تم حفظ نوع النشاط على هذا الجهاز');settingsPage();}}),currency:()=>go('set_currency'),accounts:manageAccounts,share:()=>go('set_share'),history:()=>reload('history'),
       pin:()=>openOwnerPassword({api,projectId:project.id,mode:'owner',owner:app,isCurrent:alive}),google:appOnly,recovery:appOnly,device:()=>go('set_device'),
       plan:plans,faq:()=>go('set_faq'),support:()=>go('set_support'),privacy:()=>go('set_privacy'),
       logout:()=>{if(confirm('تسجيل الخروج من المحل على هذا المتصفح؟'))onExit();},delete:appOnly};

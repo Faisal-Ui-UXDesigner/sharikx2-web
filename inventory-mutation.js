@@ -5,12 +5,12 @@ import {inventoryProductForm} from './inventory-product-form.js';
 import {inventoryCategoryChoice,changeInventoryCategoryChoice,selectedInventoryCategory,inventoryChoiceRows} from './inventory-choice.js';
 import {openInventoryChoice} from './inventory-choice-ui.js';
 const editors=new WeakMap();
-export function productPayload(projectId,values,{id=null}={}){
+export function productPayload(projectId,values,{id=null,allowUncategorized=false}={}){
  const name=String(values.name||'').trim(),barcode=String(values.barcode||'').trim(),category=String(values.category||'').trim(),unit=String(values.unit||'').trim();
  const pieces=Number(values.piecesPerUnit),sale=Number(values.salePrice),low=Number(values.lowStock||0);
  if(!name)throw new Error('أدخل اسم الصنف');
  if(!barcode)throw new Error('أدخل باركود الصنف');
- if(!category)throw new Error('أدخل تصنيف الصنف');
+ if(!category&&!allowUncategorized)throw new Error('أدخل تصنيف الصنف');
  if(!unit)throw new Error('أدخل وحدة الصنف');
  if(!Number.isFinite(pieces)||pieces<1)throw new Error('عدد القطع داخل الوحدة غير صحيح');
  if(!Number.isFinite(sale)||sale<=0)throw new Error('أدخل سعر البيع المتوقع');
@@ -68,7 +68,7 @@ export function openProductEditor({api,projectId,mode,product=null,rows=[],onSav
  let unit=inventoryUnitChoice(normalized.unit);const unitSelect=f.elements.unitChoice;
  const showUnit=()=>{unitSelect.value=unit.selected;f.elements.unit.hidden=unit.selected!==CUSTOM_INVENTORY_UNIT;f.elements.unit.value=unit.selected===CUSTOM_INVENTORY_UNIT?unit.customUnit:unit.selected;d.querySelector('[data-choose-unit]').textContent=unit.selected===CUSTOM_INVENTORY_UNIT?'أخرى':unit.selected;};
  f.elements.unit.oninput=()=>{if(current()&&!saving&&!activePicker?.isConnected&&unit.selected===CUSTOM_INVENTORY_UNIT)unit=changeInventoryUnitChoice(unit,{type:'custom',value:f.elements.unit.value});};showUnit();
- let category=inventoryCategoryChoice(categoryOptions,categoryLabels,normalized.category||'');
+ let category=inventoryCategoryChoice(categoryOptions,categoryLabels,normalized.category||'',{allowUncategorized:metadataOnly});
  const showCategory=()=>{const custom=category.selectedPosition===category.options.length-1;f.elements.customCategory.hidden=!custom;f.elements.customCategory.value=category.customCategory;f.elements.category.value=category.options[category.selectedPosition].key;const trigger=d.querySelector('[data-choose-category]');trigger.textContent=category.options[category.selectedPosition].label;trigger.classList.toggle('muted',category.selectedPosition===0);};
  f.elements.customCategory.oninput=()=>{if(current()&&!saving&&!activePicker?.isConnected&&category.selectedPosition===category.options.length-1)category=changeInventoryCategoryChoice(category,{type:'custom',value:f.elements.customCategory.value});};showCategory();
  let activePicker=null;
@@ -78,7 +78,7 @@ export function openProductEditor({api,projectId,mode,product=null,rows=[],onSav
   const controls=[f.querySelector('fieldset'),button,d.querySelector('[data-close]')],disabled=controls.map(control=>control.disabled);controls.forEach(control=>control.disabled=true);
   activePicker=openInventoryChoice({container:d,title,rows:inventoryChoiceRows(options,firstPosition,selectedPosition),isCurrent:current,onSelect,onClose:()=>{activePicker=null;if(current()){trigger.setAttribute('aria-expanded','false');controls.forEach((control,index)=>control.disabled=disabled[index]);trigger.focus();}}});
  };
- d.querySelector('[data-choose-category]').onclick=()=>choose(d.querySelector('[data-choose-category]'),'اختر التصنيف',category.options,1,category.selectedPosition,position=>{category=changeInventoryCategoryChoice(category,{type:'select',position});showCategory();});
+ d.querySelector('[data-choose-category]').onclick=()=>choose(d.querySelector('[data-choose-category]'),'اختر التصنيف',category.options,metadataOnly?0:1,category.selectedPosition,position=>{category=changeInventoryCategoryChoice(category,{type:'select',position});showCategory();});
  const unitOptions=[...INVENTORY_UNITS.map(key=>({key,label:key})),{key:CUSTOM_INVENTORY_UNIT,label:'أخرى'}];
  d.querySelector('[data-choose-unit]').onclick=()=>choose(d.querySelector('[data-choose-unit]'),'اختر الوحدة',unitOptions,0,unitOptions.findIndex(option=>option.key===unit.selected),position=>{unit=changeInventoryUnitChoice(unit,{type:'select',value:unitOptions[position].key});showUnit();});
  if(Number(normalized.lowStock||0)===0)f.elements.lowStock.value='';
@@ -98,7 +98,7 @@ export function openProductEditor({api,projectId,mode,product=null,rows=[],onSav
    values.category=selectedInventoryCategory(category);
    values.unit=selectedInventoryUnit(unit);
    assertUniqueBarcode(rows,values.barcode,product?.id);
-   const payload=productPayload(projectId,values,{id:product?.id});
+   const payload=productPayload(projectId,values,{id:product?.id,allowUncategorized:metadataOnly});
    if(!product&&!authorizeCreate())return;
    saving=true;
    f.querySelector('fieldset').disabled=true;
