@@ -18,6 +18,7 @@ import {openProjectNotifications} from './project-notifications-ui.js';
 import {subscriptionNotice,notificationSignature} from './project-notifications.js';
 import {ownerSaleSubtotal,ownerSaleTotal} from './owner-path-money.js';
 import {decimalSum} from './decimal-sum.js';
+import {openOwnerAccountManager} from './owner-account-manager-ui.js';
 import {renderOwnerAccounts} from './owner-accounts-ui.js';
 import {ownerPartnersMarkup,renderOwnerPartnerHistory} from './owner-partners-ui.js';
 import {openOwnerApprovals} from './owner-approval-ui.js';
@@ -633,13 +634,19 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
     on('[data-commit]',()=>run(flow.commitFinance,()=>{say('تم تسجيل العملية مرة واحدة');reload('profits');}));
     on('[data-cancel]',()=>run(async()=>{await flow.cancel();return flow.load();},v=>{state=v;page='profits';render();}));
   }
+  function manageAccounts(){
+    if(busy)return;
+    const fromPage=page;
+    openOwnerAccountManager({owner:app,api,project,isCurrent:()=>alive()&&page===fromPage&&!busy,
+      beforeWrite:async()=>{const fresh=await guardedLoad();if(!alive()||page!==fromPage)throw Error('تغيّرت الصفحة؛ لم يُرسل تعديل الحساب');state=fresh;},onSaved:()=>reload(fromPage)});
+  }
   function accountsPage(){
     frame('<section class="owner-accounts" data-owner-accounts></section>');
     void renderOwnerAccounts({container:app.querySelector('[data-owner-accounts]'),api,project,state,
       isCurrent:()=>alive()&&page==='accounts'&&!busy,
       onApprove:()=>prepareFinance({},'approve'),
       onHistory:()=>openOwnerApprovals({owner:app,state,project,isCurrent:()=>alive()&&page==='accounts'}),
-      onCustomers:()=>openDebts('customers'),onSuppliers:()=>openDebts('suppliers')});
+      onManage:manageAccounts,onCustomers:()=>openDebts('customers'),onSuppliers:()=>openDebts('suppliers')});
   }
   function history(){
     frame('<section data-owner-history></section>','<button class="primary" data-goto>الرجوع للكاشير</button>');
@@ -814,7 +821,7 @@ export function mountOwnerPath({app,api,project,onExit,notice,theme}){
       ${sgroup('',[srow('logout','تسجيل الخروج','',''),srow('delete','حذف المحل والحساب','يحذف كل البيانات نهائياً','')])}`,'',settingsFrom);
     if(theme?.controller)renderThemeSettings({container:app.querySelector('[data-appearance]'),controller:theme.controller,isCurrent:()=>alive()&&page==='settings'});
     if(!sharing)api.sharingProject(project.id).then(v=>{sharing=v||{};if(alive()&&page==='settings')settingsPage();}).catch(()=>{sharing={};});
-    const actions={currency:()=>go('set_currency'),accounts:()=>reload('accounts'),share:()=>go('set_share'),history:()=>reload('history'),
+    const actions={currency:()=>go('set_currency'),accounts:manageAccounts,share:()=>go('set_share'),history:()=>reload('history'),
       pin:()=>openOwnerPassword({api,projectId:project.id,mode:'owner',owner:app,isCurrent:alive}),google:appOnly,recovery:appOnly,device:()=>go('set_device'),
       plan:plans,faq:()=>go('set_faq'),support:()=>go('set_support'),privacy:()=>go('set_privacy'),
       logout:()=>{if(confirm('تسجيل الخروج من المحل على هذا المتصفح؟'))onExit();},delete:appOnly};

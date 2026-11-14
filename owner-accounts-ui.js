@@ -13,7 +13,7 @@ const tile=(label,value,tone='',action='')=>{
  const attributes=action?` type="button" ${action}`:'';
  return `<${tag}${attributes} class="op-card owner-account-tile"><small class="muted">${escape(label)}</small><strong class="${tone} ${formatted.length>14?'owner-amount-compact':''}">${escape(formatted)}</strong></${tag}>`;
 };
-export async function renderOwnerAccounts({container,api,project,state,isCurrent=()=>true,onApprove,onHistory,onCustomers,onSuppliers}){
+export async function renderOwnerAccounts({container,api,project,state,isCurrent=()=>true,onApprove,onHistory,onCustomers,onSuppliers,onManage}){
  const token=Symbol();versions.set(container,token);
  const current=()=>container.isConnected&&versions.get(container)===token&&isCurrent();if(!current())return;
  try{
@@ -34,7 +34,7 @@ export async function renderOwnerAccounts({container,api,project,state,isCurrent
   container.innerHTML=`<article class="op-card owner-value"><small class="muted">صافي قيمة المشروع</small><strong class="${Number(s.net_project_value)<0?'negative':''} ${net.length>14?'owner-value-compact':''}">${escape(net)}</strong><p class="muted small">السيولة + ديون الزبائن + قيمة البضاعة بسعر الشراء − ديون الموردين</p></article>
     <section data-owner-daily><h2>ملخص اليوم</h2><p role="status">جارٍ تحميل ملخص اليوم…</p></section>
     <h2>الديون الحالية</h2><div class="owner-account-grid">${tile('ديون لك على الزبائن',s.customer_debt,'','data-owner-customers')}${tile('ديون عليك للموردين',s.supplier_debt,'negative','data-owner-suppliers')}</div>
-    <h2>السيولة</h2><section class="op-card owner-liquidity"><div class="op-row"><span>إجمالي السيولة</span><b>${escape(amount(s.liquidity))}</b></div>${s.accounts.map(account=>`<button type="button" class="owner-liquidity-row" data-account-statement="${escape(account.id)}" aria-label="حركات حساب ${escape(account.name)}"><b>${escape(account.name)}</b><span class="${Number(account.balance)<0?'negative':''}">الرصيد الحالي <bdi>${escape(amount(account.balance))}</bdi></span></button>`).join('')}</section>
+    <div class="op-row"><h2>السيولة</h2>${onManage?'<button type="button" class="outline" data-owner-manage-accounts>إدارة حسابات الدفع</button>':''}</div><section class="op-card owner-liquidity"><div class="op-row"><span>إجمالي السيولة</span><b>${escape(amount(s.liquidity))}</b></div>${s.accounts.map(account=>`<button type="button" class="owner-liquidity-row" data-account-statement="${escape(account.id)}" aria-label="حركات حساب ${escape(account.name)}"><b>${escape(account.name)}</b><span class="${Number(account.balance)<0?'negative':''}">الرصيد الحالي <bdi>${escape(amount(account.balance))}</bdi></span></button>`).join('')}</section>
     <h2>البضاعة الحالية</h2><div class="owner-account-grid">${tile('بسعر الشراء',s.inventory_cost)}${saleValue===null?'<article class="op-card owner-account-tile"><small class="muted">بسعر البيع</small><strong>—</strong></article>':tile('بسعر البيع',saleValue)}</div>
     <section data-owner-month><h2>الأرباح والخسائر للشهر الحالي</h2><p class="muted small">الفترة <bdi>${from}</bdi> إلى <bdi>${day}</bdi></p><p role="status">جارٍ تحميل ملخص الشهر…</p></section>
     <h2>حصة المحل من الأرباح</h2>${retainedMarkup}
@@ -42,6 +42,7 @@ export async function renderOwnerAccounts({container,api,project,state,isCurrent
     <p class="muted small">الأرصدة الحالية من العمليات المؤكدة. مراجعة الحركات والفترات التفصيلية متاحة في التقارير.</p>
     <section class="owner-approval-section"><h2>اعتماد حسابات الفترة</h2><p class="muted small">${escape(approval.status)}</p><button class="primary" data-owner-approve ${ready?'':'disabled'}>${escape(approval.label)}</button><button class="outline" data-owner-approvals>سجل الاعتمادات وتصدير التقرير</button></section>`;
   for(const [selector,action] of [['[data-owner-customers]',onCustomers],['[data-owner-suppliers]',onSuppliers],['[data-owner-approve]',onApprove],['[data-owner-approvals]',onHistory]])container.querySelector(selector).onclick=()=>{if(current())action?.();};
+  container.querySelector('[data-owner-manage-accounts]')?.addEventListener('click',()=>{if(current())onManage?.();});
   const showStatement=accountId=>{if(current())openOwnerAccountStatement({owner:container,api,project,state,accountId,isCurrent:current});};
   container.querySelector('[data-owner-statement]').onclick=()=>showStatement('');
   container.querySelectorAll('[data-account-statement]').forEach(button=>button.onclick=()=>showStatement(button.dataset.accountStatement));
@@ -58,7 +59,7 @@ export async function renderOwnerAccounts({container,api,project,state,isCurrent
    daily.innerHTML='<h2>ملخص اليوم</h2><p role="alert"></p><p class="muted small">ربح اليوم غير متاح؛ لا نعتبر المبيعات ناقص المصاريف ربحًا دون تكلفة البضاعة والمرتجعات.</p><button class="outline" data-retry-owner-daily>إعادة تحميل ملخص اليوم</button>';
    monthly.innerHTML='<h2>الأرباح والخسائر للشهر الحالي</h2><p class="muted">ملخص الشهر غير متاح حاليًا.</p>';
    daily.querySelector('[role=alert]').textContent=error?.message||'تعذر تحميل ملخص اليوم';
-   daily.querySelector('button').onclick=()=>{if(current())void renderOwnerAccounts({container,api,project,state,isCurrent,onApprove,onHistory,onCustomers,onSuppliers});};
+   daily.querySelector('button').onclick=()=>{if(current())void renderOwnerAccounts({container,api,project,state,isCurrent,onApprove,onHistory,onCustomers,onSuppliers,onManage});};
   }}
  }catch(error){if(current()){container.innerHTML='<p role="alert"></p>';container.querySelector('p').textContent=error.message||'تعذر قراءة الحسابات';}}
 }

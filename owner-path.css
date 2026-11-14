@@ -261,3 +261,18 @@ body.op-loading::before{content:"";position:fixed;z-index:51;left:50%;top:50%;wi
 .owner-statement-dialog>.op-field,.owner-statement-dialog>.op-chips{flex-shrink:0}
 .owner-statement-dialog .owner-statement-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));flex-shrink:0;padding-top:8px}
 .owner-statement-dialog .owner-statement-actions button{min-width:0;padding:8px;font-size:12px}
+
+.owner-account-manager{font-family:Cairo,Tahoma,sans-serif;width:min(100% - 24px,560px);max-height:90dvh;border:1px solid var(--border);border-radius:24px;background:var(--panel);color:var(--text);padding:20px;overflow-y:auto;box-sizing:border-box}
+.owner-account-manager header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.owner-account-manager h2{font-size:20px;margin:0}.owner-account-manager h3{font-size:17px;margin:0 0 12px}
+.owner-account-manager header button{width:44px;min-height:44px;padding:0;font-size:24px}
+.owner-account-manager form{display:grid;gap:12px}.owner-account-manager fieldset{display:grid;gap:10px}
+.owner-account-manager input,.owner-account-manager select{font-size:16px;min-width:0;width:100%;box-sizing:border-box}
+.owner-account-manager .op-row{flex-wrap:wrap}.owner-account-manager .op-row button{flex:1;font-size:13px}
+.owner-account-manager [role=alert]{font-size:13px;color:var(--red);overflow-wrap:anywhere}
+.owner-account-manager [role=alert]:empty{display:none}
+.owner-accounts [data-owner-manage-accounts]{width:auto;min-width:0;font-size:12px;padding:8px 12px}
+
+.owner-managed-account{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.owner-managed-account>div{flex:1;min-width:0;overflow-wrap:anywhere}.owner-managed-account b{font-size:16px}.owner-managed-account p{font-size:13px;margin:6px 0 0}
+.owner-managed-account button{display:grid;place-items:center;width:44px;min-height:44px;flex:0 0 44px;padding:9px;border-radius:12px}

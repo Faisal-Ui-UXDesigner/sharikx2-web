@@ -21,6 +21,7 @@ await copyFile('app-shell-layout.js','dist/app-shell-layout.js');
 for(const file of ['primary-page-ui.js','owner-inventory-preferences.js','owner-sale-picker-ui.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['project-phone.js','owner-partners-ui.js','owner-approval-availability.js'])await copyFile(file,`dist/${file}`);
 for(const file of ['owner-account-statement.js','owner-account-statement-ui.js'])await copyFile(file,`dist/${file}`);
+for(const file of ['owner-account-manager.js','owner-account-manager-ui.js'])await copyFile(file,`dist/${file}`);
 await copyFile('shared-report.js','dist/shared-report.js');
 await copyFile('purchase-form-ui.js','dist/purchase-form-ui.js');
 await copyFile('purchase-line-form-ui.js','dist/purchase-line-form-ui.js');
